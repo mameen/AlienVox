@@ -2,7 +2,7 @@ use std::ffi::OsStr;
 use std::os::windows::ffi::OsStrExt;
 use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
-use windows_sys::Win32::Foundation::{HWND, HINSTANCE, LPARAM, LRESULT, POINT, WPARAM};
+use windows_sys::Win32::Foundation::{HWND, HINSTANCE, LPARAM, LRESULT, POINT, WPARAM, GetLastError};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::Shell::{
     NIM_ADD, NIM_DELETE, NIF_ICON, NIF_MESSAGE, NIF_TIP, NOTIFYICONDATAW, Shell_NotifyIconW,
@@ -38,21 +38,25 @@ fn state() -> &'static Mutex<TrayState> {
 pub fn run() -> ! {
     println!("AlienVox tray application starting...");
 
+    // Verify icon file exists before attempting to create windows
+    let icon_path = app_icon_path();
+    if !icon_path.exists() {
+        eprintln!("ERROR: Icon file not found at: {}", icon_path.display());
+        eprintln!("Application cannot start without a valid icon.");
+        std::process::exit(1);
+    }
+    println!("Icon file verified: {}", icon_path.display());
+
     let tray = TrayHandle::new().unwrap_or_else(|err| {
         eprintln!("Failed to create tray icon: {}", err);
         std::process::exit(1);
     });
 
-    println!("AlienVox tray icon created.");
+    println!("AlienVox tray icon created. Entering message loop...");
     tray.run();
 }
 
-struct TrayHandle {
-    tray_hwnd: HWND,
-    main_hwnd: HWND,
-    tray_class_name: Vec<u16>,
-    main_class_name: Vec<u16>,
-}
+struct TrayHandle;
 
 impl TrayHandle {
     fn new() -> Result<Self, String> {
@@ -60,8 +64,13 @@ impl TrayHandle {
         let main_class_name = to_wstring("AlienVoxMainWindow");
         let hinstance = unsafe { GetModuleHandleW(std::ptr::null()) as HINSTANCE };
 
+        println!("Registering main window class...");
         let main_hwnd = create_main_window(&main_class_name, hinstance)?;
+        println!("Main window created: {:?}", main_hwnd);
+
+        println!("Registering tray window class...");
         let tray_hwnd = create_tray_window(&tray_class_name, hinstance)?;
+        println!("Tray window created: {:?}", tray_hwnd);
 
         let mut state_lock = state().lock().unwrap();
         state_lock.tray_hwnd = tray_hwnd;
@@ -70,7 +79,14 @@ impl TrayHandle {
         state_lock.main_class_name = main_class_name.clone();
         drop(state_lock);
 
-        let icon = load_icon(&app_icon_path());
+        let icon_path = app_icon_path();
+        println!("Loading icon from: {}", icon_path.display());
+        let icon = load_icon(&icon_path);
+        if icon == 0 {
+            return Err("failed to load any icon (even default)".to_string());
+        }
+        println!("Icon loaded successfully: {:?}", icon);
+
         let mut nid = unsafe { std::mem::zeroed::<NOTIFYICONDATAW>() };
         nid.cbSize = std::mem::size_of::<NOTIFYICONDATAW>() as u32;
         nid.hWnd = tray_hwnd;
@@ -81,21 +97,21 @@ impl TrayHandle {
         let tip = to_wstring("AlienVox");
         nid.szTip[..tip.len().min(127)].copy_from_slice(&tip[..tip.len().min(127)]);
 
+        println!("Adding tray icon via Shell_NotifyIconW...");
         unsafe {
             if Shell_NotifyIconW(NIM_ADD, &mut nid as *mut NOTIFYICONDATAW) == 0 {
-                return Err("failed to add tray icon".to_string());
+                let err = format!("Shell_NotifyIconW failed with error code: {}", std::io::Error::last_os_error().raw_os_error().unwrap_or(-1));
+                eprintln!("{}", err);
+                return Err(err);
             }
         }
 
-        Ok(Self {
-            tray_hwnd,
-            main_hwnd,
-            tray_class_name,
-            main_class_name,
-        })
+        println!("Tray icon added successfully.");
+        Ok(Self)
     }
 
     fn run(self) -> ! {
+        println!("Starting message loop...");
         let mut msg = unsafe { std::mem::zeroed::<MSG>() };
         unsafe {
             loop {
@@ -107,6 +123,7 @@ impl TrayHandle {
                 DispatchMessageW(&msg);
             }
         }
+        println!("Message loop exited. Cleaning up...");
         cleanup();
         std::process::exit(0);
     }
@@ -134,7 +151,9 @@ fn create_main_window(class_name: &[u16], hinstance: HINSTANCE) -> Result<HWND, 
 
     unsafe {
         if RegisterClassW(&wc) == 0 {
-            return Err("failed to register main window class".to_string());
+            let err = format!("RegisterClassW failed for main window with error: {}", GetLastError());
+            eprintln!("{}", err);
+            return Err(err);
         }
     }
 
@@ -155,7 +174,9 @@ fn create_main_window(class_name: &[u16], hinstance: HINSTANCE) -> Result<HWND, 
         )
     };
     if hwnd == 0 as HWND {
-        return Err("failed to create main window".to_string());
+        let err = format!("CreateWindowExW failed for main window with error: {}", unsafe { GetLastError() });
+        eprintln!("{}", err);
+        return Err(err);
     }
 
     unsafe {
@@ -212,7 +233,9 @@ fn create_tray_window(class_name: &[u16], hinstance: HINSTANCE) -> Result<HWND, 
 
     unsafe {
         if RegisterClassW(&wc) == 0 {
-            return Err("failed to register tray window class".to_string());
+            let err = format!("RegisterClassW failed for tray window with error: {}", GetLastError());
+            eprintln!("{}", err);
+            return Err(err);
         }
     }
 
@@ -233,7 +256,9 @@ fn create_tray_window(class_name: &[u16], hinstance: HINSTANCE) -> Result<HWND, 
         )
     };
     if hwnd == 0 as HWND {
-        return Err("failed to create tray window".to_string());
+        let err = format!("CreateWindowExW failed for tray window with error: {}", unsafe { GetLastError() });
+        eprintln!("{}", err);
+        return Err(err);
     }
 
     unsafe {
@@ -526,15 +551,29 @@ fn app_icon_path() -> PathBuf {
 }
 
 fn app_icon_handle() -> isize {
-    load_icon(&app_icon_path())
+    let icon = load_icon(&app_icon_path());
+    if icon == 0 {
+        eprintln!("WARNING: Could not load icon, using default. GetLastError: {}", unsafe { GetLastError() });
+    } else {
+        println!("Icon loaded successfully: {:?}", icon);
+    }
+    icon
 }
 
 fn load_icon(path: &std::path::Path) -> isize {
+    if !path.exists() {
+        eprintln!("WARNING: Icon file not found at: {}. Using default icon.", path.display());
+        return unsafe { LoadIconW(0, IDI_APPLICATION) };
+    }
+    
     let wide = to_wstring(path.to_string_lossy().as_ref());
+    println!("Attempting to load icon from: {}", path.display());
     let icon = unsafe { LoadImageW(0, wide.as_ptr(), 1, 0, 0, LR_LOADFROMFILE) };
     if icon != 0 {
+        println!("Successfully loaded icon from file.");
         icon
     } else {
+        eprintln!("LoadImageW failed with error: {}, falling back to default icon.", unsafe { GetLastError() });
         unsafe { LoadIconW(0, IDI_APPLICATION) }
     }
 }
