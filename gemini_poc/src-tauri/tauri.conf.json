@@ -1,0 +1,29 @@
+{
+  "build": {
+    "frontendDist": "../src/frontend/dist",
+    "devUrl": "http://localhost:1420"
+  },
+  "package": {
+    "productName": "AlienVox",
+    "version": "0.1.0"
+  },
+  "tauri": {
+    "bundle": {
+      "active": true,
+      "targets": "all",
+      "identifier": "com.alientech.alienvox",
+      "icon": []
+    },
+    "windows": [
+      {
+        "title": "Balabolka - [Document1]",
+        "width": 900,
+        "height": 650,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  }
+}
