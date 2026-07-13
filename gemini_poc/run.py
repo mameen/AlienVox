@@ -47,20 +47,38 @@ def check() -> None:
     run_command(['cargo', 'check'])
 
 
+def tauri_dev() -> None:
+    """Run the Tauri frontend dev server (Balabolka-style UI)."""
+    TAURI_DIR = ROOT / 'src-tauri'
+    print('> cargo tauri dev')
+    result = subprocess.run(['cargo', 'tauri', 'dev'], cwd=TAURI_DIR)
+    if result.returncode != 0:
+        raise SystemExit(result.returncode)
+
+
+def tauri_build() -> None:
+    """Build the Tauri app for distribution."""
+    TAURI_DIR = ROOT / 'src-tauri'
+    print('> cargo tauri build')
+    result = subprocess.run(['cargo', 'tauri', 'build'], cwd=TAURI_DIR)
+    if result.returncode != 0:
+        raise SystemExit(result.returncode)
+
+
 def doc() -> None:
     run_command(['cargo', 'doc', '--no-deps'])
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='gemini_poc SDLC helper')
-    parser.add_argument('command', nargs='?', help='Command to run', choices=['setup', 'build', 'run', 'lint', 'test', 'clean', 'check', 'doc', 'all'])
+    parser.add_argument('command', nargs='?', help='Command to run', choices=['setup', 'build', 'run', 'lint', 'test', 'clean', 'check', 'doc', 'tauri-dev', 'tauri-build', 'all'])
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
     if args.command is None:
-        print('Usage: python run.py <setup|build|run|lint|test|clean|check|doc|all>')
+        print('Usage: python run.py <setup|build|run|lint|test|clean|check|doc|tauri-dev|tauri-build|all>')
         return 1
 
     if args.command == 'setup':
@@ -79,6 +97,10 @@ def main() -> int:
         check()
     elif args.command == 'doc':
         doc()
+    elif args.command == 'tauri-dev':
+        tauri_dev()
+    elif args.command == 'tauri-build':
+        tauri_build()
     elif args.command == 'all':
         setup()
         build()

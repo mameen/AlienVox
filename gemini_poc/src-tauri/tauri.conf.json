@@ -1,19 +1,11 @@
 {
+  "productName": "AlienVox",
+  "version": "0.1.0",
+  "identifier": "com.alientech.alienvox",
   "build": {
-    "frontendDist": "../src/frontend/dist",
-    "devUrl": "http://localhost:1420"
+    "frontendDist": "../src/frontend"
   },
-  "package": {
-    "productName": "AlienVox",
-    "version": "0.1.0"
-  },
-  "tauri": {
-    "bundle": {
-      "active": true,
-      "targets": "all",
-      "identifier": "com.alientech.alienvox",
-      "icon": []
-    },
+  "app": {
     "windows": [
       {
         "title": "Balabolka - [Document1]",
@@ -22,8 +14,10 @@
         "resizable": true
       }
     ],
-    "security": {
-      "csp": null
-    }
+    "withGlobalTauri": true
+  },
+  "bundle": {
+    "active": false,
+    "targets": "all"
   }
 }

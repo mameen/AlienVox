@@ -2,7 +2,6 @@
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use tauri::Manager;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 struct VoiceInfo {
@@ -117,7 +116,7 @@ fn save_document(content: String, path: Option<String>) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn speak_text(text: String, voice: String, rate: i32, pitch: i32, volume: u8) -> Result<(), String> {
+fn speak_text(_text: String, voice: String, rate: i32, pitch: i32, volume: u8) -> Result<(), String> {
     // In a real implementation, this would use the Windows TTS API
     println!("Speaking text with voice: {}, rate: {}, pitch: {}, volume: {}", 
              voice, rate, pitch, volume);
