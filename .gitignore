@@ -1,0 +1,4 @@
+.repos/
+# Ignore ZIP artifacts in the gemini_poc prototype folder
+gemini_poc/*.zip
+gemini_poc/**/*.zip
