@@ -127,6 +127,24 @@ Each AI tool expects its config in a specific location. Symlinks keep everything
 | `AGENT.md`            | `.agents/AGENT.md`         | Claude Code, generic tools   |
 | `AGENTS.md`           | `.agents/AGENTS.md`        | OpenAI Codex, generic tools  |
 
+## Root repository symlinks
+
+This repository also keeps root-level aliases for convenience and compatibility:
+
+- `SKILLS` → `.agents/SKILLS`
+- `AGENT.md` → `.agents/AGENT.md`
+
+These are already created in `c:\dev\tts` so tools and humans can access the agent config from the repo root.
+
+## Local Git hooks
+
+This repo uses `.githooks/` to enforce commit hygiene and block AI agent trailer attribution.
+Enable it with:
+
+```bash
+git config core.hooksPath .githooks
+```
+
 ## Setup for a New Repo
 
 ```bash

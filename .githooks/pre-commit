@@ -1,0 +1,23 @@
+#!/bin/sh
+# Minimal hook to reject staged agent trailer strings in tracked text files.
+set -eu
+
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMRT)
+if [ -z "$STAGED_FILES" ]; then
+  exit 0
+fi
+
+BAD_PATTERN='Co-[Aa]uthored-[Bb]y:|Generated with|generated with'
+for file in $STAGED_FILES; do
+  case "$file" in
+    *.md|*.txt|*.toml|*.rs|*.sh|*.yaml|*.yml|*.json)
+      if git show ":$file" | grep -Ei "$BAD_PATTERN" >/dev/null; then
+        echo "ERROR: Staged file '$file' contains agent attribution or generated-by text." >&2
+        echo "Remove AI agent trailers before committing." >&2
+        exit 1
+      fi
+      ;;
+  esac
+done
+
+exit 0

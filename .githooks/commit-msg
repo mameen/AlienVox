@@ -1,0 +1,9 @@
+#!/bin/sh
+# Reject commits that still carry agent co-author trailers.
+. "$(dirname "$0")/agent-trailers.sh"
+if has_agent_trailers "$1"; then
+  echo "ERROR: Remove agent Co-authored-by trailers from the commit message." >&2
+  echo "  Blocked: Cursor, Claude Code / Anthropic attribution lines." >&2
+  echo "  This repo attributes commits to the maintainer only." >&2
+  exit 1
+fi
