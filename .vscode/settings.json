@@ -3,5 +3,19 @@
   "git.repositoryScanMaxDepth": 2,
   "git.scanRepositories": [
     ".repos/nvda",
-   ]
+  ],
+  "chat.tools.terminal.autoApprove": {
+    "/^cd /d C:\\\\dev\\\\tts\\\\gemini_poc ; cargo --version$/": {
+      "approve": true,
+      "matchCommandLine": true
+    },
+    "/^python --version$/": {
+      "approve": true,
+      "matchCommandLine": true
+    },
+    "/^cd /d C:\\\\dev\\\\tts\\\\gemini_poc ; python - <<'PY'\nfrom pathlib import Path\ntext = '''# AlienVox Proof of Concept \\(PoC\\)\n\nA lightweight tray-first prototype for speaking selected text on Windows/macOS\\.\n\n## What this repository contains\n\n- `Cargo\\.toml` — Rust project manifest\n- `src/` — prototype application code\n- `setup\\.py` — cross-platform Python bootstrap/checker\n- `\\.gitignore` — local ignores for Rust and Python dev files\n\n## Required local tools\n\nThese are the local developer tools needed to build the prototype:\n\n- Python 3\\.8\\+ \\(already installed on your machine\\)\n- Rust toolchain with `cargo` \\(`rustup` installer\\)\n- Git\n- On Windows: Visual Studio Build Tools with the C\\+\\+ workload\n\nThe Python bootstrap script checks whether `cargo` and `git` are available and helps create a local Python virtual environment\\.\n\n## Bootstrap\n\nFrom the `gemini_poc/` folder:\n\n```powershell\ncd C:\\\\dev\\\\tts\\\\gemini_poc\npython setup\\.py\n```\n\nIf `cargo` is missing, the script will instruct you to install the Rust toolchain\\.\n\n## Build and run\n\nOnce the bootstrap script is complete, run:\n\n```powershell\ncargo run\n```\n\n## Notes on language choice\n\n- Python is a strong choice for cross-platform SDLC and orchestration\\.\n- Rust is useful here for native tray integration, low-latency OS hooks, and a small runtime footprint\\.\n- A hybrid architecture is appropriate: Rust for tray/native plumbing, Python for ML/AI model orchestration and higher-level glue logic\\.\n\n## Next steps\n\n- Replace the sample capture driver with real selection capture\\.\n- Add one local Windows TTS path and one open-source ML/AI TTS path\\.\n- Add a Python module later for model inference or cloud orchestration if desired\\.\n'''\nPath\\('README\\.md'\\)\\.write_text\\(text, encoding='utf-8'\\)\nPY$/": {
+      "approve": true,
+      "matchCommandLine": true
+    }
+  }
 }

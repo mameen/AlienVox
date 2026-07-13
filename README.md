@@ -1,49 +1,40 @@
-<p align="center">
-  <img src="docs/img/banner.png" alt="AlienVox banner" width="720">
-</p>
+# AlienVox Proof of Concept (PoC)
 
-<p align="center">
-  <img src="docs/img/logo.png" alt="AlienVox logo" width="140">
-  <br>
-  <strong>AlienVox</strong> — lightweight tray-first selection TTS prototype for Windows/macOS
-</p>
+A lightweight tray-first prototype for speaking selected text on Windows/macOS.
 
----
+## What is required locally?
 
-AlienVox is a minimal prototype focused on speaking exactly the selected text through a native tray/status menu experience.
+This prototype uses:
 
-## What this repo contains
+- Python 3.8+ only for bootstrapping and helper scripting
+- Rust + Tauri toolchain with `cargo` for the core native app (install Rust separately via https://rustup.rs/)
+- Git
+- On Windows: Visual Studio Build Tools with the C++ workload
 
-- `gemini_poc/` — active prototype implementation
-- `.agents/` — AI assistant rules and skills
-- `.githooks/` — local Git hook enforcement for commit hygiene
-- `docs/` — design requirements and branding assets
-- `LICENSE` — MIT license
+- The `setup.py` script is a bootstrap helper that can install missing Rust/Cargo, Git, Node, and create a local Python virtual environment.
 
-## Current MVP scope
+## Bootstrap the workspace
 
-- Native tray/status menu with a small options pane
-- One local TTS provider (Windows TTS acceptable)
-- One open-source ML/AI TTS provider
-- No main application window during normal use
+From the `gemini_poc/` folder:
 
-## Setup notes
-
-1. Enable local Git hooks:
-
-```bash
-cd C:\dev\tts
-git config core.hooksPath .githooks
+```bat
+cd C:\dev\tts\gemini_poc
+python setup.py
 ```
 
-2. Ensure the root symlinks are available:
+## Build and run
 
-- `SKILLS` → `.agents/SKILLS`
-- `AGENT.md` → `.agents/AGENT.md`
+```bat
+cargo run
+```
 
-## Useful links
+## Design
 
-- [Prototype code](gemini_poc/)
-- [Agent guidance](AGENT.md)
-- [Agent skills](SKILLS/)
-- [Design docs](docs/)
+The project is centered on Rust + Tauri. Python is only used for optional setup and developer tooling.
+
+## Next steps
+
+- Replace the sample capture driver with real selection capture.
+- Add one local Windows TTS path.
+- Add one open-source ML/AI TTS path.
+- Keep Python usage limited to tooling and scripting support.

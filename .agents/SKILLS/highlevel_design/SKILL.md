@@ -10,7 +10,7 @@ metadata:
 
 # Cross-Platform Architecture & Development Guidelines
 
-This skill codifies the architectural, structural, and testing standards required to build low-latency, deterministic, cross-platform components for AlienTech.Software projects (such as AlienVox)[cite: 3, 4, 5].
+This skill codifies the architectural, structural, and testing standards required to build low-latency, deterministic, cross-platform components for AlienTech.Software projects (such as AlienVox)[cite: 3, 4, 5]. It is especially aligned with the repo's selected stack: **Rust + Tauri** for the core application runtime.
 
 ## 1. Core Principles
 
@@ -21,7 +21,7 @@ This skill codifies the architectural, structural, and testing standards require
 
 ### Anti-Mocking Testing Philosophy
 - **Real Code Execution:** Mocking dependencies is strongly discouraged. Unit tests and functional integration pipelines must execute actual, deterministic code branches against real buffers wherever possible.
-- **Concrete Test Data:** Provide explicit, real-world mock data files, clipboard structures, or memory state vectors to test the genuine logic branches rather than simulating structural responses through arbitrary mock interfaces.
+- **Concrete Test Data:** Provide explicit, real-world mock data files, clipboard structures, or memory state vectors to test the genuine logic of the **Rust + Tauri** application rather than simulating structural responses through arbitrary mock interfaces.
 
 ---
 

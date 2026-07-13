@@ -1,0 +1,13 @@
+# Rust build artifacts
+/target/
+
+# Python virtual environments
+.venv/
+venv/
+
+# Local Cargo wrapper for Windows bootstrap
+cargo.cmd
+
+# IDE files
+*.swp
+*.swo
