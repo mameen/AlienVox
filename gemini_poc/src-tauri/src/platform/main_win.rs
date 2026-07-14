@@ -2,7 +2,7 @@ use std::ffi::OsStr;
 use std::os::windows::ffi::OsStrExt;
 use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
-use windows_sys::Win32::Foundation::{HWND, HINSTANCE, LPARAM, LRESULT, POINT, WPARAM, GetLastError};
+use windows_sys::Win32::Foundation::{HWND, HINSTANCE, LPARAM, LRESULT, POINT, WPARAM, GetLastError, HANDLE};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::Shell::{
     NIM_ADD, NIM_DELETE, NIF_ICON, NIF_MESSAGE, NIF_TIP, NOTIFYICONDATAW, Shell_NotifyIconW,
@@ -11,9 +11,9 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     AppendMenuW, BN_CLICKED, BS_DEFPUSHBUTTON, CreatePopupMenu, CreateWindowExW, DefWindowProcW,
     DestroyMenu, DestroyWindow, DispatchMessageW, GetCursorPos, GetMessageW, LoadCursorW,
     LoadIconW, LoadImageW, PostQuitMessage, RegisterClassW, SendMessageW, SetForegroundWindow,
-    SetWindowTextW, ShowWindow, TrackPopupMenuEx, TranslateMessage, CW_USEDEFAULT, HMENU,
+    SetWindowTextW, ShowWindow, TrackPopupMenuEx, TranslateMessage, CW_USEDEFAULT,
     IDC_ARROW, IDI_APPLICATION, ICON_BIG, LR_LOADFROMFILE, MF_ENABLED, MF_STRING, MSG, SW_HIDE,
-    SW_SHOW, TPM_LEFTALIGN, TPM_RETURNCMD, TPM_RIGHTBUTTON, TPM_TOPALIGN, UnregisterClassW,
+    SW_SHOW, TPM_LEFTALIGN, TPM_RETURNCMD, TPM_RIGHTBUTTON, UnregisterClassW,
     WM_CLOSE, WM_COMMAND, WM_DESTROY, WM_SETICON, WM_USER, WNDCLASSW, WS_CHILD,
     WS_OVERLAPPEDWINDOW, WS_VISIBLE,
 };
@@ -22,9 +22,9 @@ static STATE: OnceLock<Mutex<TrayState>> = OnceLock::new();
 
 #[derive(Default)]
 struct TrayState {
-    tray_hwnd: HWND,
-    main_hwnd: HWND,
-    preferences_hwnd: HWND,
+    tray_hwnd: usize,
+    main_hwnd: usize,
+    preferences_hwnd: usize,
     tray_class_name: Vec<u16>,
     main_class_name: Vec<u16>,
     preferences_class_name: Vec<u16>,
@@ -73,8 +73,8 @@ impl TrayHandle {
         println!("Tray window created: {:?}", tray_hwnd);
 
         let mut state_lock = state().lock().unwrap();
-        state_lock.tray_hwnd = tray_hwnd;
-        state_lock.main_hwnd = main_hwnd;
+        state_lock.tray_hwnd = tray_hwnd as usize;
+        state_lock.main_hwnd = main_hwnd as usize;
         state_lock.tray_class_name = tray_class_name.clone();
         state_lock.main_class_name = main_class_name.clone();
         drop(state_lock);
@@ -82,7 +82,7 @@ impl TrayHandle {
         let icon_path = app_icon_path();
         println!("Loading icon from: {}", icon_path.display());
         let icon = load_icon(&icon_path);
-        if icon == 0 {
+        if icon.is_null() {
             return Err("failed to load any icon (even default)".to_string());
         }
         println!("Icon loaded successfully: {:?}", icon);
@@ -93,13 +93,13 @@ impl TrayHandle {
         nid.uID = 1;
         nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
         nid.uCallbackMessage = WM_USER + 1;
-        nid.hIcon = icon;
+        nid.hIcon = icon as HANDLE;
         let tip = to_wstring("AlienVox");
         nid.szTip[..tip.len().min(127)].copy_from_slice(&tip[..tip.len().min(127)]);
 
         println!("Adding tray icon via Shell_NotifyIconW...");
         unsafe {
-            if Shell_NotifyIconW(NIM_ADD, &mut nid as *mut NOTIFYICONDATAW) == 0 {
+            if Shell_NotifyIconW(NIM_ADD, &mut nid) == 0 {
                 let err = format!("Shell_NotifyIconW failed with error code: {}", std::io::Error::last_os_error().raw_os_error().unwrap_or(-1));
                 eprintln!("{}", err);
                 return Err(err);
@@ -115,7 +115,7 @@ impl TrayHandle {
         let mut msg = unsafe { std::mem::zeroed::<MSG>() };
         unsafe {
             loop {
-                let result = GetMessageW(&mut msg, 0, 0, 0);
+                let result = GetMessageW(&mut msg, std::ptr::null_mut(), 0, 0);
                 if result <= 0 {
                     break;
                 }
@@ -143,7 +143,7 @@ fn create_main_window(class_name: &[u16], hinstance: HINSTANCE) -> Result<HWND, 
         cbWndExtra: 0,
         hInstance: hinstance,
         hIcon: app_icon_handle(),
-        hCursor: unsafe { LoadCursorW(0, IDC_ARROW) },
+        hCursor: unsafe { LoadCursorW(std::ptr::null(), IDC_ARROW) },
         hbrBackground: 0,
         lpszMenuName: std::ptr::null(),
         lpszClassName: class_name.as_ptr(),
@@ -167,13 +167,13 @@ fn create_main_window(class_name: &[u16], hinstance: HINSTANCE) -> Result<HWND, 
             0,
             520,
             260,
-            0 as HWND,
-            0,
+            std::ptr::null(),
+            std::ptr::null(),
             hinstance,
             std::ptr::null_mut(),
         )
     };
-    if hwnd == 0 as HWND {
+    if hwnd == std::ptr::null() {
         let err = format!("CreateWindowExW failed for main window with error: {}", unsafe { GetLastError() });
         eprintln!("{}", err);
         return Err(err);
@@ -192,7 +192,7 @@ fn create_main_window(class_name: &[u16], hinstance: HINSTANCE) -> Result<HWND, 
             460,
             24,
             hwnd,
-            0 as HMENU,
+            std::ptr::null(),
             hinstance,
             std::ptr::null_mut(),
         );
@@ -207,7 +207,7 @@ fn create_main_window(class_name: &[u16], hinstance: HINSTANCE) -> Result<HWND, 
             100,
             32,
             hwnd,
-            1001 as HMENU,
+            std::ptr::null(),
             hinstance,
             std::ptr::null_mut(),
         );
@@ -225,7 +225,7 @@ fn create_tray_window(class_name: &[u16], hinstance: HINSTANCE) -> Result<HWND, 
         cbWndExtra: 0,
         hInstance: hinstance,
         hIcon: app_icon_handle(),
-        hCursor: unsafe { LoadCursorW(0, IDC_ARROW) },
+        hCursor: unsafe { LoadCursorW(std::ptr::null(), IDC_ARROW) },
         hbrBackground: 0,
         lpszMenuName: std::ptr::null(),
         lpszClassName: class_name.as_ptr(),
@@ -249,13 +249,13 @@ fn create_tray_window(class_name: &[u16], hinstance: HINSTANCE) -> Result<HWND, 
             0,
             CW_USEDEFAULT,
             0,
-            0 as HWND,
-            0,
+            std::ptr::null(),
+            std::ptr::null(),
             hinstance,
             std::ptr::null_mut(),
         )
     };
-    if hwnd == 0 as HWND {
+    if hwnd == std::ptr::null() {
         let err = format!("CreateWindowExW failed for tray window with error: {}", unsafe { GetLastError() });
         eprintln!("{}", err);
         return Err(err);
@@ -284,11 +284,11 @@ fn cleanup() {
         nid.cbSize = std::mem::size_of::<NOTIFYICONDATAW>() as u32;
         nid.hWnd = tray_hwnd;
         nid.uID = 1;
-        Shell_NotifyIconW(NIM_DELETE, &mut nid as *mut NOTIFYICONDATAW);
-        if main_hwnd != 0 as HWND {
+        Shell_NotifyIconW(NIM_DELETE, &mut nid);
+        if main_hwnd != std::ptr::null() {
             DestroyWindow(main_hwnd);
         }
-        if tray_hwnd != 0 as HWND {
+        if tray_hwnd != std::ptr::null() {
             DestroyWindow(tray_hwnd);
         }
         if !tray_class_name.is_empty() {
@@ -304,7 +304,7 @@ fn show_main_window() {
     let state_lock = state().lock().unwrap();
     let hwnd = state_lock.main_hwnd;
     drop(state_lock);
-    if hwnd != 0 as HWND {
+    if hwnd != std::ptr::null() {
         unsafe {
             ShowWindow(hwnd, SW_SHOW);
             SetForegroundWindow(hwnd);
@@ -316,7 +316,7 @@ fn hide_main_window() {
     let state_lock = state().lock().unwrap();
     let hwnd = state_lock.main_hwnd;
     drop(state_lock);
-    if hwnd != 0 as HWND {
+    if hwnd != std::ptr::null() {
         unsafe {
             ShowWindow(hwnd, SW_HIDE);
         }
@@ -325,7 +325,7 @@ fn hide_main_window() {
 
 fn show_preferences_dialog() {
     let mut state_lock = state().lock().unwrap();
-    if state_lock.preferences_hwnd != 0 as HWND {
+    if state_lock.preferences_hwnd != std::ptr::null() {
         unsafe {
             ShowWindow(state_lock.preferences_hwnd, SW_SHOW);
             SetForegroundWindow(state_lock.preferences_hwnd);
@@ -345,7 +345,7 @@ fn show_preferences_dialog() {
         cbWndExtra: 0,
         hInstance: hinstance,
         hIcon: app_icon_handle(),
-        hCursor: unsafe { LoadCursorW(0, IDC_ARROW) },
+        hCursor: unsafe { LoadCursorW(std::ptr::null(), IDC_ARROW) },
         hbrBackground: 0,
         lpszMenuName: std::ptr::null(),
         lpszClassName: class_name.as_ptr(),
@@ -368,14 +368,14 @@ fn show_preferences_dialog() {
             CW_USEDEFAULT,
             420,
             220,
-            0 as HWND,
-            0 as HMENU,
+            std::ptr::null(),
+            std::ptr::null(),
             hinstance,
             std::ptr::null_mut(),
         )
     };
 
-    if hwnd == 0 as HWND {
+    if hwnd == std::ptr::null() {
         eprintln!("failed to create preferences dialog");
         return;
     }
@@ -395,12 +395,12 @@ fn show_preferences_dialog() {
             360,
             24,
             hwnd,
-            0 as HMENU,
+            std::ptr::null(),
             hinstance,
             std::ptr::null_mut(),
         )
     };
-    if label != 0 as HWND {
+    if label != std::ptr::null() {
         unsafe {
             SetWindowTextW(label, to_wstring("Preferences and settings will appear here.").as_ptr());
         }
@@ -417,12 +417,12 @@ fn show_preferences_dialog() {
             100,
             28,
             hwnd,
-            1 as HMENU,
+            std::ptr::null(),
             hinstance,
             std::ptr::null_mut(),
         )
     };
-    if button == 0 as HWND {
+    if button == std::ptr::null() {
         eprintln!("failed to create preferences dialog button");
     }
 
@@ -507,7 +507,7 @@ unsafe extern "system" fn main_window_proc(
         WM_DESTROY => {
             let mut state_lock = state().lock().unwrap();
             if state_lock.main_hwnd == hwnd {
-                state_lock.main_hwnd = 0 as HWND;
+                state_lock.main_hwnd = std::ptr::null();
             }
             0
         }
@@ -538,7 +538,7 @@ unsafe extern "system" fn preferences_window_proc(
         WM_DESTROY => {
             let mut state_lock = state().lock().unwrap();
             if state_lock.preferences_hwnd == hwnd {
-                state_lock.preferences_hwnd = 0 as HWND;
+                state_lock.preferences_hwnd = std::ptr::null();
             }
             0
         }
@@ -550,9 +550,9 @@ fn app_icon_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/assets/icons/icon.ico")
 }
 
-fn app_icon_handle() -> isize {
+fn app_icon_handle() -> HANDLE {
     let icon = load_icon(&app_icon_path());
-    if icon == 0 {
+    if icon.is_null() {
         eprintln!("WARNING: Could not load icon, using default. GetLastError: {}", unsafe { GetLastError() });
     } else {
         println!("Icon loaded successfully: {:?}", icon);
@@ -560,21 +560,21 @@ fn app_icon_handle() -> isize {
     icon
 }
 
-fn load_icon(path: &std::path::Path) -> isize {
+fn load_icon(path: &std::path::Path) -> HANDLE {
     if !path.exists() {
         eprintln!("WARNING: Icon file not found at: {}. Using default icon.", path.display());
-        return unsafe { LoadIconW(0, IDI_APPLICATION) };
+        return unsafe { LoadIconW(std::ptr::null(), IDI_APPLICATION) };
     }
     
     let wide = to_wstring(path.to_string_lossy().as_ref());
     println!("Attempting to load icon from: {}", path.display());
-    let icon = unsafe { LoadImageW(0, wide.as_ptr(), 1, 0, 0, LR_LOADFROMFILE) };
-    if icon != 0 {
+    let icon = unsafe { LoadImageW(std::ptr::null(), wide.as_ptr(), 1, 0, 0, LR_LOADFROMFILE) };
+    if !icon.is_null() {
         println!("Successfully loaded icon from file.");
         icon
     } else {
         eprintln!("LoadImageW failed with error: {}, falling back to default icon.", unsafe { GetLastError() });
-        unsafe { LoadIconW(0, IDI_APPLICATION) }
+        unsafe { LoadIconW(std::ptr::null(), IDI_APPLICATION) }
     }
 }
 
