@@ -26,6 +26,7 @@ This skill dictates how you must behave when operating in a workspace that serve
 ### Version Control System (VCS) Limits
 - **Execution Mapping:** Always execute Git, test, and shell commands from the exact root of the specific repository you are modifying. Never run a blanket Git macro from a shared parent folder unless explicitly ordered to by the developer.
 - **No Destructive Operations:** You must never force-push, overwrite untracked developer changes, or squash historical commits without explicit, turn-by-turn permission.
+- **Branch Isolation for Large Changes:** Land large or high-risk changes on a dedicated feature branch, never directly on `main`. Merge into `main` only after the change is complete and reviewed. Do not create the branch, merge, or push without explicit, turn-by-turn permission.
 
 ### Secret & Credential Cordoning
 - **Zero-Trust File Sweeps:** You are strictly prohibited from staging or committing files containing API keys, private tokens, local keychains, environment files (`.env`), or explicit developer credentials.
@@ -33,7 +34,14 @@ This skill dictates how you must behave when operating in a workspace that serve
 
 ---
 
-## 3. Reflection & Self-Check
+## 3. Documentation Discipline
+- **Keep Docs & Comments Current:** Whenever behavior, APIs, or design changes, update the affected documentation and code comments in the same change. Never leave docs or comments describing superseded behavior.
+- **Record Large Design Changes as ADRs:** Document large or architecturally significant design changes as an ADR under `docs/adr/`.
+- **Log Issues:** Document defects, known problems, and investigations under `docs/issues/`.
+
+---
+
+## 4. Reflection & Self-Check
 
 ### Mandatory Pre-Response Review
 - **Reflect Before Responding:** Before emitting any response or committing to an action, pause and reflect on the work performed. Do not respond reflexively or on autopilot.
