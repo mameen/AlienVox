@@ -1,6 +1,6 @@
 # AlienVox Technology Options: Core Systems & Local Neural TTS
 
-This document serves as the comprehensive technical evaluation of native OS Speech Engines and Edge-capable ML/AI Text-to-Speech models for **AlienVox**.
+This document serves as the comprehensive technical evaluation of native OS Speech Engines, Edge-capable ML/AI Text-to-Speech models, and free open-source Rust library ecosystems for **AlienVox**.
 
 ---
 
@@ -10,9 +10,9 @@ To maintain our targeted **sub-150ms execution latency** with zero operational o
 
 | Engine Platform | API Hook Layer | Architecture Status | Technical Assessment |
 | :--- | :--- | :--- | :--- |
-| **SAPI 4** | Legacy COM Interfaces | Obsolete (Legacy Win9x/XP) | Not viable. Out of production, lacks modern 64-bit calling conventions, and suffers from unnatural, highly robotic robotic phoneme blending. |
+| **SAPI 4** | Legacy COM Interfaces | Obsolete (Legacy Win9x/XP) | Not viable. Out of production, lacks modern 64-bit calling conventions, and suffers from natural, highly robotic phoneme blending. |
 | **SAPI 5** | `ISpVoice` COM Registry | **Supported Fallback** | Standard Windows desktop TTS interface. Extremely fast instantiation (< 20ms), tiny runtime footprint, but audio profiles (e.g., *Microsoft David/Hazel/Zira*) sound dated. |
-| **Microsoft Speech Platform** | Server COM (`HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech Server\v11.0`) | **Supported** | Originally built for enterprise server environments. Extends SAPI5-like efficiency but allows access to higher-fidelity runtime language packs and specific automated registry paths. |
+| **Microsoft Speech Platform** | Server COM (`HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech Server\v11.0`) | **Supported** | Originally built for enterprise server environments. Extends SAPI5-like efficiency but allows access to higher-fidelity runtime language packs and automated registry paths. |
 | **Windows.Media.SpeechSynthesis (WinRT)** | WinRT Runtime Component (`SpeechSynthesizer`) | **Primary Desktop Choice** | Modern Windows 10/11 native architecture. Provides cleaner multi-threaded execution, accessibility hook synchronization, and utilizes improved voices (e.g., *Microsoft George, Susan*). |
 
 ---
@@ -34,18 +34,17 @@ To provide premium, modern neural-sounding voices without adding an external Pyt
 * **GitHub Repository:** [hexgrad/kokoro](https://github.com/hexgrad/kokoro)
 * **Architecture:** Decoder-only StyleTTS2 + ISTFTNet (No heavy diffusion or auto-regressive audio tokens).
 * **Parameters & Footprint:** **82 Million Parameters**. Binary weights fit cleanly inside a single file under **330MB**.
-* **Ecosystem Popularity:** Extremely high. Actively ranks at the top of community TTS naturalness arenas (Hugging Face Spaces) relative to its physical compute footprint.
+* **Ecosystem Popularity:** Extremely high. Actively ranks at the top of community TTS naturalness arenas relative to its physical compute footprint.
 * **Performance Benchmark:** Blazing fast. Capable of generating speech at **5x to 15x faster than real-time** on mid-tier hardware. Can be executed seamlessly on a raw CPU thread without needing an active dedicated GPU.
 * **License:** **Apache 2.0** (Commercially viable, zero legal or enterprise friction).
 
-### B. Chatterbox-Turbo
-* **GitHub Repository:** Provided via [Resemble-AI/chatterbox](https://github.com/resemble-ai/chatterbox)
-* **Architecture:** Distilled Single-Step Decoder (Reduces inference operations down from 10 steps to 1).
-* **Parameters & Footprint:** **~350 Million Parameters** (Weights scale around 1.2GB).
-* **Ecosystem Popularity:** Rapidly growing standard for low-latency interactive conversational voice loops.
-* **Performance Benchmark:** Displays an ultra-low execution latency profile (~75ms initialization window). Achieves a massive 65% win rate in subjective head-to-head evaluations against commercial streaming cloud runtimes. 
-* **Special Subsystems:** Built-in semantic emotional markup natively processing token streams containing paralinguistic tags like `[laugh]`, `[cough]`, `[whisper]`, or `[sigh]`.
-* **License:** **MIT** (Fully open, modification and commercial encapsulation permissible).
+### B. Qwen3-TTS / Qwen3-TTS-rs
+* **GitHub Repository:** [second-state/qwen3_tts_rs](https://github.com/second-state/qwen3_tts_rs)
+* **Architecture:** Discrete multi-codebook neural end-to-end codec architecture.
+* **Parameters & Footprint:** High performance 0.6B scale models (~1.2GB parameters).
+* **Ecosystem Popularity:** Universally recognized as the state-of-the-art layout for minimal first-token latency (~97ms startup execution window).
+* **Performance Benchmark:** Highly competitive perceptual audio quality scores matching cloud-hosted APIs, running purely via LibTorch/Candle inside native Rust.
+* **License:** Apache 2.0.
 
 ### C. Piper TTS
 * **GitHub Repository:** [rhasspy/piper](https://github.com/rhasspy/piper)
@@ -58,12 +57,33 @@ To provide premium, modern neural-sounding voices without adding an external Pyt
 
 ---
 
-## 4. Architectural Implementation Strategy
+## 4. Universal High-Level Open Source Libraries (Option 4)
+
+Instead of building raw OS API wrappers or model inference pipelines completely by hand, AlienVox can utilize existing, open-source Rust crates that encapsulate these pipelines into clean, type-safe high-level libraries.
+
+### A. The `tts` Crate (Unified Native Backend Bridge)
+* **Crates.io Registry:** [crates.io/crates/tts](https://crates.io/crates/tts)
+* **What it does:** It acts as a cross-platform programmatic abstraction layer over the native OS accessibility systems. Instead of writing separate conditional compilation paths for Windows COM loops and macOS Objective-C objects, you interact with a single unified API.
+* **Platform Mapping Under the Hood:**
+  * Windows -> Interchanges natively between **WinRT** and screen readers via Tolk.
+  * macOS -> Interchanges natively into **AVFoundation/AppKit**.
+  * Linux -> Routes via **Speech Dispatcher**.
+* **Why use it:** Massively simplifies the initial PoC codebase, completely satisfying our sub-150ms structural window while letting us control speech traits (Rate, Pitch, Volume) out of the box with zero custom OS bindings.
+
+### B. The `any-tts` Framework (Unified Local Neural Runtime)
+* **Crates.io Registry:** [crates.io/crates/any-tts](https://crates.io/crates/any-tts)
+* **What it does:** A robust, high-level wrapper built directly around HuggingFace's `candle` ML framework to offer a single, unified trait-based API for driving open-source neural models locally.
+* **Model Pipeline Integration:** It includes out-of-the-box adapters for **Kokoro-82M**, **Qwen3-TTS**, and **Voxtral**. It handles downloading or searching the `models/` directory natively, spinning up runtime execution seamlessly over CPU, CUDA, or macOS Metal acceleration paths.
+* **Why use it:** Completely isolates model-specific tensor mechanics and alignment calculations behind a simple `load_model()` trait interface, keeping the AlienVox runtime fully Python-free.
+
+---
+
+## 5. Architectural Implementation Strategy
 
 ```text
-[Text Selection] ➔ [Rust Main Thread] ➔ ──(Route Check)──➔ Option 1: Native WinRT/AVFoundation (Latency: <30ms)
-                                       └──➔ Option 2: Local models/ (ONNX/ort)   (Latency: <120ms)
+[Text Selection] -> [Rust Main Thread] -> --(Route Check)---> Option 1: High-Level `tts` Crate (WinRT/AVFoundation) [Latency: <25ms]
+                                       └──-> Option 2: Local models/ (`any-tts` / `ort`)             [Latency: <120ms]
 ```
 
-1. **The Core Strategy:** All models placed into the `models/` folder are converted directly to **ONNX formats** or raw tensor weights (`.safetensors`).
-2. **Execution Context:** The Rust application reads these files dynamically using the `ort` runtime wrapper crate, completely passing over the need for any internal Python interpreter loop.
+1. **The Core Strategy:** All models placed into the `models/` folder are converted directly to ONNX formats or raw tensor weights (.safetensors).
+2. **Execution Context:** The Rust application reads these files dynamically using high-level libraries or the `ort` runtime wrapper crate, completely passing over the need for any internal Python interpreter loop.
