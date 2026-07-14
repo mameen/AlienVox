@@ -97,6 +97,36 @@ Because the frontend is embedded:
 
 ---
 
-## 4. Related Decisions
+## 4. Single-Application Runtime & Model Integration
+
+### 4.1 One Application — Non-Negotiable
+AlienVox **MUST** ship as one application. Because Rust + Tauri compiles to a single standalone binary (see Section 3), the Win32 native hooks, the LLM/TTS integration layer, and the optional settings webview all live in one codebase and one executable per platform. There is no separate backend process, sidecar server, or second build system. Any design that splits the runtime into multiple applications violates this rule.
+
+### 4.2 Rust as the Model-Calling Runtime
+Rust is the runtime that calls all LLM and TTS models directly, in-process. Python remains confined to bootstrapping and developer tooling and is never part of the runtime path. Models are integrated through one of two paths:
+
+#### Path A — Cloud / Remote Models
+- Hosted LLM and TTS providers (e.g., OpenAI, ElevenLabs, Azure) are HTTPS REST/streaming APIs.
+- Call them from Rust with an async HTTP client (`reqwest` + `tokio`), consuming streamed audio chunks to preserve low latency.
+- API keys resolve from native system environment variables or `.gitignore`-d local files — never hard-coded or committed.
+
+#### Path B — Local / Open-Source ML TTS Models
+Open-source neural TTS models are typically published as Python (PyTorch) artifacts. Rust **cannot** import a raw Python checkpoint at runtime, so local models are integrated exclusively through one of:
+- **ONNX Runtime via the `ort` crate** — export the model to ONNX and run inference in-process (e.g., Piper-style TTS). Preferred default.
+- **`candle`** — HuggingFace's pure-Rust ML framework for models that run natively without Python.
+- **Bundled native inference binary** — a compiled engine driven from Rust.
+
+#### Native OS TTS Fallback
+Local, zero-dependency speech via the platform's built-in engine is the fastest fallback and must be available:
+- **Windows:** SAPI / WinRT through the `windows` crate.
+- **macOS:** AVFoundation / `NSSpeechSynthesizer` via the `mac` platform path.
+
+### 4.3 Constraint Summary
+- "Call other TTS models from inside the app" means ONNX-exported or natively-compiled models — never embedded Python.
+- The model-integration layer follows the Bridge & suffix isolation rules of Section 2 like any other subsystem.
+
+---
+
+## 5. Related Decisions
 - [ADR-001](../../docs/adr/adr-001.md) — Selecting Rust + Tauri as the core tech stack (enables this production model).
 - [ADR-002](../../docs/adr/adr-002-tauri-production-build.md) — Detailed Tauri production build architecture documentation.

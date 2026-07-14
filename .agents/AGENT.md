@@ -11,8 +11,9 @@ This repository uses `.agents/` to control AI assistant behavior and ensure safe
 
 ## Relevant skills
 
-- `workspace-discipline`: enforces repo boundary isolation and non-destructive behavior.
-- `highlevel_design`: enforces bridge patterns, platform isolation, and anti-mocking philosophies.
+- `workspace-discipline`: enforces repo boundary isolation, non-destructive VCS behavior, and reflect/self-check before responding.
+- `highlevel_design`: enforces bridge patterns, platform isolation, anti-mocking philosophies, and the single standalone-binary production model.
+- `ui_ux_design`: defines the classic Win32/WPF functional aesthetic, layout hierarchy, menu bar, system tray behavior, and iconography for AlienVox surfaces.
 
 ## Implementation intent
 
