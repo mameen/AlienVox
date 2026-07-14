@@ -12,6 +12,13 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Mutex;
+use tauri::Emitter;
+
+/// Bridge: stores the main Tauri window handle so the Win32 tray proc can toggle visibility.
+static MAIN_WINDOW: Mutex<Option<tauri::WebviewWindow>> = Mutex::new(None);
+
+/// Bridge: stores the Tauri AppHandle so the tray proc can emit events to the frontend.
+static APP_HANDLE: Mutex<Option<tauri::AppHandle>> = Mutex::new(None);
 use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM, GetLastError};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     AppendMenuW, CreatePopupMenu, CreateWindowExW, DefWindowProcW, DestroyMenu,
@@ -24,6 +31,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::LoadImageW;
 use windows_sys::Win32::UI::Shell::{NIM_ADD, NIF_ICON, NIF_MESSAGE, NIF_TIP, NOTIFYICONDATAW, Shell_NotifyIconW};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_APARTMENTTHREADED};
+use tauri::Manager;
 
 // ─── Win32 Platform Modules ───────────────────────────────────────────────────
 // Platform-specific audio and text-capture backends. Only the module matching
@@ -174,6 +182,20 @@ unsafe extern "system" fn tray_window_proc(_hwnd: HWND, msg: u32, _wparam: WPARA
                     show_tray_context_menu(_hwnd);
                     0
                 }
+                // WM_LBUTTONDBLCLK — toggle main window visibility on double-click.
+                0x0203 => {
+                    if let Ok(w) = MAIN_WINDOW.lock() {
+                        if let Some(ref win) = *w {
+                            if win.is_visible().unwrap_or(false) {
+                                win.hide().ok();
+                            } else {
+                                win.show().ok();
+                                win.set_focus().ok();
+                            }
+                        }
+                    }
+                    0
+                }
                 _ => { 0 }
             }
         }
@@ -240,8 +262,20 @@ fn show_tray_context_menu(hwnd: HWND) {
             ID_SPEAK_SEL => println!("[Tray] Speak Selection (stub)"),
             ID_STOP      => println!("[Tray] Stop (stub)"),
             ID_VOICE     => println!("[Tray] Voice submenu (stub)"),
-            ID_SETTINGS  => println!("[Tray] Settings… (stub — open Tauri window)"),
-            ID_ABOUT     => println!("[Tray] About (stub)"),
+            ID_SETTINGS  => {
+                if let Ok(guard) = APP_HANDLE.lock() {
+                    if let Some(handle) = &*guard {
+                        handle.emit("open-settings", ()).ok();
+                    }
+                }
+            }
+            ID_ABOUT     => {
+                if let Ok(guard) = APP_HANDLE.lock() {
+                    if let Some(handle) = &*guard {
+                        handle.emit("open-about", ()).ok();
+                    }
+                }
+            }
             ID_QUIT      => {
                 println!("[Tray] Quit requested");
                 destroy_tray_icon();
@@ -457,6 +491,14 @@ fn main() {
             stop_speaking,
             pause_speaking,
         ])
+        .setup(|app| {
+            // Store the main window handle for tray double-click toggle.
+            let win = app.get_webview_window("main").unwrap();
+            *MAIN_WINDOW.lock().unwrap() = Some(win);
+            // Store the AppHandle for tray event emission (Settings, About).
+            *APP_HANDLE.lock().unwrap() = Some(app.handle().clone());
+            Ok(())
+        })
         .on_window_event(|_window, event| {
             // Intercept the close button (X) — minimize to tray instead of quitting.
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
