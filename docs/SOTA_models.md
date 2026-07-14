@@ -2,6 +2,8 @@
 
 This reference index compiles the latest open-source, edge-portable Text-to-Speech (TTS) models and foundational audio systems. These models are evaluated for deployment directly within the `models/` directory of the standalone architecture.
 
+> **⚠ Verification status — see [issue #002](issues/issue_002.md).** Verified as real projects: Kokoro-82M (§1A), Zonos (§1C), Dia (§2C), FireRedTTS-2 (§2B). Unverified or likely inaccurate — confirm or remove: Fish Audio S2 "4B / S2 Pro" size and WER figures (§2A), VibeVoice-Realtime-0.5B naming (§1B), Pocket TTS (§3A), dots.tts (§3B), and **Wan Streamer v0.1 / `arXiv:2606.25041` (§4A), which appears fabricated**.
+
 ---
 
 ## 1. Edge Foundations & Highly Scalable Architectures

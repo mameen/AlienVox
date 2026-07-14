@@ -2,6 +2,8 @@
 
 This document serves as the comprehensive technical evaluation of native OS Speech Engines, Edge-capable ML/AI Text-to-Speech models, and free open-source Rust library ecosystems for **AlienVox**.
 
+> **⚠ Verification status — see [issue #002](issues/issue_002.md).** Native OS engines (§1–§2), Kokoro-82M (§3A), and the `tts` crate (§4A) are verified. Unverified / needs correction before being treated as authoritative: Piper voice-tier naming "Vellum Tiny" (§3C), Qwen3-TTS-rs repo/figures (§3B), and the `any-tts` crate plus its "Voxtral" TTS adapter (§4B — Voxtral is ASR, not TTS).
+
 ---
 
 ## 1. Windows Native Speech Subsystems

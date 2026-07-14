@@ -10,7 +10,9 @@ metadata:
 
 # UI/UX Design Guidelines
 
-This skill codifies the visual language, layout hierarchy, and component vocabulary for AlienVox surfaces. AlienVox is **system-tray-first**: there is no persistent main window during normal use. When a settings or dashboard panel *is* opened, it follows the classic, highly functional desktop aesthetic described below (reference: the Balabolka TTS utility).
+This skill codifies the visual language, layout hierarchy, and component vocabulary for AlienVox surfaces. AlienVox is **system-tray-first**: there is no persistent main window during normal use. When a settings/preferences panel *is* opened, it follows the classic, highly functional desktop aesthetic described below (reference: the Balabolka TTS utility).
+
+> **Testing vs. end state:** The current main window — the full Balabolka-style text canvas in Section 2 — is a **temporary testing harness** used during development to exercise the speech pipeline. It is **not** the shipped UI. In the production build it is removed; the only persistent window is the **Preferences** panel (Section 2.5), opened on demand from the tray. Build the Section 2 surface for testing, but never treat it as the final interface.
 
 ## 1. Design Aesthetic
 
@@ -20,6 +22,8 @@ This skill codifies the visual language, layout hierarchy, and component vocabul
 - **Cross-platform parity:** The same layout hierarchy applies on Windows 11 and macOS 14+, rendered through the native webview per the Rust + Tauri stack.
 
 ## 2. Reference Interface Breakdown
+
+> **Scope note:** Sections 2.1–2.4 describe the **testing harness** main window. It is temporary and exists only to validate the speech pipeline during development. The end-state production surface is Section 2.5 (Preferences) only.
 
 ### 2.1 Menu Bar & Primary Toolbar (Top Layer)
 - **Window title:** `AlienVox - [Document1]` with standard OS window controls (Minimize, Maximize, Close) top-right.
@@ -44,6 +48,12 @@ This skill codifies the visual language, layout hierarchy, and component vocabul
 - **Document tabs:** notebook-style tabs bottom-left tracking open buffers (e.g., `Document1`).
 - **Information bar:** split status strip showing `Line: Column` telemetry (e.g., `1: 1`).
 
+### 2.5 Preferences Panel (End-State Window)
+This is the **only** window that ships in the production build. Everything in 2.1–2.4 is the testing harness and is dropped once the pipeline is proven.
+- **Scope:** engine/provider selection, voice pick, Rate/Pitch/Volume controls, global hotkey binding, and startup/tray options — nothing more.
+- **No text canvas:** the large editor area (2.3) and document tabs (2.4) do **not** appear in production; speech always operates on the live OS text selection captured via the hotkey.
+- **Invocation:** opened only via the tray `Settings…` item; closing returns to the tray. It never becomes a persistent main window.
+
 ## 3. System Tray
 
 AlienVox lives primarily in the system tray. The tray is the default entry point; windows are opened on demand.
@@ -53,7 +63,7 @@ AlienVox lives primarily in the system tray. The tray is the default entry point
 - **Right-click context menu:** explicit, flat, text-labeled items in a fixed order:
   - `Speak Selection`, `Stop`
   - `Voice ▸` (submenu of installed voices/engines)
-  - `Settings…` (opens the classic panel from Section 2)
+  - `Settings…` (opens the Preferences panel — Section 2.5)
   - `About`
   - `Quit`
 - **No forced window:** never spawn a main window on launch or when triggering a speak action. UI panels appear only through explicit tray/menu interaction.
