@@ -127,6 +127,17 @@ Local, zero-dependency speech via the platform's built-in engine is the fastest 
 
 ---
 
-## 5. Related Decisions
+## 5. Architecture Decision Records (ADRs)
+
+All significant, long-lived architecture decisions for AlienVox are recorded as ADRs in
+the **`docs/adr/`** folder (repo root, i.e. `C:\dev\tts\docs\adr\`). Before proposing or
+implementing a large design change, **consult the existing ADRs** in that folder for
+prior decisions and constraints, and **record new large design decisions** there as a new
+`adr-00N-<slug>.md` following the established format (Status, Date, Context, Decision,
+Consequences, Related Decisions). Keep ADRs cross-linked and this list current.
+
+### Related Decisions
 - [ADR-001](../../docs/adr/adr-001.md) — Selecting Rust + Tauri as the core tech stack (enables this production model).
 - [ADR-002](../../docs/adr/adr-002-tauri-production-build.md) — Detailed Tauri production build architecture documentation.
+- [ADR-003](../../docs/adr/adr-003-windows-deployment-and-path-resolution.md) — Windows deployment model (NSIS per-user) and unified path resolution (`.models` search order).
+- [ADR-004](../../docs/adr/adr-004-tts-stack-architecture.md) — Multi-stack TTS engine architecture (`TtsEngine` trait, `ActiveStack`, per-stack folders).
