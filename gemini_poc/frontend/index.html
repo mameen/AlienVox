@@ -114,8 +114,14 @@
             font-weight: 500;
         }
 
-        .engine-tab:hover:not(.active) {
+        .engine-tab:hover:not(.active):not(.disabled) {
             background-color: #d8d8d8;
+        }
+
+        .engine-tab.disabled {
+            color: #a0a0a0;
+            cursor: default;
+            pointer-events: none;
         }
 
         /* Voice Controls */
@@ -341,9 +347,9 @@
             <button class="toolbar-btn" title="Convert to Audio">🎵</button>
         </div>
         <div class="toolbar-group">
-            <button class="toolbar-btn play" title="Play">▶</button>
-            <button class="toolbar-btn pause" title="Pause">⏸</button>
-            <button class="toolbar-btn stop" title="Stop">⏹</button>
+            <button class="toolbar-btn play" id="btn-play" title="Play">▶</button>
+            <button class="toolbar-btn pause" id="btn-pause" title="Pause">⏸</button>
+            <button class="toolbar-btn stop" id="btn-stop" title="Stop">⏹</button>
         </div>
         <div class="toolbar-group">
             <button class="toolbar-btn" title="Find">🔍</button>
@@ -351,23 +357,21 @@
         </div>
     </div>
 
-    <!-- Engine Tabs -->
+    <!-- Engine Tabs — each selects a backend that filters the voice list. -->
     <div class="engine-tabs">
-        <div class="engine-tab">SAPI 4</div>
-        <div class="engine-tab active">SAPI 5</div>
-        <div class="engine-tab">Microsoft Speech Platform</div>
+        <div class="engine-tab disabled" data-engine="sapi4" title="Legacy SAPI 4 — unavailable on modern Windows">SAPI 4</div>
+        <div class="engine-tab active" data-engine="sapi5">SAPI 5</div>
+        <div class="engine-tab" data-engine="speech_platform">Microsoft Speech Platform</div>
+        <div class="engine-tab disabled" data-engine="ml" title="Neural ML/AI voices — coming soon">ML / AI</div>
     </div>
 
     <!-- Voice Controls -->
     <div class="voice-controls">
-        <select class="voice-select">
-            <option>Zira - English (United States)</option>
-            <option>David - English (United States)</option>
-            <option>Hedda - German</option>
-            <option>Marie - French</option>
+        <select class="voice-select" id="voice-select">
+            <option value="">Loading voices…</option>
         </select>
-        <button class="voice-btn">About</button>
-        <button class="voice-btn">Select Voice</button>
+        <button class="voice-btn" type="button">About</button>
+        <button class="voice-btn" id="btn-install" type="button" title="Install more voices">Install</button>
     </div>
 
     <!-- Audio Sliders -->
@@ -445,14 +449,23 @@
             cursorPosition.textContent = `Line: ${line}, Column: ${column}`;
         }
 
-        // Tab switching
+        // Tab switching — each tab selects an engine backend that filters the
+        // voice list.  Disabled tabs (SAPI 4, ML/AI) are inert placeholders.
         const tabs = document.querySelectorAll('.engine-tab');
         tabs.forEach(tab => {
             tab.addEventListener('click', () => {
+                if (tab.classList.contains('disabled')) return;
                 tabs.forEach(t => t.classList.remove('active'));
                 tab.classList.add('active');
+                loadVoices();
             });
         });
+
+        // The engine key of the currently active tab.
+        function activeEngine() {
+            const active = document.querySelector('.engine-tab.active');
+            return active ? active.dataset.engine : 'sapi5';
+        }
 
         // Menu item hover effect
         const menuItems = document.querySelectorAll('.menu-item');
@@ -464,6 +477,82 @@
                 item.style.backgroundColor = '';
             });
         });
+
+        // ─── TTS backend wiring (Tauri IPC) ──────────────────────────────────
+        // `withGlobalTauri` is enabled, so the invoke() bridge is on window.__TAURI__.
+        const invoke = window.__TAURI__?.core?.invoke;
+
+        const voiceSelect = document.getElementById('voice-select');
+        const rateSlider = document.getElementById('rate-slider');
+        const pitchSlider = document.getElementById('pitch-slider');
+        const volumeSlider = document.getElementById('volume-slider');
+
+        async function call(cmd, args) {
+            if (!invoke) {
+                console.warn('Tauri bridge unavailable — running outside the app?');
+                return;
+            }
+            try {
+                await invoke(cmd, args);
+            } catch (err) {
+                console.error(`${cmd} failed:`, err);
+            }
+        }
+
+        document.getElementById('btn-play').addEventListener('click', () => {
+            call('speak_text', {
+                text: textEditor.value,
+                voice: voiceSelect.value,
+                rate: parseInt(rateSlider.value, 10),
+                pitch: parseInt(pitchSlider.value, 10),
+                volume: parseInt(volumeSlider.value, 10),
+            });
+        });
+
+        document.getElementById('btn-pause').addEventListener('click', () => {
+            call('pause_speaking');
+        });
+
+        document.getElementById('btn-stop').addEventListener('click', () => {
+            call('stop_speaking');
+        });
+
+        document.getElementById('btn-install').addEventListener('click', () => {
+            call('open_voice_settings');
+        });
+
+        // Populate the dropdown from the voices installed for the active engine.
+        // Each option's value is the stable token id passed back to speak_text.
+        async function loadVoices() {
+            if (!invoke) return;
+            const engine = activeEngine();
+            try {
+                const voices = await invoke('get_voices', { engine });
+                voiceSelect.innerHTML = '';
+                if (!voices || voices.length === 0) {
+                    const opt = document.createElement('option');
+                    opt.value = '';
+                    opt.textContent = engine === 'speech_platform'
+                        ? 'No Speech Platform voices installed'
+                        : 'No voices installed — click Install';
+                    voiceSelect.appendChild(opt);
+                    return;
+                }
+                for (const v of voices) {
+                    const opt = document.createElement('option');
+                    opt.value = v.id;
+                    opt.textContent = v.name;
+                    voiceSelect.appendChild(opt);
+                }
+            } catch (err) {
+                console.error('get_voices failed:', err);
+            }
+        }
+        loadVoices();
+
+        // Refresh the list when returning to the window (e.g. after installing a
+        // voice via the Install button, which opens Windows Settings).
+        window.addEventListener('focus', loadVoices);
     </script>
 </body>
 </html>

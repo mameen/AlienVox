@@ -10,7 +10,7 @@
 //! - **Audio / Capture modules**: platform-specific backends (audio_win.rs, capture_win.rs).
 
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tauri::Emitter;
 
@@ -30,7 +30,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 use windows_sys::Win32::UI::WindowsAndMessaging::LoadImageW;
 use windows_sys::Win32::UI::Shell::{NIM_ADD, NIF_ICON, NIF_MESSAGE, NIF_TIP, NOTIFYICONDATAW, Shell_NotifyIconW};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
-use windows_sys::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_APARTMENTTHREADED};
+use windows_sys::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
 use tauri::Manager;
 
 // ─── Win32 Platform Modules ───────────────────────────────────────────────────
@@ -51,6 +51,9 @@ mod capture {
     mod capture_mac;
 }
 
+// Unified, deployment-safe path resolution (ADR-003).  Cross-platform.
+mod paths;
+
 // ─── System Tray ──────────────────────────────────────────────────────────────
 // A hidden Win32 window owns the tray icon.  The UI/UX spec requires a
 // right-click context menu with: Speak Selection, Stop, Voice ▸, Settings…,
@@ -60,7 +63,9 @@ mod capture {
 static TRAY_HWND: Mutex<Option<HWND>> = Mutex::new(None);
 
 /// Register a Win32 window class and create a hidden window for tray ownership.
-fn create_tray_icon() -> Result<(), String> {
+/// `icon_path` is resolved via `paths::tray_icon_path` so it is valid in both dev
+/// and deployed builds (ADR-003 §3).
+fn create_tray_icon(icon_path: &Path) -> Result<(), String> {
     unsafe {
         // 1. Register a hidden window class whose proc handles tray notifications.
         let class_name = to_wstring("AlienVoxTrayClass");
@@ -100,9 +105,7 @@ fn create_tray_icon() -> Result<(), String> {
             return Err(format!("CreateWindowExW failed: {}", GetLastError()));
         }
 
-        // 3. Load the custom icon from src-tauri/icons/icon.ico.
-        let manifest_dir = env!("CARGO_MANIFEST_DIR");
-        let icon_path = std::path::Path::new(manifest_dir).join("icons/icon.ico");
+        // 3. Load the custom icon (path resolved by paths::tray_icon_path).
         eprintln!("[Tray] Icon path: {}", icon_path.display());
         let wide_icon = to_wstring(icon_path.to_string_lossy().as_ref());
         eprintln!("[Tray] Wide icon len: {}", wide_icon.len());
@@ -293,63 +296,19 @@ fn to_wstring(value: &str) -> Vec<u16> {
 }
 
 // ─── Global TTS Engine State ──────────────────────────────────────────────────
-/// Lazy-initialized SAPI SpVoice speaker.  Created on first call to `speak_text`.
-static SPEAKER: Mutex<Option<SapiSpeaker>> = Mutex::new(None);
-
-/// Wrapper around the Windows SAPI SpVoice COM object.
-/// Currently a stub — in production this holds an actual ISpVoice pointer.
-#[allow(dead_code)]
-struct SapiSpeaker {
-    speaker: usize, // raw COM pointer stored as usize for Send safety
-}
-
-impl SapiSpeaker {
-    /// Initialize COM apartment and attempt to create the SpVoice object.
-    fn new() -> Result<Self, String> {
-        unsafe {
-            // COM must be initialized per-thread before any SAPI calls.
-            let hr = CoInitializeEx(std::ptr::null(), COINIT_APARTMENTTHREADED as u32);
-            if hr != 0 && (hr as u32) != 0x80010106u32 { // S_FALSE = already initialized — ok
-                return Err(format!("CoInitializeEx failed: 0x{:X}", hr));
-            }
-
-            // CLSID for SpVoice — in production we call CoCreateInstance here.
-            let _clsid = "{96749377-3391-11D2-9EE3-00C04F797396}";
-            
-            // Stub: null pointer until CoCreateInstance is wired up.
-            let speaker: usize = std::ptr::null_mut::<std::ffi::c_void>() as usize;
-            
-            Ok(Self { speaker })
-        }
-    }
-
-    /// Speak the given text at the specified rate and volume.
-    #[allow(dead_code)]
-    fn speak(&self, _text: &str, _rate: i32, _volume: u8) -> Result<(), String> {
-        println!("[TTS Engine] Speaking");
-        Ok(())
-    }
-
-    /// Stop any ongoing speech.
-    #[allow(dead_code)]
-    fn stop(&self) {
-        println!("[TTS Engine] Stopping speech");
-    }
-}
-
-impl Drop for SapiSpeaker {
-    fn drop(&mut self) {
-        unsafe { CoUninitialize(); }
-    }
-}
+/// Lazy-initialized native SAPI engine.  Created on first call to `speak_text`.
+/// The engine owns a dedicated STA thread that holds the `ISpVoice` COM object;
+/// see `audio/audio_win.rs`.
+static SPEAKER: Mutex<Option<audio::audio_win::NativeAudioEngine>> = Mutex::new(None);
 
 // ─── Tauri Command Types ──────────────────────────────────────────────────────
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 struct VoiceInfo {
+    /// Stable SAPI token id (registry path) used to select this voice.
+    id: String,
+    /// Friendly display name shown in the dropdown.
     name: String,
-    language: String,
-    gender: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -371,15 +330,21 @@ struct DocumentState {
 // These functions are exposed to the frontend via Tauri's IPC bridge.
 // The frontend calls them through `invoke()` in JavaScript.
 
-/// Return a list of available voices (stubbed — query SAPI in production).
+/// Return the list of voices installed on this machine for the given engine tab.
+/// `engine` is one of `"sapi5"`, `"speech_platform"`, `"sapi4"`, `"ml"`; unknown or
+/// unavailable engines return an empty list.
 #[tauri::command]
-fn get_voices() -> Vec<VoiceInfo> {
-    vec![
-        VoiceInfo { name: "Zira".into(), language: "English (US)".into(), gender: "Female".into() },
-        VoiceInfo { name: "David".into(), language: "English (US)".into(), gender: "Male".into() },
-        VoiceInfo { name: "Hedda".into(), language: "German".into(),    gender: "Female".into() },
-        VoiceInfo { name: "Marie".into(), language: "French".into(),     gender: "Female".into() },
-    ]
+fn get_voices(engine: String) -> Result<Vec<VoiceInfo>, String> {
+    let mut guard = SPEAKER.lock().map_err(|e| e.to_string())?;
+    if guard.is_none() {
+        *guard = Some(audio::audio_win::NativeAudioEngine::new()?);
+    }
+    let speaker = guard.as_ref().unwrap();
+    Ok(speaker
+        .list_voices(&engine)
+        .into_iter()
+        .map(|v| VoiceInfo { id: v.id, name: v.name })
+        .collect())
 }
 
 /// Return current audio settings (defaults).
@@ -428,55 +393,68 @@ fn save_document(content: String, path: Option<String>) -> Result<(), String> {
 }
 
 /// Speak the given text through the TTS engine.  Initializes SAPI lazily.
+/// `voice` is a SAPI token id (from `get_voices`); empty means the default voice.
 #[tauri::command]
 fn speak_text(text: String, voice: String, rate: i32, pitch: i32, volume: u8) -> Result<(), String> {
-    let speaker = SPEAKER.lock().unwrap();
-    
-    if speaker.is_none() {
-        drop(speaker);
-        let mut s = SPEAKER.lock().unwrap();
-        *s = Some(SapiSpeaker::new()?);
-        let sp = s.as_ref().unwrap();
-        println!("[TTS Engine] Speaking: \"{}\" (voice={}, rate={}, pitch={}, volume={})", 
-                 text, voice, rate, pitch, volume);
-        sp.speak(&text, rate, volume)?;
-    } else {
-        let sp = speaker.as_ref().unwrap();
-        println!("[TTS Engine] Speaking: \"{}\" (voice={}, rate={}, pitch={}, volume={})", 
-                 text, voice, rate, pitch, volume);
-        sp.speak(&text, rate, volume)?;
+    let mut guard = SPEAKER.lock().map_err(|e| e.to_string())?;
+    if guard.is_none() {
+        *guard = Some(audio::audio_win::NativeAudioEngine::new()?);
     }
-    Ok(())
+    let engine = guard.as_ref().unwrap();
+    println!("[TTS Engine] Speaking: \"{}\" (voice={}, rate={}, pitch={}, volume={})",
+             text, voice, rate, pitch, volume);
+    let voice_id = if voice.trim().is_empty() { None } else { Some(voice) };
+    engine.speak(&text, rate, pitch, volume, voice_id)
 }
 
 /// Stop any ongoing speech.
 #[tauri::command]
 fn stop_speaking() -> Result<(), String> {
-    let speaker = SPEAKER.lock().unwrap();
-    if let Some(sp) = speaker.as_ref() { sp.stop(); }
+    let guard = SPEAKER.lock().map_err(|e| e.to_string())?;
+    if let Some(engine) = guard.as_ref() { engine.stop(); }
     Ok(())
 }
 
-/// Pause ongoing speech (stub — call ISpVoice::Pause in production).
+/// Pause ongoing speech.
 #[tauri::command]
 fn pause_speaking() -> Result<(), String> {
-    println!("[TTS Engine] Pausing speech");
+    let guard = SPEAKER.lock().map_err(|e| e.to_string())?;
+    if let Some(engine) = guard.as_ref() { engine.pause(); }
     Ok(())
+}
+
+/// Resume previously paused speech.
+#[tauri::command]
+fn resume_speaking() -> Result<(), String> {
+    let guard = SPEAKER.lock().map_err(|e| e.to_string())?;
+    if let Some(engine) = guard.as_ref() { engine.resume(); }
+    Ok(())
+}
+
+/// Open the Windows "Speech / voices" settings page so the user can install more
+/// voices.  Silent installation isn't possible — voice packages require the
+/// Settings/Store flow — so we surface the official page instead.
+#[tauri::command]
+fn open_voice_settings() -> Result<(), String> {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    std::process::Command::new("cmd")
+        .args(["/C", "start", "", "ms-settings:speech"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| format!("Failed to open voice settings: {e}"))
 }
 
 // ─── Main Entry Point ─────────────────────────────────────────────────────────
-/// Application entry point.  Initializes COM, creates the system tray icon,
-/// then hands control to Tauri for the WebView2 UI window.
+/// Application entry point.  Initializes COM, then hands control to Tauri for the
+/// WebView2 UI window.  The system tray icon is created in `setup` (below), where
+/// the `AppHandle` is available for deployment-safe path resolution (ADR-003).
 fn main() {
     // 1. Initialize COM apartment (required before any SAPI calls).
     unsafe { CoInitializeEx(std::ptr::null(), COINIT_APARTMENTTHREADED as u32); }
 
-    // 2. Create the system tray icon with right-click context menu.
-    if let Err(e) = create_tray_icon() {
-        eprintln!("[Tray] Failed to create: {}", e);
-    }
-
-    // 3. Boot Tauri — manages the Balabolka-style UI window.
+    // 2. Boot Tauri — manages the Balabolka-style UI window.
     //    Intercept window close to minimize to tray (like the original native app).
     //    Only "Quit" from tray menu should exit the process.
     tauri::Builder::default()
@@ -490,6 +468,8 @@ fn main() {
             speak_text,
             stop_speaking,
             pause_speaking,
+            resume_speaking,
+            open_voice_settings,
         ])
         .setup(|app| {
             // Store the main window handle for tray double-click toggle.
@@ -497,6 +477,11 @@ fn main() {
             *MAIN_WINDOW.lock().unwrap() = Some(win);
             // Store the AppHandle for tray event emission (Settings, About).
             *APP_HANDLE.lock().unwrap() = Some(app.handle().clone());
+            // Create the system tray icon now that path resolution is available.
+            let icon = paths::tray_icon_path(app.handle());
+            if let Err(e) = create_tray_icon(&icon) {
+                eprintln!("[Tray] Failed to create: {}", e);
+            }
             Ok(())
         })
         .on_window_event(|_window, event| {

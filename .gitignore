@@ -3,3 +3,4 @@
 gemini_poc/*.zip
 gemini_poc/**/*.zip
 gemini_poc/src-tauri/target/debug/
+.download/
