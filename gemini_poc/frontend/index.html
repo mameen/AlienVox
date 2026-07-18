@@ -362,7 +362,7 @@
         <div class="engine-tab disabled" data-engine="sapi4" title="Legacy SAPI 4 — unavailable on modern Windows">SAPI 4</div>
         <div class="engine-tab active" data-engine="sapi5">SAPI 5</div>
         <div class="engine-tab" data-engine="speech_platform">Microsoft Speech Platform</div>
-        <div class="engine-tab disabled" data-engine="ml" title="Neural ML/AI voices — coming soon">ML / AI</div>
+        <div class="engine-tab" data-engine="ml" title="Local neural ML/AI voices">ML / AI</div>
     </div>
 
     <!-- Voice Controls -->
@@ -450,14 +450,14 @@
         }
 
         // Tab switching — each tab selects an engine backend that filters the
-        // voice list.  Disabled tabs (SAPI 4, ML/AI) are inert placeholders.
+        // voice list.  Disabled tabs (SAPI 4) are inert placeholders.
         const tabs = document.querySelectorAll('.engine-tab');
         tabs.forEach(tab => {
             tab.addEventListener('click', () => {
                 if (tab.classList.contains('disabled')) return;
                 tabs.forEach(t => t.classList.remove('active'));
                 tab.classList.add('active');
-                loadVoices();
+                loadVoices({ force: false });
             });
         });
 
@@ -496,12 +496,14 @@
                 await invoke(cmd, args);
             } catch (err) {
                 console.error(`${cmd} failed:`, err);
+                alert(String(err));
             }
         }
 
         document.getElementById('btn-play').addEventListener('click', () => {
             call('speak_text', {
                 text: textEditor.value,
+                engine: activeEngine(),
                 voice: voiceSelect.value,
                 rate: parseInt(rateSlider.value, 10),
                 pitch: parseInt(pitchSlider.value, 10),
@@ -523,16 +525,23 @@
 
         // Populate the dropdown from the voices installed for the active engine.
         // Each option's value is the stable token id passed back to speak_text.
-        async function loadVoices() {
+        const voiceCache = new Map();
+
+        async function loadVoices({ force = false } = {}) {
             if (!invoke) return;
             const engine = activeEngine();
             try {
-                const voices = await invoke('get_voices', { engine });
+                const voices = !force && voiceCache.has(engine)
+                    ? voiceCache.get(engine)
+                    : await invoke('get_voices', { engine });
+                voiceCache.set(engine, voices);
                 voiceSelect.innerHTML = '';
                 if (!voices || voices.length === 0) {
                     const opt = document.createElement('option');
                     opt.value = '';
-                    opt.textContent = engine === 'speech_platform'
+                    opt.textContent = engine === 'ml'
+                        ? 'No local ML/AI voices configured'
+                        : engine === 'speech_platform'
                         ? 'No Speech Platform voices installed'
                         : 'No voices installed — click Install';
                     voiceSelect.appendChild(opt);
@@ -549,10 +558,6 @@
             }
         }
         loadVoices();
-
-        // Refresh the list when returning to the window (e.g. after installing a
-        // voice via the Install button, which opens Windows Settings).
-        window.addEventListener('focus', loadVoices);
     </script>
 </body>
 </html>

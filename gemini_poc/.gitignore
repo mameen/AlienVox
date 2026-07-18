@@ -5,6 +5,9 @@
 .venv/
 venv/
 
+# Local neural model cache and drop-in models
+.models/
+
 # Local Cargo wrapper for Windows bootstrap
 cargo.cmd
 

@@ -54,6 +54,10 @@ mod capture {
 // Unified, deployment-safe path resolution (ADR-003).  Cross-platform.
 mod paths;
 
+// Multi-stack TTS engine abstraction (ADR-004).  Cross-platform.
+mod engines;
+use engines::TtsEngine;
+
 // ─── System Tray ──────────────────────────────────────────────────────────────
 // A hidden Win32 window owns the tray icon.  The UI/UX spec requires a
 // right-click context menu with: Speak Selection, Stop, Voice ▸, Settings…,
@@ -300,6 +304,7 @@ fn to_wstring(value: &str) -> Vec<u16> {
 /// The engine owns a dedicated STA thread that holds the `ISpVoice` COM object;
 /// see `audio/audio_win.rs`.
 static SPEAKER: Mutex<Option<audio::audio_win::NativeAudioEngine>> = Mutex::new(None);
+static ML_SPEAKER: Mutex<Option<engines::ml::MlEngine>> = Mutex::new(None);
 
 // ─── Tauri Command Types ──────────────────────────────────────────────────────
 
@@ -334,7 +339,24 @@ struct DocumentState {
 /// `engine` is one of `"sapi5"`, `"speech_platform"`, `"sapi4"`, `"ml"`; unknown or
 /// unavailable engines return an empty list.
 #[tauri::command]
-fn get_voices(engine: String) -> Result<Vec<VoiceInfo>, String> {
+fn get_voices(app: tauri::AppHandle, engine: String) -> Result<Vec<VoiceInfo>, String> {
+    if engine == "ml" {
+        let mut guard = ML_SPEAKER.lock().map_err(|e| e.to_string())?;
+        if guard.is_none() {
+            *guard = Some(engines::ml::MlEngine::new(paths::model_dirs(&app, "ml")));
+        }
+        let ml = guard.as_ref().unwrap();
+        return ml
+            .list_voices()
+            .map(|voices| {
+                voices
+                    .into_iter()
+                    .map(|v| VoiceInfo { id: v.id, name: v.name })
+                    .collect()
+            })
+            .map_err(|e| e.to_string());
+    }
+
     let mut guard = SPEAKER.lock().map_err(|e| e.to_string())?;
     if guard.is_none() {
         *guard = Some(audio::audio_win::NativeAudioEngine::new()?);
@@ -395,7 +417,19 @@ fn save_document(content: String, path: Option<String>) -> Result<(), String> {
 /// Speak the given text through the TTS engine.  Initializes SAPI lazily.
 /// `voice` is a SAPI token id (from `get_voices`); empty means the default voice.
 #[tauri::command]
-fn speak_text(text: String, voice: String, rate: i32, pitch: i32, volume: u8) -> Result<(), String> {
+fn speak_text(app: tauri::AppHandle, text: String, engine: String, voice: String, rate: i32, pitch: i32, volume: u8) -> Result<(), String> {
+    if engine == "ml" {
+        let mut guard = ML_SPEAKER.lock().map_err(|e| e.to_string())?;
+        if guard.is_none() {
+            *guard = Some(engines::ml::MlEngine::new(paths::model_dirs(&app, "ml")));
+        }
+        let ml = guard.as_ref().unwrap();
+        let params = engines::SpeakParams { rate, pitch, volume };
+        println!("[ML/AI TTS] Speaking: \"{}\" (voice={}, rate={}, pitch={}, volume={})",
+                 text, voice, rate, pitch, volume);
+        return ml.speak(&text, &voice, &params).map_err(|e| e.to_string());
+    }
+
     let mut guard = SPEAKER.lock().map_err(|e| e.to_string())?;
     if guard.is_none() {
         *guard = Some(audio::audio_win::NativeAudioEngine::new()?);
@@ -412,6 +446,8 @@ fn speak_text(text: String, voice: String, rate: i32, pitch: i32, volume: u8) ->
 fn stop_speaking() -> Result<(), String> {
     let guard = SPEAKER.lock().map_err(|e| e.to_string())?;
     if let Some(engine) = guard.as_ref() { engine.stop(); }
+    let guard = ML_SPEAKER.lock().map_err(|e| e.to_string())?;
+    if let Some(engine) = guard.as_ref() { engine.stop().map_err(|e| e.to_string())?; }
     Ok(())
 }
 
@@ -420,6 +456,8 @@ fn stop_speaking() -> Result<(), String> {
 fn pause_speaking() -> Result<(), String> {
     let guard = SPEAKER.lock().map_err(|e| e.to_string())?;
     if let Some(engine) = guard.as_ref() { engine.pause(); }
+    let guard = ML_SPEAKER.lock().map_err(|e| e.to_string())?;
+    if let Some(engine) = guard.as_ref() { engine.pause().map_err(|e| e.to_string())?; }
     Ok(())
 }
 
@@ -428,6 +466,8 @@ fn pause_speaking() -> Result<(), String> {
 fn resume_speaking() -> Result<(), String> {
     let guard = SPEAKER.lock().map_err(|e| e.to_string())?;
     if let Some(engine) = guard.as_ref() { engine.resume(); }
+    let guard = ML_SPEAKER.lock().map_err(|e| e.to_string())?;
+    if let Some(engine) = guard.as_ref() { engine.resume().map_err(|e| e.to_string())?; }
     Ok(())
 }
 
