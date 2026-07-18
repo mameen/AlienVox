@@ -29,11 +29,20 @@ pub struct VoiceEntry {
 
 /// Commands sent to the dedicated SAPI thread.
 enum Cmd {
-    Speak { text: String, rate: i32, pitch: i32, volume: u8, voice_id: Option<String> },
+    Speak {
+        text: String,
+        rate: i32,
+        pitch: i32,
+        volume: u8,
+        voice_id: Option<String>,
+    },
     Pause,
     Resume,
     Stop,
-    ListVoices { engine: String, reply: Sender<Vec<VoiceEntry>> },
+    ListVoices {
+        engine: String,
+        reply: Sender<Vec<VoiceEntry>>,
+    },
 }
 
 #[allow(dead_code)]
@@ -62,12 +71,20 @@ impl NativeAudioEngine {
 
             while let Ok(cmd) = rx.recv() {
                 match cmd {
-                    Cmd::Speak { text, rate, pitch, volume, voice_id } => {
+                    Cmd::Speak {
+                        text,
+                        rate,
+                        pitch,
+                        volume,
+                        voice_id,
+                    } => {
                         // Select a specific installed voice if one was requested;
                         // otherwise fall through to the current (default) voice.
                         if let Some(id) = voice_id.as_deref() {
                             match create_token_from_id(id) {
-                                Ok(token) => { let _ = voice.SetVoice(&token); }
+                                Ok(token) => {
+                                    let _ = voice.SetVoice(&token);
+                                }
                                 Err(e) => eprintln!("[Windows TTS] SetVoice failed for {id}: {e}"),
                             }
                         }
@@ -82,8 +99,7 @@ impl NativeAudioEngine {
                             pitch.clamp(-10, 10),
                             escape_xml(&text)
                         );
-                        let wide: Vec<u16> =
-                            xml.encode_utf16().chain(std::iter::once(0)).collect();
+                        let wide: Vec<u16> = xml.encode_utf16().chain(std::iter::once(0)).collect();
                         let flags = (SPF_ASYNC.0 | SPF_PURGEBEFORESPEAK.0 | SPF_IS_XML.0) as u32;
                         if let Err(e) = voice.Speak(PCWSTR(wide.as_ptr()), flags, None) {
                             eprintln!("[Windows TTS] Speak failed: {e}");
@@ -128,7 +144,13 @@ impl NativeAudioEngine {
         voice_id: Option<String>,
     ) -> Result<(), String> {
         self.tx
-            .send(Cmd::Speak { text: text.to_string(), rate, pitch, volume, voice_id })
+            .send(Cmd::Speak {
+                text: text.to_string(),
+                rate,
+                pitch,
+                volume,
+                voice_id,
+            })
             .map_err(|e| format!("TTS thread unavailable: {e}"))
     }
 
@@ -138,7 +160,10 @@ impl NativeAudioEngine {
         let (reply, rx) = channel();
         if self
             .tx
-            .send(Cmd::ListVoices { engine: engine.to_string(), reply })
+            .send(Cmd::ListVoices {
+                engine: engine.to_string(),
+                reply,
+            })
             .is_err()
         {
             return Vec::new();

@@ -6,13 +6,24 @@
 
 ## Summary
 
-AlienVox now has a compiling Rust/Tauri app with Windows SAPI speech and a dev-testable Kokoro ML/AI bridge. The remaining work is to turn the current proof-of-concept into a reliable local-first TTS stack.
+AlienVox now has a compiling Rust/Tauri app with Windows SAPI speech, a dev-testable warm Kokoro ML/AI bridge, and a local Piper fallback. The remaining work is to turn the current proof-of-concept into a reliable local-first TTS stack.
 
 ## Current State
 
 - Windows SAPI backend compiles and supports speak, stop, pause, resume, voice enumeration, rate, pitch, and volume.
 - The ML/AI tab is enabled in the frontend.
-- The ML/AI path routes to a local Kokoro dev runner through `gemini_poc/.venv`.
+- The ML/AI path routes to local Python dev runners through `gemini_poc/.venv`.
+- ML/AI playback exposes a configurable hot-model TTL, defaulting to 30 seconds.
+- Kokoro direct playback currently uses that TTL through its persistent warm worker.
+- Piper `en_US-lessac-medium` is installed under `gemini_poc/.models/ml/piper` as a fast offline fallback.
+- The UI lists Kokoro, Piper, VibeVoice-Realtime-0.5B, ZONOS2, and Dia; only installed local models are playable.
+- Engine, model, voice, rate, pitch, and volume choices persist in local storage.
+- The temporary menu is hidden; unimplemented toolbar actions are disabled; Save is exposed as Export WAV.
+- ML model install actions are routed separately from Windows voice installation.
+- Installers are wired for Kokoro, Piper, VibeVoice-Realtime-0.5B, ZONOS2, and Dia, writing local assets under the resolved `.models/ml` root.
+- Voice/model installs use an in-app confirmation dialog; ML installs run as cooperative jobs with polling progress and cancellation.
+- New/Open/Save are document actions for text-oriented source files, while Convert to Audio exports WAV.
+- Tab panes reclaim space from irrelevant stack-specific controls; for example, native SAPI tabs hide the ML model selector instead of disabling it.
 - Kokoro dependencies and model cache are installed locally for the current dev environment.
 - Model cache is ignored under `gemini_poc/.models/`.
 - Cloud TTS is documented as optional/demo only and not part of the core path.
@@ -32,26 +43,31 @@ AlienVox now has a compiling Rust/Tauri app with Windows SAPI speech and a dev-t
    - `Speak Selection` should capture the active selection and speak it.
    - `Stop` should stop both native and ML playback.
 
-4. Add durable engine selection.
-   - Persist selected engine, voice, rate, pitch, and volume.
+4. Improve durable engine selection.
+   - Persist settings outside browser local storage if/when the UI becomes production settings.
    - Keep native OS TTS as the fallback if ML/AI is unavailable.
 
 5. Improve ML/AI runtime status reporting.
    - Show whether Kokoro dependencies are installed.
-   - Show whether model files/cache are available.
+   - Show whether model files/cache are available for each model.
    - Provide a local setup/download action or clear manual setup path.
 
 6. Add local benchmark checks.
    - Measure cold start.
    - Measure time to first audio.
    - Measure memory use.
-   - Compare SAPI, Kokoro, and VibeVoice-Realtime-0.5B before changing defaults.
+   - Compare SAPI, Kokoro, Piper, and VibeVoice-Realtime-0.5B before changing defaults.
 
 7. Add focused tests or smoke checks.
    - Rust compile check.
    - Voice enumeration smoke check.
    - ML/AI runner dependency check.
-   - Direct Kokoro synthesis smoke check in the dev environment.
+   - Direct Kokoro and Piper synthesis smoke checks in the dev environment.
+
+8. Implement the next SOTA candidates from the docs.
+   - Benchmark VibeVoice-Realtime-0.5B next because it is the most relevant open local streaming candidate.
+   - Keep ZONOS2 and Dia listed as experimental until local setup, hardware requirements, and quality/performance are verified.
+   - Add playback/export runtime adapters after model installation succeeds; installers only fetch local model assets.
 
 ## Resolved Documentation Cleanup
 

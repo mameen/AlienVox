@@ -29,13 +29,17 @@ This skill codifies the visual language, layout hierarchy, and component vocabul
 - **Window title:** `AlienVox - [Document1]` with standard OS window controls (Minimize, Maximize, Close) top-right.
 - **Classic text menu bar:** `File, Edit, Text, Speech, Voice, Options, View, Tools, Bookmark, Help`.
 - **Action toolbar icons:** a row of square, flat 2D utility icons:
-  - **File operations:** New File, Open, Save, Split Text, Convert to Audio File.
+  - **File operations:** New File, Open, and Save are document actions for text-oriented source files (`.txt`, `.rtf`, `.docx`, `.pdf`) and must not be reused for audio export.
+  - **Audio export:** Convert to Audio File exports synthesized speech to WAV.
   - **Playback engine controls:** green Play triangle, gray Pause parallel block, red Stop square.
   - **Text utilities:** Find text, Spellcheck, Voice adjustment parameters.
 
 ### 2.2 Engine Tabs & Voice Controls (Middle Layer)
 - **Tabbed framework:** block tabs to switch speech platforms — `SAPI 4`, `SAPI 5`, `Microsoft Speech Platform` (and AlienVox cloud/ML engine tabs).
+- **Stack-specific panes:** each engine tab may fork the middle-layer controls when the stack needs different settings. Controls in the active pane must be relevant to the selected tab; stack-specific controls from inactive stacks are hidden and their space is reclaimed, not merely disabled. Keep truly shared controls such as Rate/Pitch/Volume and playback state in stable positions, but do not force every stack into the exact same fields. SAPI can stay voice-centric; ML/AI can be model-centric; future cloud/library stacks can expose their own bounded options.
 - **Voice dropdown:** full-width horizontal dropdown below the tabs to pick the installed voice font/model, flanked by `About` and `Select Voice` buttons.
+- **ML/AI model controls:** ML/AI tabs should expose model selection separately from voice selection. Expose a compact numeric **TTL seconds** input for the ML/AI stack near the model/voice controls, because any local ML model may eventually be kept hot in memory. The value means "keep the selected ML model resident after playback for N seconds"; `0` means unload as soon as practical, and bounded inputs should prevent runaway residency.
+- **Install flows:** voice/model installation must use an in-app confirmation dialog before launching work. Native voice installs may open the OS voice settings after confirmation. ML/AI model installs stay inside the AlienVox flow, name the selected model, use a cooperative job loop that keeps the UI responsive, show progress while assets are downloaded or prepared, and provide cancellation for long-running installs.
 - **Audio modulation sliders:** a grid of three horizontal sliders with numerical tick marks:
   - **Rate:** default-centered at `0` (range −10 to 10).
   - **Pitch:** default-centered at `0` (range −10 to 10).

@@ -28,7 +28,11 @@ fn dev_models_root() -> Option<PathBuf> {
     #[cfg(debug_assertions)]
     {
         // CARGO_MANIFEST_DIR = <repo>/gemini_poc/src-tauri → parent is gemini_poc.
-        Some(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join(".models"))
+        Some(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("..")
+                .join(".models"),
+        )
     }
     #[cfg(not(debug_assertions))]
     {
@@ -71,7 +75,9 @@ pub fn tray_icon_path(app: &AppHandle) -> PathBuf {
     // 2. Dev: project src-tauri/icons/icon.ico.
     #[cfg(debug_assertions)]
     {
-        let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("icons").join("icon.ico");
+        let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("icons")
+            .join("icon.ico");
         if dev.exists() {
             return dev;
         }

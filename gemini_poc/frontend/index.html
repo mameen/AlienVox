@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Balabolka - [Document1]</title>
+    <title>AlienVox - [Document1]</title>
     <style>
         * {
             margin: 0;
@@ -22,7 +22,7 @@
 
         /* Menu Bar */
         .menu-bar {
-            display: flex;
+            display: none;
             background-color: #ffffff;
             border-bottom: 1px solid #d0d0d0;
             padding: 2px 0;
@@ -78,6 +78,19 @@
         .toolbar-btn:hover {
             border-color: #a0a0a0;
             background-color: #e8e8e8;
+        }
+
+        .toolbar-btn:disabled,
+        .voice-btn:disabled {
+            color: #9a9a9a;
+            cursor: default;
+            opacity: 0.55;
+        }
+
+        .toolbar-btn:disabled:hover,
+        .voice-btn:disabled:hover {
+            border-color: transparent;
+            background-color: transparent;
         }
 
         .toolbar-btn.play {
@@ -141,6 +154,53 @@
             background-color: #ffffff;
             font-size: 12px;
             height: 28px;
+        }
+
+        .model-select {
+            flex: 0 0 250px;
+            padding: 4px 8px;
+            border: 1px solid #c0c0c0;
+            background-color: #ffffff;
+            font-size: 12px;
+            height: 28px;
+        }
+
+        .engine-status {
+            min-width: 150px;
+            font-size: 11px;
+            color: #555;
+            white-space: nowrap;
+        }
+
+        .stack-option {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            color: #555;
+            white-space: nowrap;
+        }
+
+        .stack-option input {
+            width: 58px;
+            height: 28px;
+            padding: 4px 6px;
+            border: 1px solid #c0c0c0;
+            background-color: #ffffff;
+            font-size: 12px;
+        }
+
+        .stack-option input:disabled {
+            color: #9a9a9a;
+            background-color: #eeeeee;
+        }
+
+        .stack-option.hidden {
+            display: none;
+        }
+
+        .tab-only.hidden {
+            display: none;
         }
 
         .voice-btn {
@@ -308,12 +368,297 @@
             background-color: #e81123;
             color: white;
         }
+
+        .message-overlay {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.18);
+            z-index: 10;
+        }
+
+        .message-overlay.visible {
+            display: flex;
+        }
+
+        .message-box {
+            width: min(460px, calc(100vw - 32px));
+            border: 1px solid #7a7a7a;
+            background: #ffffff;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+        }
+
+        .message-title {
+            padding: 6px 8px;
+            background: #f0f0f0;
+            border-bottom: 1px solid #d0d0d0;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .message-body {
+            padding: 14px 12px;
+            font-size: 12px;
+            line-height: 1.4;
+            color: #222;
+            white-space: pre-wrap;
+        }
+
+        .message-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            padding: 8px;
+            border-top: 1px solid #e0e0e0;
+            background: #f7f7f7;
+        }
+
+        .install-meta {
+            display: grid;
+            grid-template-columns: 90px 1fr;
+            gap: 6px 10px;
+            margin-top: 10px;
+            font-size: 12px;
+        }
+
+        .install-meta dt {
+            color: #555;
+        }
+
+        .install-meta dd {
+            color: #222;
+            min-width: 0;
+        }
+
+        .progress-track {
+            height: 12px;
+            margin-top: 14px;
+            border: 1px solid #a0a0a0;
+            background: #ffffff;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            width: 0%;
+            height: 100%;
+            background: #0078d4;
+            transition: width 180ms linear;
+        }
+
+        /* ─── About Dialog ───────────────────────────────────────────── */
+        .about-overlay {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.25);
+            z-index: 20;
+        }
+
+        .about-overlay.visible {
+            display: flex;
+        }
+
+        .about-box {
+            width: min(640px, calc(100vw - 48px));
+            max-height: calc(100vh - 64px);
+            border: 1px solid #7a7a7a;
+            background: #ffffff;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
+            display: flex;
+            flex-direction: column;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .about-title-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: #f0f0f0;
+            border-bottom: 1px solid #d0d0d0;
+            font-size: 12px;
+            font-weight: 600;
+            user-select: none;
+        }
+
+        .about-close-btn {
+            width: 24px;
+            height: 20px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #555;
+        }
+
+        .about-close-btn:hover {
+            background-color: #e0e0e0;
+            color: #222;
+        }
+
+        .about-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 20px 24px 12px;
+            border-bottom: 1px solid #e8e8e8;
+        }
+
+        .about-logo {
+            width: 72px;
+            height: 72px;
+            flex-shrink: 0;
+            border-radius: 8px;
+            object-fit: contain;
+            background: #f5f5f5;
+            padding: 4px;
+        }
+
+        .about-meta {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .about-meta h1 {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin-bottom: 2px;
+        }
+
+        .about-meta .version {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        .about-meta .tagline {
+            font-size: 13px;
+            color: #0078d4;
+            line-height: 1.4;
+        }
+
+        .about-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 24px 20px;
+            font-size: 13px;
+            line-height: 1.55;
+            color: #333;
+        }
+
+        .about-scroll::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .about-scroll::-webkit-scrollbar-track {
+            background: #f0f0f0;
+        }
+
+        .about-scroll::-webkit-scrollbar-thumb {
+            background: #c0c0c0;
+            border-radius: 4px;
+        }
+
+        .about-scroll::-webkit-scrollbar-thumb:hover {
+            background: #a0a0a0;
+        }
+
+        .about-section {
+            margin-bottom: 18px;
+        }
+
+        .about-section h2 {
+            font-size: 14px;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin-bottom: 6px;
+            padding-bottom: 3px;
+            border-bottom: 1px solid #e8e8e8;
+        }
+
+        .about-section p {
+            margin-bottom: 6px;
+        }
+
+        .about-list {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 8px 0;
+        }
+
+        .about-list li {
+            padding: 4px 0 4px 18px;
+            position: relative;
+        }
+
+        .about-list li::before {
+            content: '';
+            position: absolute;
+            left: 2px;
+            top: 9px;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #0078d4;
+        }
+
+        .about-list li strong {
+            color: #1a1a1a;
+        }
+
+        .about-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 24px;
+            border-top: 1px solid #e8e8e8;
+            background: #fafafa;
+            font-size: 11px;
+            color: #888;
+        }
+
+        .about-footer a {
+            color: #0078d4;
+            text-decoration: none;
+        }
+
+        .about-footer a:hover {
+            text-decoration: underline;
+        }
+
+        .about-close-row {
+            display: flex;
+            justify-content: flex-end;
+            padding: 0 24px 16px;
+        }
+
+        .about-close-row button {
+            min-width: 72px;
+            padding: 5px 18px;
+            border: 1px solid #c0c0c0;
+            background: #ffffff;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .about-close-row button:hover {
+            background-color: #e8e8e8;
+        }
     </style>
 </head>
 <body>
     <!-- Title Bar -->
     <div class="title-bar">
-        <span class="title-text">Balabolka - [Document1]</span>
+        <span class="title-text">AlienVox - [Document1]</span>
         <div class="window-controls">
             <button class="window-btn">─</button>
             <button class="window-btn">□</button>
@@ -338,13 +683,13 @@
     <!-- Toolbar -->
     <div class="toolbar">
         <div class="toolbar-group">
-            <button class="toolbar-btn" title="New File">📄</button>
-            <button class="toolbar-btn" title="Open">📂</button>
-            <button class="toolbar-btn" title="Save">💾</button>
+            <button class="toolbar-btn" id="btn-new-document" title="New text document">📄</button>
+            <button class="toolbar-btn" id="btn-open-document" title="Open text / RTF / DOCX / PDF">📂</button>
+            <button class="toolbar-btn" id="btn-save-document" title="Save text document">💾</button>
         </div>
         <div class="toolbar-group">
-            <button class="toolbar-btn" title="Split Text">✂️</button>
-            <button class="toolbar-btn" title="Convert to Audio">🎵</button>
+            <button class="toolbar-btn" title="Split Text (not implemented)" disabled>✂️</button>
+            <button class="toolbar-btn" id="btn-convert-audio" title="Convert to Audio WAV">🎵</button>
         </div>
         <div class="toolbar-group">
             <button class="toolbar-btn play" id="btn-play" title="Play">▶</button>
@@ -367,10 +712,19 @@
 
     <!-- Voice Controls -->
     <div class="voice-controls">
+        <select class="model-select tab-only" id="model-select" title="Local ML/AI model">
+            <option value="kokoro">Kokoro-82M</option>
+        </select>
         <select class="voice-select" id="voice-select">
             <option value="">Loading voices…</option>
         </select>
-        <button class="voice-btn" type="button">About</button>
+        <label class="stack-option" id="ttl-option" title="How long to keep the current local model hot in memory after playback">
+            TTL
+            <input id="ttl-input" type="number" min="0" max="300" step="5" value="30">
+            sec
+        </label>
+        <span class="engine-status" id="engine-status">Ready</span>
+        <button class="voice-btn" type="button" title="Voice details are not implemented yet" disabled>About</button>
         <button class="voice-btn" id="btn-install" type="button" title="Install more voices">Install</button>
     </div>
 
@@ -402,6 +756,7 @@
     <!-- Main Workspace -->
     <div class="workspace">
         <textarea class="text-editor" placeholder="Enter or paste text here..." spellcheck="false"></textarea>
+        <input id="open-file-input" type="file" accept=".txt,.text,.rtf,.docx,.pdf,text/plain,application/rtf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden>
     </div>
 
     <!-- Status Bar -->
@@ -412,6 +767,132 @@
         <div class="status-info">
             <span id="cursor-position">Line: 1, Column: 1</span>
             <span>UTF-8</span>
+        </div>
+    </div>
+
+    <div class="message-overlay" id="message-overlay" role="dialog" aria-modal="true" aria-labelledby="message-title">
+        <div class="message-box">
+            <div class="message-title" id="message-title">AlienVox</div>
+            <div class="message-body" id="message-body"></div>
+            <div class="message-actions">
+                <button class="voice-btn" id="message-ok" type="button">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="message-overlay" id="install-overlay" role="dialog" aria-modal="true" aria-labelledby="install-title">
+        <div class="message-box">
+            <div class="message-title" id="install-title">Install</div>
+            <div class="message-body">
+                <div id="install-body"></div>
+                <dl class="install-meta">
+                    <dt>Target</dt>
+                    <dd id="install-target"></dd>
+                    <dt>Type</dt>
+                    <dd id="install-type"></dd>
+                </dl>
+                <div class="progress-track" id="install-progress">
+                    <div class="progress-bar"></div>
+                </div>
+            </div>
+            <div class="message-actions">
+                <button class="voice-btn" id="install-cancel" type="button">Cancel</button>
+                <button class="voice-btn" id="install-start" type="button">Install</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── About Dialog ─────────────────────────────────────────────── -->
+    <div class="about-overlay" id="about-overlay" role="dialog" aria-modal="true" aria-labelledby="about-title">
+        <div class="about-box">
+            <div class="about-title-bar">
+                <span id="about-title">About AlienVox</span>
+                <button class="about-close-btn" id="about-close-x" title="Close">×</button>
+            </div>
+            <div class="about-header">
+                <img class="about-logo" src="./logo.png" alt="AlienVox Logo">
+                <div class="about-meta">
+                    <h1>AlienVox</h1>
+                    <div class="version">v0.1.0 — Proof of Concept</div>
+                    <div class="tagline">Lightweight tray-first "Speak Selection" utility for Windows &amp; macOS.</div>
+                </div>
+            </div>
+            <div class="about-scroll" id="about-scroll">
+                <div class="about-section">
+                    <h2>What is AlienVox?</h2>
+                    <p>AlienVox fills a gap that has existed for decades: Windows still lacks a simple, universal "Speak Selection" feature like macOS's <code>Option + Esc</code>. Highlight any text and hear it spoken instantly — no extra paragraphs, no UI wrappers, no heavy screen readers.</p>
+                    <p>This prototype is the first step toward that experience: a lightweight, tray-first desktop app with local TTS engines and a clean path to neural voices.</p>
+                </div>
+
+                <div class="about-section">
+                    <h2>Tech Stack</h2>
+                    <ul class="about-list">
+                        <li><strong>Language:</strong> Rust (core native app)</li>
+                        <li><strong>Framework:</strong> Tauri 2.x — WebView2 on Windows, WRY cross-platform runtime</li>
+                        <li><strong>System Tray:</strong> Win32 Shell_NotifyIconW (Windows), TAO system-tray (macOS)</li>
+                        <li><strong>Frontend:</strong> Vanilla HTML / CSS / JS — no framework, classic Win32/WPF aesthetic</li>
+                        <li><strong>Build:</strong> Cargo + Tauri CLI; Python only for dev tooling (setup.py, run.py)</li>
+                    </ul>
+                </div>
+
+                <div class="about-section">
+                    <h2>TTS Engines &amp; Models</h2>
+                    <ul class="about-list">
+                        <li><strong>Kokoro-82M</strong> — Primary local neural TTS target. Open weights, Apache 2.0, ~82 M parameters.</li>
+                        <li><strong>Native OS TTS</strong> — Windows SAPI 5 / WinRT SpeechSynthesis; macOS AVSpeechSynthesizer. Always available as the reliability floor.</li>
+                        <li><strong>Piper</strong> — Small offline neural TTS (MIT). Archived upstream; treated as a stable fallback.</li>
+                        <li><strong>VibeVoice-Realtime-0.5B</strong> — Streaming local TTS experiment (MIT, research stage).</li>
+                        <li><strong>Zonos / ZONOS2</strong> — High-fidelity local experiment with voice cloning (Apache 2.0, GPU-oriented).</li>
+                        <li><strong>Dia</strong> — Expressive dialogue generation (Apache 2.0, GPU-oriented).</li>
+                    </ul>
+                </div>
+
+                <div class="about-section">
+                    <h2>Cloud APIs (Optional)</h2>
+                    <p>Cloud engines are not required for core functionality but may be used for experiments:</p>
+                    <ul class="about-list">
+                        <li><strong>Gemini TTS</strong> — Google's multimodal TTS API.</li>
+                        <li><strong>ElevenLabs</strong> — High-quality neural voices (paid / rate-limited).</li>
+                        <li><strong>OpenAI TTS</strong> — GPT-SoVITS-compatible API (paid).</li>
+                    </ul>
+                </div>
+
+                <div class="about-section">
+                    <h2>Architecture</h2>
+                    <p>AlienVox follows a bridge pattern with strict platform isolation:</p>
+                    <ul class="about-list">
+                        <li><strong>src/main.rs</strong> — Win32 tray icon, context menu, Tauri AppHandle bridge.</li>
+                        <li><strong>src/audio/</strong> — Platform-specific audio playback (Win32 / macOS).</li>
+                        <li><strong>src/capture/</strong> — Text selection capture via UI Automation (Windows) or AXUIElement (macOS).</li>
+                        <li><strong>src/engines/</strong> — TTS engine abstraction layer (ML models, native OS engines).</li>
+                        <li><strong>src/platform/</strong> — Platform-specific main entry points.</li>
+                        <li><strong>frontend/</strong> — WebView2 UI panel with classic Win32 aesthetic (toolbar, sliders, voice controls).</li>
+                    </ul>
+                </div>
+
+                <div class="about-section">
+                    <h2>Design Philosophy</h2>
+                    <ul class="about-list">
+                        <li><strong>Frictionless execution:</strong> Zero config for the primary path — global hotkey → speak selection.</li>
+                        <li><strong>Strict respect for selection:</strong> Only the highlighted text is spoken, nothing more.</li>
+                        <li><strong>Hybrid audio pipeline:</strong> Local zero-latency APIs first; clean path to cloud/AI voices when online.</li>
+                        <li><strong>Unobtrusive presence:</strong> Lives in the system tray — no active window during operation.</li>
+                        <li><strong>Privacy-first:</strong> Captured text is never logged, cached, or persisted locally.</li>
+                    </ul>
+                </div>
+
+                <div class="about-section">
+                    <h2>License</h2>
+                    <p>This project is open-source. See the <code>LICENSE</code> file in the repository root for details.</p>
+                </div>
+            </div>
+            <div class="about-footer">
+                <span>© 2026 AlienTech.Software</span>
+                <a href="https://github.com" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+            </div>
+            <div class="about-close-row">
+                <button id="about-close-btn" type="button">Close</button>
+            </div>
         </div>
     </div>
 
@@ -457,6 +938,8 @@
                 if (tab.classList.contains('disabled')) return;
                 tabs.forEach(t => t.classList.remove('active'));
                 tab.classList.add('active');
+                updateEngineUi();
+                writeSettings({ voice: '' });
                 loadVoices({ force: false });
             });
         });
@@ -483,9 +966,306 @@
         const invoke = window.__TAURI__?.core?.invoke;
 
         const voiceSelect = document.getElementById('voice-select');
+        const modelSelect = document.getElementById('model-select');
+        const openFileInput = document.getElementById('open-file-input');
+        const engineStatus = document.getElementById('engine-status');
         const rateSlider = document.getElementById('rate-slider');
         const pitchSlider = document.getElementById('pitch-slider');
         const volumeSlider = document.getElementById('volume-slider');
+        const ttlOption = document.getElementById('ttl-option');
+        const ttlInput = document.getElementById('ttl-input');
+        const installButton = document.getElementById('btn-install');
+        const messageOverlay = document.getElementById('message-overlay');
+        const messageTitle = document.getElementById('message-title');
+        const messageBody = document.getElementById('message-body');
+        const messageOk = document.getElementById('message-ok');
+        const installOverlay = document.getElementById('install-overlay');
+        const installTitle = document.getElementById('install-title');
+        const installBody = document.getElementById('install-body');
+        const installTarget = document.getElementById('install-target');
+        const installType = document.getElementById('install-type');
+        const installProgress = document.getElementById('install-progress');
+        const installProgressBar = installProgress.querySelector('.progress-bar');
+        const installCancel = document.getElementById('install-cancel');
+        const installStart = document.getElementById('install-start');
+        const settingsKey = 'alienvox.dev.settings.v1';
+        let pendingInstall = null;
+        let installPollTimer = null;
+
+        function showMessage(title, body) {
+            messageTitle.textContent = title || 'AlienVox';
+            messageBody.textContent = body || '';
+            messageOverlay.classList.add('visible');
+            messageOk.focus();
+        }
+
+        function closeMessage() {
+            messageOverlay.classList.remove('visible');
+        }
+
+        messageOk.addEventListener('click', closeMessage);
+        messageOverlay.addEventListener('click', (event) => {
+            if (event.target === messageOverlay) closeMessage();
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && messageOverlay.classList.contains('visible')) {
+                closeMessage();
+            }
+            if (event.key === 'Escape' && installOverlay.classList.contains('visible') && !pendingInstall?.running) {
+                closeInstallDialog();
+            }
+        });
+
+        // ─── About Dialog ───────────────────────────────────────────────
+        const aboutOverlay = document.getElementById('about-overlay');
+        const aboutScroll = document.getElementById('about-scroll');
+        const aboutCloseBtn = document.getElementById('about-close-btn');
+        const aboutCloseX = document.getElementById('about-close-x');
+
+        function openAboutDialog() {
+            aboutOverlay.classList.add('visible');
+            aboutScroll.scrollTop = 0;
+            aboutCloseBtn.focus();
+        }
+
+        function closeAboutDialog() {
+            aboutOverlay.classList.remove('visible');
+        }
+
+        aboutCloseBtn.addEventListener('click', closeAboutDialog);
+        aboutCloseX.addEventListener('click', closeAboutDialog);
+        aboutOverlay.addEventListener('click', (event) => {
+            if (event.target === aboutOverlay) closeAboutDialog();
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && aboutOverlay.classList.contains('visible')) {
+                closeAboutDialog();
+            }
+        });
+
+        // Listen for the "about-window-request" event emitted by the tray menu handler.
+        if (window.__TAURI__) {
+            console.log("[About] Tauri API detected, registering about-window-request listener...");
+            window.__TAURI__.core?.listen('about-window-request', () => {
+                console.log("[About] Received 'about-window-request' event — calling open_about_window");
+                invoke('open_about_window').then(() => {
+                    console.log("[About] open_about_window succeeded");
+                }).catch((err: any) => {
+                    console.error("[About] open_about_window failed:", err);
+                });
+            }).then(() => {
+                console.log("[About] Listener registered successfully");
+            }).catch((err: any) => {
+                console.error("[About] Failed to register listener:", err);
+            });
+        } else {
+            console.warn("[About] window.__TAURI__ not found — running outside Tauri?");
+        }
+
+        // Also expose a global function for manual testing from DevTools
+        (window as any).openAbout = openAboutDialog;
+
+        function selectedModelLabel() {
+            const selected = modelSelect.options[modelSelect.selectedIndex];
+            return selected ? selected.textContent.replace(/\s+-\s+.*$/, '') : modelSelect.value;
+        }
+
+        function closeInstallDialog() {
+            if (installPollTimer) {
+                clearInterval(installPollTimer);
+                installPollTimer = null;
+            }
+            installOverlay.classList.remove('visible');
+            installProgress.classList.remove('active');
+            installProgressBar.style.width = '0%';
+            installStart.disabled = false;
+            installCancel.disabled = false;
+            installCancel.textContent = 'Cancel';
+            pendingInstall = null;
+        }
+
+        function openInstallDialog() {
+            const isMl = activeEngine() === 'ml';
+            pendingInstall = {
+                kind: isMl ? 'ml' : 'native',
+                model: modelSelect.value,
+                running: false,
+                jobId: '',
+            };
+            installTitle.textContent = isMl ? 'Install ML Model' : 'Install Voices';
+            installBody.textContent = isMl
+                ? 'Install the selected local ML model assets. Large experimental models may take a while and can require substantial disk space.'
+                : 'Open Windows Speech settings to install or manage system voices.';
+            installTarget.textContent = isMl ? selectedModelLabel() : 'Windows Speech voices';
+            installType.textContent = isMl ? 'Local ML model' : 'System voice pack';
+            installProgress.classList.remove('active');
+            installProgressBar.style.width = '0%';
+            installStart.textContent = isMl ? 'Install Model' : 'Open Settings';
+            installStart.disabled = false;
+            installCancel.disabled = false;
+            installCancel.textContent = 'Cancel';
+            installOverlay.classList.add('visible');
+            installStart.focus();
+        }
+
+        async function runPendingInstall() {
+            if (!pendingInstall || pendingInstall.running || !invoke) return;
+            pendingInstall.running = true;
+            installStart.disabled = true;
+            installCancel.disabled = false;
+            installCancel.textContent = 'Cancel';
+            installProgress.classList.add('active');
+            setStatus('Installing');
+            try {
+                if (pendingInstall.kind === 'ml') {
+                    const status = await invoke('start_ml_model_install', { model: pendingInstall.model });
+                    pendingInstall.jobId = status.id;
+                    renderInstallStatus(status);
+                    installPollTimer = setInterval(pollInstallStatus, 700);
+                    return;
+                }
+                await invoke('open_voice_settings');
+                installProgress.classList.remove('active');
+                installProgressBar.style.width = '100%';
+                setStatus('Ready');
+                installBody.textContent = 'Windows Speech settings opened.';
+                installStart.disabled = true;
+                installCancel.disabled = false;
+                installCancel.textContent = 'Close';
+                pendingInstall.running = false;
+            } catch (err) {
+                installProgress.classList.remove('active');
+                installProgressBar.style.width = '100%';
+                setStatus('Error');
+                installBody.textContent = String(err);
+                installStart.disabled = false;
+                installCancel.disabled = false;
+                installCancel.textContent = 'Close';
+                if (pendingInstall) pendingInstall.running = false;
+            }
+        }
+
+        function renderInstallStatus(status) {
+            installBody.textContent = status.message;
+            installProgressBar.style.width = `${Math.max(0, Math.min(100, status.progress || 0))}%`;
+            installCancel.disabled = !status.cancellable && !status.done;
+            if (!status.done) return;
+            if (installPollTimer) {
+                clearInterval(installPollTimer);
+                installPollTimer = null;
+            }
+            installProgress.classList.remove('active');
+            installStart.disabled = true;
+            installCancel.disabled = false;
+            installCancel.textContent = 'Close';
+            pendingInstall.running = false;
+            setStatus(status.status === 'complete' ? 'Ready' : status.status);
+            if (status.status === 'complete') {
+                loadModels()
+                    .then(() => {
+                        restoreSettings();
+                        updateEngineUi();
+                        return loadVoices({ force: true });
+                    })
+                    .catch(err => console.error('refresh after install failed:', err));
+            }
+        }
+
+        async function pollInstallStatus() {
+            if (!pendingInstall?.jobId || !invoke) return;
+            try {
+                const status = await invoke('get_ml_install_status', { id: pendingInstall.jobId });
+                renderInstallStatus(status);
+            } catch (err) {
+                if (installPollTimer) {
+                    clearInterval(installPollTimer);
+                    installPollTimer = null;
+                }
+                installProgress.classList.remove('active');
+                installBody.textContent = String(err);
+                installCancel.disabled = false;
+                installCancel.textContent = 'Close';
+                pendingInstall.running = false;
+                setStatus('Error');
+            }
+        }
+
+        async function cancelPendingInstall() {
+            if (!pendingInstall?.running || !pendingInstall.jobId || !invoke) {
+                closeInstallDialog();
+                return;
+            }
+            installCancel.disabled = true;
+            installBody.textContent = 'Cancelling install...';
+            try {
+                const status = await invoke('cancel_ml_install', { id: pendingInstall.jobId });
+                renderInstallStatus(status);
+            } catch (err) {
+                installBody.textContent = String(err);
+                installCancel.disabled = false;
+            }
+        }
+
+        installStart.addEventListener('click', runPendingInstall);
+        installCancel.addEventListener('click', cancelPendingInstall);
+        installOverlay.addEventListener('click', (event) => {
+            if (event.target === installOverlay && !pendingInstall?.running) closeInstallDialog();
+        });
+
+        function readSettings() {
+            try {
+                return JSON.parse(localStorage.getItem(settingsKey) || '{}');
+            } catch {
+                return {};
+            }
+        }
+
+        function writeSettings(patch = {}) {
+            const settings = {
+                ...readSettings(),
+                engine: activeEngine(),
+                model: modelSelect.value,
+                voice: voiceSelect.value,
+                rate: rateSlider.value,
+                pitch: pitchSlider.value,
+                volume: volumeSlider.value,
+                hotTtlSeconds: ttlInput.value,
+                ...patch,
+            };
+            localStorage.setItem(settingsKey, JSON.stringify(settings));
+        }
+
+        function setStatus(text) {
+            engineStatus.textContent = text;
+        }
+
+        function downloadTextFile(filename, content, mimeType = 'text/plain') {
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+        }
+
+        function updateEngineUi() {
+            const isMl = activeEngine() === 'ml';
+            modelSelect.classList.toggle('hidden', !isMl);
+            modelSelect.disabled = !isMl;
+            ttlOption.classList.toggle('hidden', !isMl);
+            ttlInput.disabled = !isMl;
+            installButton.textContent = isMl ? 'Install Model' : 'Install';
+            installButton.title = isMl ? 'Install or configure the selected local ML model' : 'Install more Windows voices';
+            if (!isMl) {
+                setStatus('Native');
+                return;
+            }
+            const selected = modelSelect.options[modelSelect.selectedIndex];
+            setStatus(selected ? selected.textContent.replace(/^.* - /, '') : 'Ready');
+        }
 
         async function call(cmd, args) {
             if (!invoke) {
@@ -493,21 +1273,27 @@
                 return;
             }
             try {
+                setStatus(cmd === 'speak_text' ? 'Speaking' : 'Working');
                 await invoke(cmd, args);
+                setStatus('Ready');
             } catch (err) {
                 console.error(`${cmd} failed:`, err);
-                alert(String(err));
+                setStatus('Error');
+                showMessage('AlienVox', String(err));
             }
         }
 
         document.getElementById('btn-play').addEventListener('click', () => {
+            writeSettings();
             call('speak_text', {
                 text: textEditor.value,
                 engine: activeEngine(),
+                model: modelSelect.value,
                 voice: voiceSelect.value,
                 rate: parseInt(rateSlider.value, 10),
                 pitch: parseInt(pitchSlider.value, 10),
                 volume: parseInt(volumeSlider.value, 10),
+                hotTtlSeconds: parseInt(ttlInput.value, 10),
             });
         });
 
@@ -519,22 +1305,105 @@
             call('stop_speaking');
         });
 
+        document.getElementById('btn-new-document').addEventListener('click', () => {
+            textEditor.value = '';
+            updateCursorPosition();
+            setStatus('Ready');
+        });
+
+        document.getElementById('btn-open-document').addEventListener('click', () => {
+            openFileInput.value = '';
+            openFileInput.click();
+        });
+
+        openFileInput.addEventListener('change', async () => {
+            const file = openFileInput.files?.[0];
+            if (!file) return;
+            const lowerName = file.name.toLowerCase();
+            if (lowerName.endsWith('.docx') || lowerName.endsWith('.pdf')) {
+                showMessage(
+                    'Open Document',
+                    'DOCX/PDF text extraction needs the native document extraction path. Plain text and RTF open in the dev harness now.'
+                );
+                return;
+            }
+            try {
+                const content = await file.text();
+                textEditor.value = content;
+                updateCursorPosition();
+                setStatus(file.name);
+            } catch (err) {
+                showMessage('Open Document', String(err));
+            }
+        });
+
+        document.getElementById('btn-save-document').addEventListener('click', () => {
+            downloadTextFile('alienvox-document.txt', textEditor.value);
+            setStatus('Saved');
+        });
+
+        document.getElementById('btn-convert-audio').addEventListener('click', async () => {
+            writeSettings();
+            if (activeEngine() !== 'ml') {
+                showMessage('AlienVox', 'Export WAV is currently available for ML / AI models only.');
+                return;
+            }
+            setStatus('Exporting');
+            try {
+                const path = await invoke('export_wav', {
+                    text: textEditor.value,
+                    engine: activeEngine(),
+                    model: modelSelect.value,
+                    voice: voiceSelect.value,
+                    rate: parseInt(rateSlider.value, 10),
+                    pitch: parseInt(pitchSlider.value, 10),
+                    volume: parseInt(volumeSlider.value, 10),
+                    hotTtlSeconds: parseInt(ttlInput.value, 10),
+                });
+                setStatus('Ready');
+                showMessage('Export WAV', `Exported WAV:\n${path}`);
+            } catch (err) {
+                console.error('export_wav failed:', err);
+                setStatus('Error');
+                showMessage('Export WAV', String(err));
+            }
+        });
+
         document.getElementById('btn-install').addEventListener('click', () => {
-            call('open_voice_settings');
+            openInstallDialog();
         });
 
         // Populate the dropdown from the voices installed for the active engine.
         // Each option's value is the stable token id passed back to speak_text.
         const voiceCache = new Map();
 
+        async function loadModels() {
+            if (!invoke) return;
+            try {
+                const models = await invoke('get_ml_models');
+                modelSelect.innerHTML = '';
+                for (const model of models) {
+                    const opt = document.createElement('option');
+                    opt.value = model.id;
+                    opt.textContent = `${model.name} - ${model.status}`;
+                    opt.title = model.note;
+                    modelSelect.appendChild(opt);
+                }
+            } catch (err) {
+                console.error('get_ml_models failed:', err);
+            }
+        }
+
         async function loadVoices({ force = false } = {}) {
             if (!invoke) return;
             const engine = activeEngine();
+            const model = engine === 'ml' ? modelSelect.value : '';
+            const cacheKey = `${engine}:${model}`;
             try {
-                const voices = !force && voiceCache.has(engine)
-                    ? voiceCache.get(engine)
-                    : await invoke('get_voices', { engine });
-                voiceCache.set(engine, voices);
+                const voices = !force && voiceCache.has(cacheKey)
+                    ? voiceCache.get(cacheKey)
+                    : await invoke('get_voices', { engine, model });
+                voiceCache.set(cacheKey, voices);
                 voiceSelect.innerHTML = '';
                 if (!voices || voices.length === 0) {
                     const opt = document.createElement('option');
@@ -553,11 +1422,56 @@
                     opt.textContent = v.name;
                     voiceSelect.appendChild(opt);
                 }
+                const settings = readSettings();
+                if (settings.voice && [...voiceSelect.options].some(o => o.value === settings.voice)) {
+                    voiceSelect.value = settings.voice;
+                }
             } catch (err) {
                 console.error('get_voices failed:', err);
             }
         }
-        loadVoices();
+
+        function restoreSettings() {
+            const settings = readSettings();
+            if (settings.engine) {
+                const tab = document.querySelector(`.engine-tab[data-engine="${settings.engine}"]`);
+                if (tab && !tab.classList.contains('disabled')) {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                }
+            }
+            if (settings.model) modelSelect.value = settings.model;
+            if (settings.rate) rateSlider.value = settings.rate;
+            if (settings.pitch) pitchSlider.value = settings.pitch;
+            if (settings.volume) volumeSlider.value = settings.volume;
+            if (settings.hotTtlSeconds !== undefined) ttlInput.value = settings.hotTtlSeconds;
+            sliders.forEach(name => {
+                const slider = document.getElementById(`${name}-slider`);
+                slider.dispatchEvent(new Event('input'));
+            });
+        }
+
+        modelSelect.addEventListener('change', () => {
+            writeSettings({ voice: '' });
+            updateEngineUi();
+            loadVoices({ force: false });
+        });
+        voiceSelect.addEventListener('change', () => writeSettings());
+        [rateSlider, pitchSlider, volumeSlider].forEach(slider => {
+            slider.addEventListener('change', () => writeSettings());
+        });
+        ttlInput.addEventListener('change', () => {
+            const value = Math.max(0, Math.min(300, parseInt(ttlInput.value || '30', 10)));
+            ttlInput.value = value;
+            writeSettings({ hotTtlSeconds: value });
+        });
+
+        (async () => {
+            await loadModels();
+            restoreSettings();
+            updateEngineUi();
+            await loadVoices();
+        })();
     </script>
 </body>
 </html>

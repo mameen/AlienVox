@@ -33,6 +33,7 @@ pub struct SpeakParams {
     pub rate: i32,
     pub pitch: i32,
     pub volume: u8,
+    pub hot_ttl_seconds: u64,
 }
 
 /// The uniform interface every TTS stack implements.  Stored as
