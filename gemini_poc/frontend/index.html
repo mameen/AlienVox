@@ -328,19 +328,9 @@
             gap: 16px;
         }
 
-        /* Window Title Bar */
+        /* Window Title Bar — hidden, using native Windows chrome instead */
         .title-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 4px 8px;
-            background-color: #ffffff;
-            border-bottom: 1px solid #e0e0e0;
-        }
-
-        .title-text {
-            font-size: 12px;
-            color: #333;
+            display: none;
         }
 
         .window-controls {
@@ -367,6 +357,19 @@
         .window-btn.close:hover {
             background-color: #e81123;
             color: white;
+        }
+
+        /* Drag region for moving the window when decorations are off */
+        .drag-region {
+            -webkit-app-region: drag;
+            flex: 1;
+            height: 100%;
+        }
+
+        /* Buttons must not capture drag events */
+        .window-btn,
+        .title-text {
+            -webkit-app-region: no-drag;
         }
 
         .message-overlay {
@@ -675,10 +678,11 @@
     <!-- Title Bar -->
     <div class="title-bar">
         <span class="title-text">AlienVox - [Document1]</span>
+        <div class="drag-region"></div>
         <div class="window-controls">
-            <button class="window-btn">─</button>
-            <button class="window-btn">□</button>
-            <button class="window-btn close">×</button>
+            <button class="window-btn" id="win-minimize" title="Minimize">─</button>
+            <button class="window-btn" id="win-maximize" title="Maximize">□</button>
+            <button class="window-btn close" id="win-close" title="Close">×</button>
         </div>
     </div>
 
@@ -1016,6 +1020,60 @@
         // ─── TTS backend wiring (Tauri IPC) ──────────────────────────────────
         // `withGlobalTauri` is enabled, so the invoke() bridge is on window.__TAURI__.
         const invoke = window.__TAURI__?.core?.invoke;
+
+        // ─── Window controls (title bar buttons + drag/resize regions) ──────
+        const appWindow = window.__TAURI__?.core?.appWindow;
+
+        if (appWindow) {
+            const winMinimize = document.getElementById('win-minimize');
+            const winMaximize = document.getElementById('win-maximize');
+            const winClose = document.getElementById('win-close');
+
+            if (winMinimize) winMinimize.addEventListener('click', () => appWindow.minimize());
+            if (winClose) winClose.addEventListener('click', () => appWindow.close());
+
+            if (winMaximize) {
+                let maximized = false;
+                winMaximize.addEventListener('click', async () => {
+                    try {
+                        if (!maximized) {
+                            await appWindow.maximize();
+                            winMaximize.textContent = '❐';
+                        } else {
+                            await appWindow.unmaximize();
+                            winMaximize.textContent = '□';
+                        }
+                        maximized = !maximized;
+                    } catch (err) { console.error('maximize/unmaximize failed:', err); }
+                });
+            }
+        }
+
+        // Resize handles (classic Win32 corners/edges when decorations are off)
+        const RESIZE_SIZE = 8;
+        const style = document.createElement('style');
+        style.textContent = `
+            .resize-n { position: absolute; top: 0; left: ${RESIZE_SIZE}px; right: ${RESIZE_SIZE}px; height: ${RESIZE_SIZE}px; -webkit-app-region: no-drag; cursor: n-resize; }
+            .resize-s { position: absolute; bottom: 0; left: ${RESIZE_SIZE}px; right: ${RESIZE_SIZE}px; height: ${RESIZE_SIZE}px; -webkit-app-region: no-drag; cursor: s-resize; }
+            .resize-e { position: absolute; top: ${RESIZE_SIZE}px; right: 0; bottom: ${RESIZE_SIZE}px; width: ${RESIZE_SIZE}px; -webkit-app-region: no-drag; cursor: e-resize; }
+            .resize-w { position: absolute; top: ${RESIZE_SIZE}px; left: 0; bottom: ${RESIZE_SIZE}px; width: ${RESIZE_SIZE}px; -webkit-app-region: no-drag; cursor: w-resize; }
+            .resize-ne { position: absolute; top: 0; right: 0; width: ${RESIZE_SIZE}px; height: ${RESIZE_SIZE}px; -webkit-app-region: no-drag; cursor: ne-resize; }
+            .resize-nw { position: absolute; top: 0; left: 0; width: ${RESIZE_SIZE}px; height: ${RESIZE_SIZE}px; -webkit-app-region: no-drag; cursor: nw-resize; }
+            .resize-se { position: absolute; bottom: 0; right: 0; width: ${RESIZE_SIZE}px; height: ${RESIZE_SIZE}px; -webkit-app-region: no-drag; cursor: se-resize; }
+            .resize-sw { position: absolute; bottom: 0; left: 0; width: ${RESIZE_SIZE}px; height: ${RESIZE_SIZE}px; -webkit-app-region: no-drag; cursor: sw-resize; }
+        `;
+        document.head.appendChild(style);
+
+        // Append resize handles to body (outside title bar, below menu/toolbar)
+        const resizeContainer = document.createElement('div');
+        resizeContainer.style.cssText = 'position: absolute; inset: 0; pointer-events: none;';
+        for (const dir of ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']) {
+            const handle = document.createElement('div');
+            handle.className = `resize-${dir}`;
+            handle.style.pointerEvents = 'auto';
+            resizeContainer.appendChild(handle);
+        }
+        document.body.appendChild(resizeContainer);
 
         const voiceSelect = document.getElementById('voice-select');
         const modelSelect = document.getElementById('model-select');
