@@ -15,6 +15,7 @@ from .hotkey import start_listener
 from .main_window import MainWindow
 from .telemetry import Telemetry
 from .tray import AlienVoxTray
+from .version import version as get_version
 
 
 def _load_engine(engine_id: str):
@@ -77,8 +78,13 @@ def main() -> int:
                 engine=active_stack,
                 model=active_model,
                 voice=cfg.get("voice", ""),
+                rate=cfg.get("rate", 0),
+                pitch=cfg.get("pitch", 0),
+                volume=cfg.get("volume", 100),
+                hotkey=cfg.get("hotkey", ""),
                 text_chars=len(text),
                 text_bytes=len(text.encode()),
+                version=get_version(),
             )
 
             if engine and text:

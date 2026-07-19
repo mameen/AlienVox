@@ -109,5 +109,5 @@ class TestTelemetryPerf:
         for line in lines:
             record = json.loads(line)
             assert "event" in record
-            assert "ts" in record
+            assert "timestamp_unix_ms" in record
             assert "session_id" in record
