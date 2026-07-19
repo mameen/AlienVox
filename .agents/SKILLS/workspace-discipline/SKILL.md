@@ -69,6 +69,12 @@ These rules apply to every implementation under this workspace.
 - Every test must survive a complete internal refactor. If a test only works because it knows an internal variable name, rewrite it.
 - Ask: "If I rewrote the internals from scratch, would this test still be meaningful?" If yes, keep it. If no, it's testing implementation details.
 
+### 4.5 Tests Must Always Be Green
+- **Never commit code that breaks tests.** A failing test is a blocking condition — do not proceed to the next task until the failure is understood and fixed.
+- **Run the full test suite before every commit.** If any test fails, fix it first. Do not skip, disable, or mark as `xfail` to unblock progress.
+- **If you introduce a regression, revert or fix it immediately.** Do not carry broken tests forward across commits or branches.
+- **CI green is the gate.** No PR merges to `main` unless CI passes all tests on all supported platforms.
+
 ---
 
 ## 5. Reflection & Self-Check
