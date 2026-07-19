@@ -80,12 +80,16 @@ def main() -> int:
                     volume=cfg.get("volume", 100),
                 )
                 engine.speak(text, cfg.get("voice", ""), params)
-                # speak() is async on SAPI — wait for completion
-                # SpVoice.WaitUntilDone(-1) blocks until queue is empty
+                # Wait for SAPI to finish with a 30-second timeout to prevent deadlock.
+                # If SAPI hangs (possible with some voices/apps), this returns False instead of blocking forever.
                 try:
-                    engine._sapi.WaitUntilDone(-1)
-                except Exception:
-                    pass
+                    done = engine._sapi.WaitUntilDone(30_000)
+                    if not done:
+                        tel.emit("tts.error", request_id=rid, status="error", detail="SAPI WaitUntilDone timed out")
+                        tray.set_error("TTS engine did not respond in time")
+                except Exception as exc:
+                    tel.emit("tts.error", request_id=rid, status="error", detail=str(exc))
+                    tray.set_error(str(exc))
 
             tray.set_idle()
             tel.emit("speak.done", request_id=rid, engine=active_stack, status="ok")
@@ -106,18 +110,21 @@ def main() -> int:
     def _ensure_main_window() -> MainWindow:
         nonlocal _main_window
         if _main_window is None:
+            # Try to load voices eagerly; fall back to lazy load on first open
+            live_voices: list[dict] | None = None
+            if active_stack == "sapi5" and engine:
+                try:
+                    live_voices = [{"id": v.id, "label": v.name} for v in engine.list_voices()]
+                except Exception:
+                    pass
+
             _main_window = MainWindow(
                 stacks=stacks,
                 telemetry=tel,
                 on_speak=speak_async,
                 on_stop=_do_stop,
+                sapi5_voices=live_voices,
             )
-            if engine and active_stack == "sapi5":
-                try:
-                    live = [{"id": v.id, "label": v.name} for v in engine.list_voices()]
-                    _main_window.update_sapi_voices(live)
-                except Exception:
-                    pass
         return _main_window
 
     def open_settings() -> None:

@@ -146,6 +146,7 @@ class MainWindow(QMainWindow):
         telemetry=None,
         on_speak: Callable | None = None,
         on_stop: Callable | None = None,
+        sapi5_voices: list[dict] | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -159,11 +160,46 @@ class MainWindow(QMainWindow):
         self._tel = telemetry
         self._on_speak_cb = on_speak
         self._on_stop_cb = on_stop
+        self._pending_sapi5_voices = sapi5_voices
 
         self._build_toolbar()
         self._build_central()
         self._build_statusbar()
         self._load_stacks()
+
+        # Populate SAPI5 voices if available (engine was loaded at startup)
+        if sapi5_voices:
+            self.update_sapi_voices(sapi5_voicesl()
+        self._build_statusbar()
+        self._load_stacks()
+
+        # Populate SAPI5 voices if available (engine was loaded at startup)
+        if sapi5_voices:
+            self.update_sapi_voices(sapi5_voicesl()
+        self._build_statusbar()
+        self._load_stacks()
+
+        # Populate SAPI5 voices if available (engine was loaded at startup)
+        if sapi5_voices:
+            self.update_sapi_voices(sapi5_voicesl()
+        self._build_statusbar()
+        self._load_stacks()
+
+        # Populate SAPI5 voices if available (engine was loaded at startup)
+        if sapi5_voices:
+            self.update_sapi_voices(sapi5_voicesl()
+        self._build_statusbar()
+        self._load_stacks()
+
+        # Populate SAPI5 voices if available (engine was loaded at startup)
+        if sapi5_voices:
+            self.update_sapi_voices(sapi5_voicesl()
+        self._build_statusbar()
+        self._load_stacks()
+
+        # Populate SAPI5 voices if available (engine was loaded at startup)
+        if sapi5_voices:
+            self.update_sapi_voices(sapi5_voices)
 
     # ── Toolbar ───────────────────────────────────────────────────────────────
 
@@ -507,7 +543,15 @@ class MainWindow(QMainWindow):
         for i in range(self._tabs.count()):
             tab = self._tabs.widget(i)
             if tab and tab.property("stack_id") == "sapi5":
-                vc = tab.findChild(QComboBox)
+                # Find the voice bar widget (it has property "voice_combo" set in _build_voice_bar)
+                voice_bar = None
+                for child in tab.findChildren(QWidget):
+                    if child.property("voice_combo"):
+                        voice_bar = child
+                        break
+                if not voice_bar:
+                    continue
+                vc = voice_bar.property("voice_combo")
                 if vc:
                     vc.clear()
                     for v in voices:
