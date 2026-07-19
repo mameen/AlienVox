@@ -208,10 +208,9 @@
 <body>
     <div class="about-title-bar">
         <span>About AlienVox</span>
-        <button class="about-close-btn" id="close-x" title="Close">×</button>
     </div>
     <div class="about-header">
-        <img class="about-logo" src="./logo.png" alt="AlienVox Logo">
+        <img class="about-logo" src="/static/logo.png" alt="AlienVox Logo">
         <div class="about-meta">
             <h1>AlienVox</h1>
             <div class="version">v0.1.0 — Proof of Concept</div>
@@ -296,10 +295,21 @@
     </div>
 
     <script>
-        document.getElementById('close-btn').addEventListener('click', () => window.close());
-        document.getElementById('close-x').addEventListener('click', () => window.close());
-        window.addEventListener('keydown', (e) => { if (e.key === 'Escape') window.close(); });
-        window.addEventListener('load', () => console.log('[About] About window loaded'));
+        const invoke = window.__TAURI__?.core?.invoke;
+
+        function doClose() {
+            if (invoke) {
+                invoke('close_about_window').catch(e => console.error('[About] Failed to close:', e));
+            } else {
+                document.body.style.display = 'none';
+            }
+        }
+
+        const closeBtn = document.getElementById('close-btn');
+        if (closeBtn) closeBtn.addEventListener('click', doClose);
+
+        const closeX = document.getElementById('close-x');
+        if (closeX) closeX.addEventListener('click', doClose);
     </script>
 </body>
 </html>

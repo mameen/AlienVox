@@ -12,6 +12,16 @@
         "width": 900,
         "height": 650,
         "resizable": true
+      },
+      {
+        "label": "about",
+        "title": "About AlienVox",
+        "width": 680,
+        "height": 720,
+        "resizable": true,
+        "center": true,
+        "visible": false,
+        "url": "about.html"
       }
     ],
     "withGlobalTauri": true

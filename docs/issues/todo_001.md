@@ -24,6 +24,7 @@ AlienVox now has a compiling Rust/Tauri app with Windows SAPI speech, a dev-test
 - Voice/model installs use an in-app confirmation dialog; ML installs run as cooperative jobs with polling progress and cancellation.
 - New/Open/Save are document actions for text-oriented source files, while Convert to Audio exports WAV.
 - Tab panes reclaim space from irrelevant stack-specific controls; for example, native SAPI tabs hide the ML model selector instead of disabling it.
+- Local JSONL telemetry records play request id, engine/model/voice, text size, trigger-to-first-audio latency, playback end where observable, and errors without recording source text.
 - Kokoro dependencies and model cache are installed locally for the current dev environment.
 - Model cache is ignored under `gemini_poc/.models/`.
 - Cloud TTS is documented as optional/demo only and not part of the core path.
@@ -63,6 +64,7 @@ AlienVox now has a compiling Rust/Tauri app with Windows SAPI speech, a dev-test
    - Voice enumeration smoke check.
    - ML/AI runner dependency check.
    - Direct Kokoro and Piper synthesis smoke checks in the dev environment.
+   - Telemetry smoke check that verifies `tts.requested`, `tts.first_audio`, and `tts.playback_end` for ML direct playback.
 
 8. Implement the next SOTA candidates from the docs.
    - Benchmark VibeVoice-Realtime-0.5B next because it is the most relevant open local streaming candidate.

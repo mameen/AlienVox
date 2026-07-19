@@ -712,13 +712,13 @@
 
     <!-- Voice Controls -->
     <div class="voice-controls">
-        <select class="model-select tab-only" id="model-select" title="Local ML/AI model">
+        <select class="model-select tab-only hidden" id="model-select" title="Local ML/AI model">
             <option value="kokoro">Kokoro-82M</option>
         </select>
         <select class="voice-select" id="voice-select">
             <option value="">Loading voices…</option>
         </select>
-        <label class="stack-option" id="ttl-option" title="How long to keep the current local model hot in memory after playback">
+        <label class="stack-option hidden" id="ttl-option" title="How long to keep the current local model hot in memory after playback">
             TTL
             <input id="ttl-input" type="number" min="0" max="300" step="5" value="30">
             sec
@@ -810,7 +810,7 @@
                 <button class="about-close-btn" id="about-close-x" title="Close">×</button>
             </div>
             <div class="about-header">
-                <img class="about-logo" src="./logo.png" alt="AlienVox Logo">
+                <img class="about-logo" src="/static/logo.png" alt="AlienVox Logo">
                 <div class="about-meta">
                     <h1>AlienVox</h1>
                     <div class="version">v0.1.0 — Proof of Concept</div>
@@ -1043,27 +1043,11 @@
             }
         });
 
-        // Listen for the "about-window-request" event emitted by the tray menu handler.
-        if (window.__TAURI__) {
-            console.log("[About] Tauri API detected, registering about-window-request listener...");
-            window.__TAURI__.core?.listen('about-window-request', () => {
-                console.log("[About] Received 'about-window-request' event — calling open_about_window");
-                invoke('open_about_window').then(() => {
-                    console.log("[About] open_about_window succeeded");
-                }).catch((err: any) => {
-                    console.error("[About] open_about_window failed:", err);
-                });
-            }).then(() => {
-                console.log("[About] Listener registered successfully");
-            }).catch((err: any) => {
-                console.error("[About] Failed to register listener:", err);
-            });
-        } else {
-            console.warn("[About] window.__TAURI__ not found — running outside Tauri?");
-        }
+        // Note: About is now opened via the dedicated static Tauri window (about.html),
+        // not this overlay. The overlay/event code below is kept as a fallback path.
 
         // Also expose a global function for manual testing from DevTools
-        (window as any).openAbout = openAboutDialog;
+        window.openAbout = openAboutDialog;
 
         function selectedModelLabel() {
             const selected = modelSelect.options[modelSelect.selectedIndex];

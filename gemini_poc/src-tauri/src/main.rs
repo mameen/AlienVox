@@ -59,7 +59,9 @@ mod capture {
 }
 
 mod about;
-use about::open_about_window;
+use about::{close_about_window, open_about_window};
+
+mod telemetry;
 
 // Unified, deployment-safe path resolution (ADR-003).  Cross-platform.
 mod paths;
@@ -353,16 +355,15 @@ fn show_tray_context_menu(hwnd: HWND) {
                 }
             }
             ID_ABOUT => {
-                println!("[Tray] About menu item clicked");
+                println!("[Tray] About menu item clicked — invoking open_about_window");
                 if let Ok(guard) = APP_HANDLE.lock() {
                     if let Some(handle) = &*guard {
-                        println!("[Tray] Calling open_about_window directly");
-                        // Call the function directly — handle.emit() only reaches the frontend.
-                        if let Err(e) = crate::about::open_about_window(handle.clone()) {
-                            eprintln!("[Tray] Failed to open About window: {}", e);
+                        match open_about_window(handle.clone()) {
+                            Ok(_) => println!("[Tray] About window shown"),
+                            Err(e) => eprintln!("[Tray] Failed to show About: {}", e),
                         }
                     } else {
-                        eprintln!("[Tray] APP_HANDLE is None — cannot open About");
+                        eprintln!("[Tray] APP_HANDLE is None — cannot show About");
                     }
                 } else {
                     eprintln!("[Tray] Failed to lock APP_HANDLE");
@@ -437,6 +438,20 @@ struct InstallJob {
     state: Arc<Mutex<InstallJobStatus>>,
     child: Arc<Mutex<Option<Child>>>,
     cancel_requested: Arc<AtomicBool>,
+}
+
+fn telemetry_config(
+    rate: i32,
+    pitch: i32,
+    volume: u8,
+    hot_ttl_seconds: u64,
+) -> telemetry::TelemetryConfig {
+    telemetry::TelemetryConfig {
+        rate,
+        pitch,
+        volume,
+        hot_ttl_seconds,
+    }
 }
 
 // ─── Tauri Commands ───────────────────────────────────────────────────────────
@@ -573,6 +588,11 @@ fn speak_text(
     volume: u8,
     hot_ttl_seconds: Option<u64>,
 ) -> Result<(), String> {
+    let telemetry_request_id = telemetry::new_request_id();
+    let requested_at_unix_ms = telemetry::now_ms();
+    let text_chars = text.chars().count();
+    let text_bytes = text.len();
+    let hot_ttl_seconds = hot_ttl_seconds.unwrap_or(engines::ml::DEFAULT_MODEL_TTL_SECONDS);
     if engine == "ml" {
         let mut guard = ML_SPEAKER.lock().map_err(|e| e.to_string())?;
         if guard.is_none() {
@@ -583,9 +603,26 @@ fn speak_text(
             rate,
             pitch,
             volume,
-            hot_ttl_seconds: hot_ttl_seconds.unwrap_or(engines::ml::DEFAULT_MODEL_TTL_SECONDS),
+            hot_ttl_seconds,
+            telemetry_request_id: telemetry_request_id.clone(),
+            requested_at_unix_ms,
+            text_chars,
+            text_bytes,
         };
         let model = model.unwrap_or_else(|| "kokoro".to_string());
+        telemetry::record(&telemetry::TtsTelemetryEvent {
+            event: "tts.requested",
+            request_id: &telemetry_request_id,
+            engine: "ml",
+            model: &model,
+            voice: &voice,
+            text_chars,
+            text_bytes,
+            config: telemetry_config(rate, pitch, volume, hot_ttl_seconds),
+            latency_ms: Some(0),
+            status: Some("started"),
+            detail: None,
+        });
         println!(
             "[ML/AI TTS] Speaking: \"{}\" (model={}, voice={}, rate={}, pitch={}, volume={})",
             text, model, voice, rate, pitch, volume
@@ -599,7 +636,7 @@ fn speak_text(
     if guard.is_none() {
         *guard = Some(audio::audio_win::NativeAudioEngine::new()?);
     }
-    let engine = guard.as_ref().unwrap();
+    let native_engine = guard.as_ref().unwrap();
     println!(
         "[TTS Engine] Speaking: \"{}\" (voice={}, rate={}, pitch={}, volume={})",
         text, voice, rate, pitch, volume
@@ -609,7 +646,30 @@ fn speak_text(
     } else {
         Some(voice)
     };
-    engine.speak(&text, rate, pitch, volume, voice_id)
+    telemetry::record(&telemetry::TtsTelemetryEvent {
+        event: "tts.requested",
+        request_id: &telemetry_request_id,
+        engine: &engine,
+        model: "",
+        voice: voice_id.as_deref().unwrap_or(""),
+        text_chars,
+        text_bytes,
+        config: telemetry_config(rate, pitch, volume, 0),
+        latency_ms: Some(0),
+        status: Some("started"),
+        detail: None,
+    });
+    native_engine.speak(
+        &text,
+        rate,
+        pitch,
+        volume,
+        voice_id,
+        telemetry_request_id,
+        requested_at_unix_ms,
+        text_chars,
+        text_bytes,
+    )
 }
 
 #[tauri::command]
@@ -636,6 +696,10 @@ fn export_wav(
         pitch,
         volume,
         hot_ttl_seconds: hot_ttl_seconds.unwrap_or(engines::ml::DEFAULT_MODEL_TTL_SECONDS),
+        telemetry_request_id: telemetry::new_request_id(),
+        requested_at_unix_ms: telemetry::now_ms(),
+        text_chars: text.chars().count(),
+        text_bytes: text.len(),
     };
     let model = model.unwrap_or_else(|| "kokoro".to_string());
     guard
@@ -942,6 +1006,7 @@ fn main() {
             cancel_ml_install,
             open_voice_settings,
             open_about_window,
+            close_about_window,
         ])
         .setup(|app| {
             // Store the main window handle for tray double-click toggle.

@@ -4,7 +4,7 @@
 //! local/free candidates are exposed as model entries so the UI and preferences
 //! can exercise model selection without pretending they are installed.
 
-use std::io::{Read, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::path::PathBuf;
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::{Arc, Mutex};
@@ -13,6 +13,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, Context, Result};
 use serde::Serialize;
+
+use crate::telemetry;
 
 use super::{SpeakParams, TtsEngine, Voice};
 
@@ -378,12 +380,13 @@ impl MlEngine {
             .ok_or_else(|| anyhow!("Kokoro worker stdin unavailable"))?;
         let mut stderr = child.stderr.take();
         thread::spawn(move || {
-            let mut stderr_text = String::new();
-            if let Some(mut pipe) = stderr.take() {
-                let _ = pipe.read_to_string(&mut stderr_text);
-            }
-            if !stderr_text.trim().is_empty() {
-                eprintln!("[Kokoro worker stderr]\n{}", stderr_text.trim());
+            if let Some(pipe) = stderr.take() {
+                for line in BufReader::new(pipe).lines().map_while(Result::ok) {
+                    telemetry::record_worker_line(&line);
+                    if !line.starts_with("ALIENVOX_TELEMETRY ") {
+                        eprintln!("[Kokoro worker stderr] {line}");
+                    }
+                }
             }
         });
 
@@ -399,6 +402,11 @@ impl MlEngine {
             "rate": params.rate,
             "pitch": params.pitch,
             "volume": params.volume,
+            "hot_ttl_seconds": params.hot_ttl_seconds,
+            "telemetry_request_id": params.telemetry_request_id,
+            "requested_at_unix_ms": params.requested_at_unix_ms,
+            "text_chars": params.text_chars,
+            "text_bytes": params.text_bytes,
         });
 
         let mut guard = self
@@ -516,6 +524,16 @@ impl MlEngine {
             .arg(params.rate.to_string())
             .arg("--volume")
             .arg(params.volume.to_string())
+            .arg("--hot-ttl-seconds")
+            .arg(params.hot_ttl_seconds.to_string())
+            .arg("--telemetry-request-id")
+            .arg(&params.telemetry_request_id)
+            .arg("--requested-at-unix-ms")
+            .arg(params.requested_at_unix_ms.to_string())
+            .arg("--text-chars")
+            .arg(params.text_chars.to_string())
+            .arg("--text-bytes")
+            .arg(params.text_bytes.to_string())
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
@@ -543,7 +561,12 @@ impl MlEngine {
                 let _ = pipe.read_to_string(&mut stderr_text);
             }
             if !stderr_text.trim().is_empty() {
-                eprintln!("[Piper runner stderr]\n{}", stderr_text.trim());
+                for line in stderr_text.lines() {
+                    telemetry::record_worker_line(line);
+                    if !line.starts_with("ALIENVOX_TELEMETRY ") {
+                        eprintln!("[Piper runner stderr] {line}");
+                    }
+                }
             }
             if !status.success() {
                 return Err(anyhow!("Piper runner failed with {status}"));
@@ -557,7 +580,12 @@ impl MlEngine {
                 let _ = pipe.read_to_string(&mut stderr_text);
             }
             if !stderr_text.trim().is_empty() {
-                eprintln!("[Piper runner stderr]\n{}", stderr_text.trim());
+                for line in stderr_text.lines() {
+                    telemetry::record_worker_line(line);
+                    if !line.starts_with("ALIENVOX_TELEMETRY ") {
+                        eprintln!("[Piper runner stderr] {line}");
+                    }
+                }
             }
             let _ = child.wait();
         });

@@ -11,6 +11,7 @@ use std::sync::mpsc::{channel, Sender};
 use std::thread;
 
 use windows::core::{w, HSTRING, PCWSTR, PWSTR};
+use windows::Win32::Foundation::WAIT_OBJECT_0;
 use windows::Win32::Media::Speech::{
     IEnumSpObjectTokens, ISpObjectToken, ISpObjectTokenCategory, ISpVoice, SpObjectToken,
     SpObjectTokenCategory, SpVoice, SPCAT_VOICES, SPF_ASYNC, SPF_IS_XML, SPF_PURGEBEFORESPEAK,
@@ -19,6 +20,9 @@ use windows::Win32::System::Com::{
     CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_ALL,
     COINIT_APARTMENTTHREADED,
 };
+use windows::Win32::System::Threading::{WaitForSingleObject, INFINITE};
+
+use crate::telemetry;
 
 /// A single installed SAPI voice: its stable token id and friendly display name.
 #[derive(Clone, Debug)]
@@ -35,6 +39,10 @@ enum Cmd {
         pitch: i32,
         volume: u8,
         voice_id: Option<String>,
+        telemetry_request_id: String,
+        requested_at_unix_ms: u128,
+        text_chars: usize,
+        text_bytes: usize,
     },
     Pause,
     Resume,
@@ -77,6 +85,10 @@ impl NativeAudioEngine {
                         pitch,
                         volume,
                         voice_id,
+                        telemetry_request_id,
+                        requested_at_unix_ms,
+                        text_chars,
+                        text_bytes,
                     } => {
                         // Select a specific installed voice if one was requested;
                         // otherwise fall through to the current (default) voice.
@@ -103,6 +115,62 @@ impl NativeAudioEngine {
                         let flags = (SPF_ASYNC.0 | SPF_PURGEBEFORESPEAK.0 | SPF_IS_XML.0) as u32;
                         if let Err(e) = voice.Speak(PCWSTR(wide.as_ptr()), flags, None) {
                             eprintln!("[Windows TTS] Speak failed: {e}");
+                        } else {
+                            let config = telemetry::TelemetryConfig {
+                                rate,
+                                pitch,
+                                volume,
+                                hot_ttl_seconds: 0,
+                            };
+                            telemetry::record(&telemetry::TtsTelemetryEvent {
+                                event: "tts.first_audio",
+                                request_id: &telemetry_request_id,
+                                engine: "native",
+                                model: "sapi",
+                                voice: voice_id.as_deref().unwrap_or(""),
+                                text_chars,
+                                text_bytes,
+                                config,
+                                latency_ms: Some(
+                                    telemetry::now_ms().saturating_sub(requested_at_unix_ms),
+                                ),
+                                status: Some("submitted_to_sapi"),
+                                detail: Some("approximation: SAPI accepted async playback"),
+                            });
+                            let complete_event = voice.SpeakCompleteEvent();
+                            let complete_event_raw = complete_event.0 as usize;
+                            let end_request_id = telemetry_request_id.clone();
+                            let end_voice = voice_id.clone().unwrap_or_default();
+                            thread::spawn(move || {
+                                let handle =
+                                    windows::Win32::Foundation::HANDLE(complete_event_raw as _);
+                                let wait = WaitForSingleObject(handle, INFINITE);
+                                let status = if wait == WAIT_OBJECT_0 {
+                                    "complete"
+                                } else {
+                                    "unknown"
+                                };
+                                telemetry::record(&telemetry::TtsTelemetryEvent {
+                                    event: "tts.playback_end",
+                                    request_id: &end_request_id,
+                                    engine: "native",
+                                    model: "sapi",
+                                    voice: &end_voice,
+                                    text_chars,
+                                    text_bytes,
+                                    config: telemetry::TelemetryConfig {
+                                        rate,
+                                        pitch,
+                                        volume,
+                                        hot_ttl_seconds: 0,
+                                    },
+                                    latency_ms: Some(
+                                        telemetry::now_ms().saturating_sub(requested_at_unix_ms),
+                                    ),
+                                    status: Some(status),
+                                    detail: Some("SAPI SpeakCompleteEvent signaled"),
+                                });
+                            });
                         }
                     }
                     Cmd::Pause => {
@@ -142,6 +210,10 @@ impl NativeAudioEngine {
         pitch: i32,
         volume: u8,
         voice_id: Option<String>,
+        telemetry_request_id: String,
+        requested_at_unix_ms: u128,
+        text_chars: usize,
+        text_bytes: usize,
     ) -> Result<(), String> {
         self.tx
             .send(Cmd::Speak {
@@ -150,6 +222,10 @@ impl NativeAudioEngine {
                 pitch,
                 volume,
                 voice_id,
+                telemetry_request_id,
+                requested_at_unix_ms,
+                text_chars,
+                text_bytes,
             })
             .map_err(|e| format!("TTS thread unavailable: {e}"))
     }

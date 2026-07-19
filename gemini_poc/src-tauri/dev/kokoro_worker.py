@@ -36,10 +36,43 @@ def scaled_float32(audio, volume_percent: int):
     return np.clip(samples * volume, -1.0, 1.0)
 
 
-def play_audio_chunks(chunks, volume_percent: int) -> None:
+def unix_ms() -> int:
+    return time.time_ns() // 1_000_000
+
+
+def emit_telemetry(event: str, request: dict, status: str = "ok", detail: str = "") -> None:
+    requested_at = int(request.get("requested_at_unix_ms") or unix_ms())
+    now = unix_ms()
+    payload = {
+        "timestampUnixMs": now,
+        "event": event,
+        "requestId": str(request.get("telemetry_request_id") or ""),
+        "engine": "ml",
+        "model": "kokoro",
+        "voice": str(request.get("voice") or "af_heart"),
+        "textChars": int(request.get("text_chars") or 0),
+        "textBytes": int(request.get("text_bytes") or 0),
+        "config": {
+            "rate": int(request.get("rate") or 0),
+            "pitch": int(request.get("pitch") or 0),
+            "volume": int(request.get("volume") or 100),
+            "hotTtlSeconds": int(request.get("hot_ttl_seconds") or 0),
+        },
+        "latencyMs": max(0, now - requested_at),
+        "status": status,
+        "detail": detail or None,
+    }
+    print(f"ALIENVOX_TELEMETRY {json.dumps(payload, separators=(',', ':'))}", file=sys.stderr, flush=True)
+
+
+def play_audio_chunks(chunks, volume_percent: int, request: dict) -> None:
     import sounddevice as sd
 
+    first = True
     for audio in chunks:
+        if first:
+            emit_telemetry("tts.first_audio", request)
+            first = False
         sd.play(scaled_float32(audio, volume_percent), SAMPLE_RATE, blocking=True)
 
 
@@ -79,6 +112,7 @@ def main() -> int:
         speed = max(0.5, min(2.0, 1.0 + (rate / 20.0)))
         try:
             State.speaking = True
+            emit_telemetry("tts.synthesis_start", request)
             print(f"Kokoro worker speaking voice={voice}", file=sys.stderr, flush=True)
             chunks = [
                 audio
@@ -86,9 +120,11 @@ def main() -> int:
                     text, voice=voice, speed=speed
                 )
             ]
-            play_audio_chunks(chunks, volume)
+            play_audio_chunks(chunks, volume, request)
+            emit_telemetry("tts.playback_end", request)
             print("Kokoro worker playback finished", file=sys.stderr, flush=True)
         except Exception as exc:
+            emit_telemetry("tts.error", request, status="error", detail=str(exc))
             print(f"Kokoro worker synthesis/playback failed: {exc}", file=sys.stderr, flush=True)
         finally:
             State.speaking = False

@@ -1,46 +1,29 @@
 //! About window management for AlienVox.
 //!
-//! Opens a separate Tauri WebviewWindow pointing to `about.html`.
+//! The About window is declared statically in `tauri.conf.json` with label `"about"`
+//! and starts hidden (`"visible": false`).  These commands toggle visibility.
 
-use std::sync::Mutex;
+use tauri::Manager;
 
-/// Stores the about window handle so it stays alive across calls.
-static ABOUT_WINDOW: Mutex<Option<tauri::WebviewWindow>> = Mutex::new(None);
-
-/// Open the About dialog as a separate Tauri window.
+/// Show the About dialog (it starts hidden via tauri.conf.json).
 #[tauri::command]
-pub fn open_about_window(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
-    println!("[About] Opening About window");
+pub fn open_about_window(app: tauri::AppHandle) -> Result<(), String> {
+    let win = app
+        .get_webview_window("about")
+        .ok_or_else(|| "About window not found in tauri.conf.json".to_string())?;
+    win.show()
+        .map_err(|e| format!("Failed to show About window: {}", e))?;
+    win.set_focus()
+        .map_err(|e| format!("Failed to focus About window: {}", e))?;
+    Ok(())
+}
 
-    // Check if an About window already exists; if so, focus and return.
-    {
-        if let Some(ref win) = *ABOUT_WINDOW.lock().map_err(|e| e.to_string())? {
-            println!("[About] About window already exists — focusing");
-            win.show().map_err(|e| e.to_string())?;
-            win.set_focus().map_err(|e| e.to_string())?;
-            return Ok(serde_json::json!({}));
-        }
+/// Hide the About dialog.  The window stays alive so it can be shown again.
+#[tauri::command]
+pub fn close_about_window(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window("about") {
+        win.hide()
+            .map_err(|e| format!("Failed to hide About window: {}", e))?;
     }
-
-    // Create a new Tauri window pointing to about.html.
-    let url = tauri::WebviewUrl::App("about.html".into());
-    let win = tauri::WebviewWindowBuilder::new(&app, "about", url)
-        .title("About AlienVox")
-        .inner_size(680.0, 720.0)
-        .resizable(true)
-        .center()
-        .build()
-        .map_err(|e| {
-            format!("Failed to create About window: {}", e)
-        })?;
-
-    // Keep the window handle alive in a static so it isn't dropped.
-    *ABOUT_WINDOW.lock().map_err(|e| e.to_string())? = Some(win.clone());
-
-    // Explicitly show and focus the window.
-    win.show().map_err(|e| format!("Failed to show About window: {}", e))?;
-    win.set_focus().map_err(|e| format!("Failed to focus About window: {}", e))?;
-
-    println!("[About] About window created and shown successfully");
-    Ok(serde_json::json!({}))
+    Ok(())
 }

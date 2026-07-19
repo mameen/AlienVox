@@ -4,6 +4,7 @@ import argparse
 import json
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 
@@ -14,7 +15,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--config", default="")
     parser.add_argument("--rate", type=int, default=0)
     parser.add_argument("--volume", type=int, default=100)
+    parser.add_argument("--hot-ttl-seconds", type=int, default=0)
     parser.add_argument("--output-wav", default="")
+    parser.add_argument("--telemetry-request-id", default="")
+    parser.add_argument("--requested-at-unix-ms", type=int, default=0)
+    parser.add_argument("--text-chars", type=int, default=0)
+    parser.add_argument("--text-bytes", type=int, default=0)
     return parser.parse_args()
 
 
@@ -26,13 +32,44 @@ def sample_rate(config_path: Path) -> int:
         return 22050
 
 
-def play_raw_pcm(raw: bytes, rate: int, volume_percent: int) -> None:
+def unix_ms() -> int:
+    return time.time_ns() // 1_000_000
+
+
+def emit_telemetry(event: str, args: argparse.Namespace, status: str = "ok", detail: str = "") -> None:
+    requested_at = args.requested_at_unix_ms or unix_ms()
+    now = unix_ms()
+    payload = {
+        "timestampUnixMs": now,
+        "event": event,
+        "requestId": args.telemetry_request_id,
+        "engine": "ml",
+        "model": "piper",
+        "voice": "en_US-lessac-medium",
+        "textChars": args.text_chars,
+        "textBytes": args.text_bytes,
+        "config": {
+            "rate": args.rate,
+            "pitch": 0,
+            "volume": args.volume,
+            "hotTtlSeconds": args.hot_ttl_seconds,
+        },
+        "latencyMs": max(0, now - requested_at),
+        "status": status,
+        "detail": detail or None,
+    }
+    print(f"ALIENVOX_TELEMETRY {json.dumps(payload, separators=(',', ':'))}", file=sys.stderr, flush=True)
+
+
+def play_raw_pcm(raw: bytes, rate: int, volume_percent: int, args: argparse.Namespace) -> None:
     import numpy as np
     import sounddevice as sd
 
     samples = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
     volume = max(0.0, min(1.0, volume_percent / 100.0))
+    emit_telemetry("tts.first_audio", args)
     sd.play(np.clip(samples * volume, -1.0, 1.0), rate, blocking=True)
+    emit_telemetry("tts.playback_end", args)
 
 
 def main() -> int:
@@ -70,6 +107,7 @@ def main() -> int:
             )
             return result.returncode
 
+        emit_telemetry("tts.synthesis_start", args)
         result = subprocess.run(
             [*base_cmd, "--output-raw"],
             input=text.encode("utf-8"),
@@ -79,9 +117,10 @@ def main() -> int:
         if result.stderr:
             print(result.stderr.decode("utf-8", errors="replace").strip(), file=sys.stderr)
         if result.returncode != 0:
+            emit_telemetry("tts.error", args, status="error", detail=f"piper exited {result.returncode}")
             return result.returncode
 
-        play_raw_pcm(result.stdout, sample_rate(config_path), args.volume)
+        play_raw_pcm(result.stdout, sample_rate(config_path), args.volume, args)
         return 0
     finally:
         Path(args.text_file).unlink(missing_ok=True)

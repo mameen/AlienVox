@@ -28,12 +28,16 @@ pub struct Voice {
 
 /// Prosody controlled by the UI.  A field is silently ignored by engines that lack
 /// support for it (e.g. a neural voice with no pitch control).
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct SpeakParams {
     pub rate: i32,
     pub pitch: i32,
     pub volume: u8,
     pub hot_ttl_seconds: u64,
+    pub telemetry_request_id: String,
+    pub requested_at_unix_ms: u128,
+    pub text_chars: usize,
+    pub text_bytes: usize,
 }
 
 /// The uniform interface every TTS stack implements.  Stored as
