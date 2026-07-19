@@ -60,28 +60,70 @@ class SapiEngine(TtsEngine):
 
     # ── Voice enumeration ─────────────────────────────────────────────────────
 
+    # Registry category IDs for the two SAPI voice hives on Windows.
+    # Classic SAPI5 (legacy desktop voices, e.g. David Desktop) and
+    # OneCore (modern voices added via Settings > Time & Language > Speech).
+    _VOICE_CATEGORIES = [
+        r"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices",
+        r"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech_OneCore\Voices",
+    ]
+
+    def _enum_category(self, category_id: str) -> list[Voice]:
+        """Enumerate voices from one SAPI token category registry hive."""
+        try:
+            cat = win32com.client.Dispatch("SAPI.SpObjectTokenCategory")
+            cat.SetId(category_id, False)
+            tokens = cat.EnumerateTokens()
+            result = []
+            for i in range(tokens.Count):
+                t = tokens.Item(i)
+                result.append(Voice(id=t.Id, name=t.GetDescription()))
+            return result
+        except Exception:
+            return []
+
     def list_voices(self) -> list[Voice]:
-        """Return all installed SAPI5 voices with stable registry-path IDs."""
-        sapi = self._speak_obj()
-        tokens = sapi.GetVoices()
+        """Return all installed voices from both Classic SAPI5 and OneCore hives.
+
+        Classic SAPI5 only sees the legacy desktop voices.  Newer voices
+        downloaded via Settings > Time & Language > Speech live in the
+        Speech_OneCore hive and must be enumerated separately via
+        SpObjectTokenCategory.  Both hives are merged and deduplicated by ID.
+        """
+        seen: set[str] = set()
         result: list[Voice] = []
-        for i in range(tokens.Count):
-            token = tokens.Item(i)
-            voice_id: str = token.Id  # e.g. HKEY_LOCAL_MACHINE\...\TTS_MS_EN-US_DAVID_11.0
-            name: str = token.GetDescription()
-            result.append(Voice(id=voice_id, name=name))
+        for cat_id in self._VOICE_CATEGORIES:
+            for v in self._enum_category(cat_id):
+                if v.id not in seen:
+                    seen.add(v.id)
+                    result.append(v)
         return result
 
     def _find_token(self, voice_id: str, sapi: object | None = None):
-        """Return the SAPI token matching voice_id, or the first token."""
-        if sapi is None:
-            sapi = self._speak_obj()
-        tokens = sapi.GetVoices()
-        for i in range(tokens.Count):
-            token = tokens.Item(i)
-            if token.Id == voice_id:
-                return token
-        return tokens.Item(0)
+        """Return the SAPI token for voice_id, searching both hives."""
+        # Search each category until we find the token
+        for cat_id in self._VOICE_CATEGORIES:
+            try:
+                cat = win32com.client.Dispatch("SAPI.SpObjectTokenCategory")
+                cat.SetId(cat_id, False)
+                tokens = cat.EnumerateTokens()
+                for i in range(tokens.Count):
+                    t = tokens.Item(i)
+                    if t.Id == voice_id:
+                        return t
+            except Exception:
+                continue
+        # Fallback: return first available voice from any hive
+        for cat_id in self._VOICE_CATEGORIES:
+            try:
+                cat = win32com.client.Dispatch("SAPI.SpObjectTokenCategory")
+                cat.SetId(cat_id, False)
+                tokens = cat.EnumerateTokens()
+                if tokens.Count > 0:
+                    return tokens.Item(0)
+            except Exception:
+                continue
+        return None
 
     # ── Speak ─────────────────────────────────────────────────────────────────
 
