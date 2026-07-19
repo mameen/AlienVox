@@ -62,9 +62,12 @@ class SapiEngine(TtsEngine):
         with self._lock:
             self._apply_params(voice_id, params)
             ssml = self._build_ssml(text, params)
+            print(f"[SAPI] speak: voice_id='{voice_id}', ssml_len={len(ssml)}, first_80={repr(ssml[:80])}")
             try:
                 self._sapi.Speak(ssml, _SVSFlagsAsync)
-            except Exception:
+                print(f"[SAPI] Speak() returned OK")
+            except Exception as exc:
+                print(f"[SAPI] Speak() FAILED: {exc}, falling back to plain text")
                 # SSML may fail on some voices/OS versions; fall back to plain text
                 if ssml != text:
                     self._sapi.Speak(text, _SVSFlagsAsync)
@@ -114,7 +117,9 @@ class SapiEngine(TtsEngine):
     # ── Internals ─────────────────────────────────────────────────────────────
 
     def _apply_params(self, voice_id: str, params: SpeakParams) -> None:
-        self._sapi.Voice = self._find_token(voice_id)
+        token = self._find_token(voice_id)
+        print(f"[SAPI] _apply_params: voice_id='{voice_id}', found_token='{token.Id[:60]}...', rate={params.rate}, pitch={params.pitch}, volume={params.volume}")
+        self._sapi.Voice = token
         self._sapi.Rate = max(-10, min(10, params.rate))
         self._sapi.Volume = max(0, min(100, params.volume))
 
