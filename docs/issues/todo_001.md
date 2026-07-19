@@ -24,7 +24,7 @@ AlienVox now has a compiling Rust/Tauri app with Windows SAPI speech, a dev-test
 - Voice/model installs use an in-app confirmation dialog; ML installs run as cooperative jobs with polling progress and cancellation.
 - New/Open/Save are document actions for text-oriented source files, while Convert to Audio exports WAV.
 - Tab panes reclaim space from irrelevant stack-specific controls; for example, native SAPI tabs hide the ML model selector instead of disabling it.
-- Local JSONL telemetry records play request id, engine/model/voice, text size, trigger-to-first-audio latency, playback end where observable, and errors without recording source text.
+- Local JSONL telemetry records generated session/play ids, engine/model/voice, text size, full stack configuration, trigger-to-first-audio latency, playback end where observable, and errors without recording source text.
 - Kokoro dependencies and model cache are installed locally for the current dev environment.
 - Model cache is ignored under `gemini_poc/.models/`.
 - Cloud TTS is documented as optional/demo only and not part of the core path.

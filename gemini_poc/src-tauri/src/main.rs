@@ -986,6 +986,8 @@ fn main() {
     // 2. Boot Tauri — manages the Balabolka-style UI window.
     //    Intercept window close to minimize to tray (like the original native app).
     //    Only "Quit" from tray menu should exit the process.
+    telemetry::init_session();
+
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             get_ml_models,

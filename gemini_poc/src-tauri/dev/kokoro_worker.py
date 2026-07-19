@@ -46,6 +46,8 @@ def emit_telemetry(event: str, request: dict, status: str = "ok", detail: str = 
     payload = {
         "timestampUnixMs": now,
         "event": event,
+        "sessionId": str(request.get("session_id") or ""),
+        "playId": str(request.get("telemetry_request_id") or ""),
         "requestId": str(request.get("telemetry_request_id") or ""),
         "engine": "ml",
         "model": "kokoro",

@@ -407,6 +407,7 @@ impl MlEngine {
             "requested_at_unix_ms": params.requested_at_unix_ms,
             "text_chars": params.text_chars,
             "text_bytes": params.text_bytes,
+            "session_id": telemetry::session_id(),
         });
 
         let mut guard = self
@@ -534,6 +535,8 @@ impl MlEngine {
             .arg(params.text_chars.to_string())
             .arg("--text-bytes")
             .arg(params.text_bytes.to_string())
+            .arg("--session-id")
+            .arg(telemetry::session_id())
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::piped())

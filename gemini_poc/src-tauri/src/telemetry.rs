@@ -54,6 +54,12 @@ pub fn session_id() -> &'static str {
     SESSION_ID.as_str()
 }
 
+pub fn init_session() -> &'static str {
+    let id = session_id();
+    eprintln!("[Telemetry] session started: {id}");
+    id
+}
+
 pub fn new_play_id() -> String {
     format!("play-{}", now_ms())
 }
@@ -68,39 +74,53 @@ pub fn record_worker_line(line: &str) {
     let Some(payload) = line.strip_prefix("ALIENVOX_TELEMETRY ") else {
         return;
     };
-    let path = telemetry_path();
-    if let Some(parent) = path.parent() {
-        let _ = std::fs::create_dir_all(parent);
-    }
-    match OpenOptions::new().create(true).append(true).open(&path) {
-        Ok(mut file) => {
-            let _ = writeln!(file, "{payload}");
-        }
-        Err(err) => eprintln!("[Telemetry] failed to append worker line: {err}"),
+    let payload = normalize_worker_payload(payload);
+    if let Err(err) = append_telemetry_line(&payload) {
+        eprintln!("[Telemetry] failed to append worker line: {err}");
     }
 }
 
-fn record_inner(event: &TtsTelemetryEvent<'_>) -> Result<(), String> {
-    let path = telemetry_path();
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|err| format!("failed to create {}: {err}", parent.display()))?;
+fn normalize_worker_payload(payload: &str) -> String {
+    let Ok(mut value) = serde_json::from_str::<serde_json::Value>(payload) else {
+        return payload.to_string();
+    };
+    value["sessionId"] = serde_json::json!(session_id());
+    if value.get("playId").is_none() {
+        value["playId"] = value
+            .get("requestId")
+            .cloned()
+            .unwrap_or_else(|| serde_json::json!(""));
     }
+    value.to_string()
+}
+
+fn record_inner(event: &TtsTelemetryEvent<'_>) -> Result<(), String> {
     let mut value = serde_json::to_value(event).map_err(|err| err.to_string())?;
     value["timestampUnixMs"] = serde_json::json!(now_ms());
     value["sessionId"] = serde_json::json!(session_id());
     value["playId"] = value["requestId"].clone();
+    append_telemetry_line(&value.to_string())
+}
+
+fn append_telemetry_line(payload: &str) -> Result<(), String> {
+    eprintln!("[Telemetry] {payload}");
+
+    let path = telemetry_log_path();
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|err| format!("failed to create {}: {err}", parent.display()))?;
+    }
     let mut file = OpenOptions::new()
         .create(true)
         .append(true)
         .open(&path)
         .map_err(|err| format!("failed to open {}: {err}", path.display()))?;
-    writeln!(file, "{value}").map_err(|err| err.to_string())
+    writeln!(file, "{payload}").map_err(|err| err.to_string())
 }
 
-fn telemetry_path() -> PathBuf {
+fn telemetry_log_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
         .join(".telemetry")
-        .join("tts-events.jsonl")
+        .join(format!("{}_AlienVox.log", session_id()))
 }

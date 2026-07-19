@@ -17,6 +17,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--volume", type=int, default=100)
     parser.add_argument("--hot-ttl-seconds", type=int, default=0)
     parser.add_argument("--output-wav", default="")
+    parser.add_argument("--session-id", default="")
     parser.add_argument("--telemetry-request-id", default="")
     parser.add_argument("--requested-at-unix-ms", type=int, default=0)
     parser.add_argument("--text-chars", type=int, default=0)
@@ -42,6 +43,8 @@ def emit_telemetry(event: str, args: argparse.Namespace, status: str = "ok", det
     payload = {
         "timestampUnixMs": now,
         "event": event,
+        "sessionId": args.session_id,
+        "playId": args.telemetry_request_id,
         "requestId": args.telemetry_request_id,
         "engine": "ml",
         "model": "piper",

@@ -8,6 +8,10 @@ venv/
 # Local neural model cache and drop-in models
 .models/
 
+# Local privacy-preserving telemetry logs
+.telemetry/
+*_AlienVox.log
+
 # Local Cargo wrapper for Windows bootstrap
 cargo.cmd
 
