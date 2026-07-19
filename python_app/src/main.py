@@ -160,12 +160,8 @@ def main() -> int:
                 telemetry=tel,
                 on_speak=speak_async,
                 on_stop=_do_stop,
-<<<<<<< HEAD
-                sapi5_voices=live_voices,
-=======
                 on_voice_changed=on_voice_changed,
                 on_config_saved=on_config_saved,
->>>>>>> 57b6170 (feat(python_app): complete SAPI5 engine — pitch/SSML, WaitUntilDone timeout, voice/slider persistence, 27 tests)
             )
         return _main_window
 
