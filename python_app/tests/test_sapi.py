@@ -118,14 +118,16 @@ def test_pause_resume_does_not_raise(engine):
 def test_wait_until_done_with_timeout_does_not_block_forever(engine):
     """WaitUntilDone(-1) blocks forever if SAPI hangs; a finite timeout must return."""
     engine.stop()
-    result = engine._sapi.WaitUntilDone(0)
+    sapi = engine.get_thread_local_sapi()
+    result = sapi.WaitUntilDone(0)
     assert isinstance(result, bool)
 
 
 def test_wait_until_done_returns_bool(engine):
     """WaitUntilDone should return a boolean indicating completion status."""
     engine.stop()
-    result = engine._sapi.WaitUntilDone(100)
+    sapi = engine.get_thread_local_sapi()
+    result = sapi.WaitUntilDone(100)
     assert isinstance(result, bool), f"Expected bool, got {type(result)}"
 
 
@@ -226,7 +228,8 @@ def test_set_voice_to_existing_voice(engine):
     voices = engine.list_voices()
     assert len(voices) >= 1
     target = voices[0]
-    engine._sapi.Voice = engine._find_token(target.id)
+    sapi = engine.get_thread_local_sapi()
+    sapi.Voice = engine._find_token(target.id, sapi=sapi)
 
 
 def test_voice_change_affects_output(engine, tmp_path):
@@ -303,13 +306,14 @@ def test_build_ssml_returns_plain_text_when_pitch_zero(engine):
 def test_build_ssml_includes_pitch_element_when_nonzero(engine):
     params = SpeakParams(pitch=5)
     ssml = engine._build_ssml("hello", params)
-    assert '<pitch absmiddle="5"/>' in ssml
+    assert '<prosody pitch="+5st">' in ssml
     assert "hello" in ssml
 
 
 def test_build_ssml_escapes_xml_in_text(engine):
     params = SpeakParams(pitch=3)
     ssml = engine._build_ssml("a & b < c > d", params)
+    assert "<prosody pitch=\"+3st\">" in ssml
     assert "&amp;" in ssml
     assert "&lt;" in ssml
     assert "&gt;" in ssml
