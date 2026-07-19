@@ -11,7 +11,8 @@
         "title": "Balabolka - [Document1]",
         "width": 900,
         "height": 650,
-        "resizable": true
+        "resizable": true,
+        "decorations": false
       },
       {
         "label": "about",
