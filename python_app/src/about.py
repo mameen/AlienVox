@@ -245,6 +245,11 @@ class AboutDialog(QDialog):
         layout.addWidget(gh_btn)
         return w
 
+    def closeEvent(self, event):
+        """Override native Windows [X] close to ensure proper cleanup."""
+        self.accept()
+        event.accept()
+
     def _build_close_row(self) -> QWidget:
         w = QWidget()
         w.setStyleSheet("background:#ffffff;")
