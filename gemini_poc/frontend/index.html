@@ -653,6 +653,22 @@
         .about-close-row button:hover {
             background-color: #e8e8e8;
         }
+
+        /* Per-model extra controls */
+        .model-controls {
+            background-color: #f0f4fa;
+            border-bottom: 1px solid #d0d0d0;
+            padding: 0 8px 10px;
+        }
+
+        .model-controls-header {
+            font-size: 11px;
+            font-weight: 600;
+            color: #555;
+            padding: 6px 0 4px;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
     </style>
 </head>
 <body>
@@ -739,7 +755,7 @@
         </div>
         <div class="slider-group">
             <div class="slider-label">
-                <span>Pitch</span>
+                <span>Pitch <span id="pitch-na" style="display:none;font-size:10px;color:#aaa">(N/A for ML)</span></span>
                 <span class="slider-value" id="pitch-value">0</span>
             </div>
             <input type="range" min="-10" max="10" value="0" id="pitch-slider" style="--value: 50%">
@@ -750,6 +766,34 @@
                 <span class="slider-value" id="volume-value">100</span>
             </div>
             <input type="range" min="0" max="100" value="100" id="volume-slider" style="--value: 100%">
+        </div>
+    </div>
+
+    <!-- Per-model extra controls — hidden unless model exposes knobs -->
+    <div class="model-controls" id="model-controls-piper" style="display:none">
+        <div class="model-controls-header">Piper Controls</div>
+        <div class="audio-sliders" style="border-bottom:none;padding-top:4px">
+            <div class="slider-group">
+                <div class="slider-label">
+                    <span>Noise Scale</span>
+                    <span class="slider-value" id="noise-scale-value">0.667</span>
+                </div>
+                <input type="range" min="0" max="1" step="0.01" value="0.667" id="noise-scale-slider" style="--value:66.7%">
+            </div>
+            <div class="slider-group">
+                <div class="slider-label">
+                    <span>Noise W</span>
+                    <span class="slider-value" id="noise-w-value">0.8</span>
+                </div>
+                <input type="range" min="0" max="1" step="0.01" value="0.8" id="noise-w-slider" style="--value:80%">
+            </div>
+            <div class="slider-group">
+                <div class="slider-label">
+                    <span>Sentence Silence</span>
+                    <span class="slider-value" id="sentence-silence-value">0.2s</span>
+                </div>
+                <input type="range" min="0" max="5" step="0.1" value="0.2" id="sentence-silence-slider" style="--value:4%">
+            </div>
         </div>
     </div>
 
@@ -897,20 +941,22 @@
     </div>
 
     <script>
-        // Slider value updates
+        // Slider fill + label update — shared by all sliders including model knobs.
+        function updateSliderFill(slider) {
+            const min = parseFloat(slider.min);
+            const max = parseFloat(slider.max);
+            const value = parseFloat(slider.value);
+            const pct = ((value - min) / (max - min)) * 100;
+            slider.style.setProperty('--value', `${pct}%`);
+        }
+
         const sliders = ['rate', 'pitch', 'volume'];
         sliders.forEach(name => {
             const slider = document.getElementById(`${name}-slider`);
             const valueDisplay = document.getElementById(`${name}-value`);
-            
             slider.addEventListener('input', (e) => {
-                const min = parseFloat(e.target.min);
-                const max = parseFloat(e.target.max);
-                const value = parseFloat(e.target.value);
-                const percentage = ((value - min) / (max - min)) * 100;
-                
-                e.target.style.setProperty('--value', `${percentage}%`);
-                valueDisplay.textContent = value;
+                updateSliderFill(e.target);
+                valueDisplay.textContent = e.target.value;
             });
         });
 
@@ -941,6 +987,7 @@
                 updateEngineUi();
                 writeSettings({ voice: '' });
                 loadVoices({ force: false });
+                if (invoke) invoke('set_active_selection', { engine: activeEngine(), model: null }).catch(console.error);
             });
         });
 
@@ -991,6 +1038,74 @@
         const settingsKey = 'alienvox.dev.settings.v1';
         let pendingInstall = null;
         let installPollTimer = null;
+        let pendingVoiceRestore = '';   // set by applyModelConfig, consumed by loadVoices
+        let configSaveTimer = null;
+
+        // ─── One-way YAML data flow helpers ──────────────────────────────────
+
+        function scheduleModelConfigSave(stack, model, patch) {
+            if (configSaveTimer) clearTimeout(configSaveTimer);
+            configSaveTimer = setTimeout(async () => {
+                if (!invoke) return;
+                try { await invoke('set_model_config', { stack, model, patch }); }
+                catch (err) { console.error('set_model_config failed:', err); }
+            }, 350);
+        }
+
+        async function loadModelConfig(stack, model) {
+            if (!invoke) return;
+            try {
+                const cfg = await invoke('get_effective_config', { stack, model });
+                applyModelConfig(model, cfg || {});
+            } catch (err) {
+                console.error('get_effective_config failed:', err);
+            }
+        }
+
+        function applyModelConfig(model, cfg) {
+            if (cfg.rate !== undefined) {
+                rateSlider.value = cfg.rate;
+                updateSliderFill(rateSlider);
+                document.getElementById('rate-value').textContent = cfg.rate;
+            }
+            if (cfg.volume !== undefined) {
+                volumeSlider.value = cfg.volume;
+                updateSliderFill(volumeSlider);
+                document.getElementById('volume-value').textContent = cfg.volume;
+            }
+            if (cfg.voice) pendingVoiceRestore = cfg.voice;
+            if (model === 'piper') {
+                const ns = document.getElementById('noise-scale-slider');
+                const nw = document.getElementById('noise-w-slider');
+                const ss = document.getElementById('sentence-silence-slider');
+                if (cfg.noise_scale !== undefined) { ns.value = cfg.noise_scale; updateSliderFill(ns); document.getElementById('noise-scale-value').textContent = parseFloat(cfg.noise_scale).toFixed(3); }
+                if (cfg.noise_w !== undefined) { nw.value = cfg.noise_w; updateSliderFill(nw); document.getElementById('noise-w-value').textContent = parseFloat(cfg.noise_w).toFixed(3); }
+                if (cfg.sentence_silence !== undefined) { ss.value = cfg.sentence_silence; updateSliderFill(ss); document.getElementById('sentence-silence-value').textContent = parseFloat(cfg.sentence_silence).toFixed(1) + 's'; }
+            }
+        }
+
+        function updateModelControls() {
+            const show = activeEngine() === 'ml' && modelSelect.value === 'piper';
+            document.getElementById('model-controls-piper').style.display = show ? '' : 'none';
+        }
+
+        // Piper knob sliders
+        const piperKnobDefs = [
+            { id: 'noise-scale', key: 'noise_scale', fmt: v => v.toFixed(3) },
+            { id: 'noise-w',     key: 'noise_w',     fmt: v => v.toFixed(3) },
+            { id: 'sentence-silence', key: 'sentence_silence', fmt: v => v.toFixed(1) + 's' },
+        ];
+        piperKnobDefs.forEach(({ id, key, fmt }) => {
+            const slider = document.getElementById(`${id}-slider`);
+            const label  = document.getElementById(`${id}-value`);
+            slider.addEventListener('input', () => {
+                updateSliderFill(slider);
+                label.textContent = fmt(parseFloat(slider.value));
+            });
+            slider.addEventListener('change', () => {
+                scheduleModelConfigSave('ml', 'piper', { [key]: parseFloat(slider.value) });
+            });
+        });
 
         function showMessage(title, body) {
             messageTitle.textContent = title || 'AlienVox';
@@ -1051,7 +1166,7 @@
 
         function selectedModelLabel() {
             const selected = modelSelect.options[modelSelect.selectedIndex];
-            return selected ? selected.textContent.replace(/\s+-\s+.*$/, '') : modelSelect.value;
+            return selected ? selected.textContent.replace(/^\S+\s+/, '').replace(/\s+-\s+.*$/, '') : modelSelect.value;
         }
 
         function closeInstallDialog() {
@@ -1243,6 +1358,10 @@
             ttlInput.disabled = !isMl;
             installButton.textContent = isMl ? 'Install Model' : 'Install';
             installButton.title = isMl ? 'Install or configure the selected local ML model' : 'Install more Windows voices';
+            updateModelControls();
+            pitchSlider.disabled = isMl;
+            pitchSlider.style.opacity = isMl ? '0.35' : '';
+            document.getElementById('pitch-na').style.display = isMl ? '' : 'none';
             if (!isMl) {
                 setStatus('Native');
                 return;
@@ -1366,10 +1485,12 @@
             try {
                 const models = await invoke('get_ml_models');
                 modelSelect.innerHTML = '';
+                const led = { installed: '🟢', not_installed: '⚪', unavailable: '🟡' };
                 for (const model of models) {
                     const opt = document.createElement('option');
                     opt.value = model.id;
-                    opt.textContent = `${model.name} - ${model.status}`;
+                    const dot = led[model.state] || '⚪';
+                    opt.textContent = `${dot} ${model.name} - ${model.status}`;
                     opt.title = model.note;
                     modelSelect.appendChild(opt);
                 }
@@ -1406,16 +1527,43 @@
                     opt.textContent = v.name;
                     voiceSelect.appendChild(opt);
                 }
-                const settings = readSettings();
-                if (settings.voice && [...voiceSelect.options].some(o => o.value === settings.voice)) {
-                    voiceSelect.value = settings.voice;
+                // Prefer YAML-restored voice; fall back to localStorage.
+                const voiceToRestore = pendingVoiceRestore || readSettings().voice || '';
+                pendingVoiceRestore = '';
+                if (voiceToRestore && [...voiceSelect.options].some(o => o.value === voiceToRestore)) {
+                    voiceSelect.value = voiceToRestore;
                 }
             } catch (err) {
                 console.error('get_voices failed:', err);
             }
         }
 
-        function restoreSettings() {
+        async function restoreSettings() {
+            if (invoke) {
+                try {
+                    const overrides = await invoke('get_user_overrides');
+                    if (overrides.engine) {
+                        const tab = document.querySelector(`.engine-tab[data-engine="${overrides.engine}"]`);
+                        if (tab && !tab.classList.contains('disabled')) {
+                            tabs.forEach(t => t.classList.remove('active'));
+                            tab.classList.add('active');
+                        }
+                    }
+                    if (overrides.model) modelSelect.value = overrides.model;
+                    // Restore TTL from stack overrides if present
+                    const mlStack = overrides.stacks?.ml;
+                    if (mlStack?.hot_ttl_seconds !== undefined) ttlInput.value = mlStack.hot_ttl_seconds;
+                    // Load merged model config (restores rate/volume/voice/knobs)
+                    const engine = activeEngine();
+                    if (engine === 'ml') {
+                        await loadModelConfig('ml', modelSelect.value || 'kokoro');
+                    }
+                    return;
+                } catch (err) {
+                    console.error('get_user_overrides failed, falling back to localStorage:', err);
+                }
+            }
+            // Fallback: localStorage (DevTools / outside-Tauri)
             const settings = readSettings();
             if (settings.engine) {
                 const tab = document.querySelector(`.engine-tab[data-engine="${settings.engine}"]`);
@@ -1425,9 +1573,9 @@
                 }
             }
             if (settings.model) modelSelect.value = settings.model;
-            if (settings.rate) rateSlider.value = settings.rate;
-            if (settings.pitch) pitchSlider.value = settings.pitch;
-            if (settings.volume) volumeSlider.value = settings.volume;
+            if (settings.rate !== undefined) rateSlider.value = settings.rate;
+            if (settings.pitch !== undefined) pitchSlider.value = settings.pitch;
+            if (settings.volume !== undefined) volumeSlider.value = settings.volume;
             if (settings.hotTtlSeconds !== undefined) ttlInput.value = settings.hotTtlSeconds;
             sliders.forEach(name => {
                 const slider = document.getElementById(`${name}-slider`);
@@ -1438,21 +1586,38 @@
         modelSelect.addEventListener('change', () => {
             writeSettings({ voice: '' });
             updateEngineUi();
+            updateModelControls();
             loadVoices({ force: false });
+            if (activeEngine() === 'ml') loadModelConfig('ml', modelSelect.value);
+            if (invoke) invoke('set_active_selection', { engine: null, model: modelSelect.value }).catch(console.error);
         });
-        voiceSelect.addEventListener('change', () => writeSettings());
+        voiceSelect.addEventListener('change', () => {
+            writeSettings();
+            if (activeEngine() === 'ml' && modelSelect.value && voiceSelect.value) {
+                scheduleModelConfigSave('ml', modelSelect.value, { voice: voiceSelect.value });
+            }
+        });
         [rateSlider, pitchSlider, volumeSlider].forEach(slider => {
-            slider.addEventListener('change', () => writeSettings());
+            slider.addEventListener('change', () => {
+                writeSettings();
+                if (activeEngine() === 'ml' && modelSelect.value) {
+                    const patch = {};
+                    if (slider === rateSlider)   patch.rate   = parseInt(rateSlider.value, 10);
+                    if (slider === volumeSlider)  patch.volume = parseInt(volumeSlider.value, 10);
+                    if (Object.keys(patch).length) scheduleModelConfigSave('ml', modelSelect.value, patch);
+                }
+            });
         });
         ttlInput.addEventListener('change', () => {
             const value = Math.max(0, Math.min(300, parseInt(ttlInput.value || '30', 10)));
             ttlInput.value = value;
             writeSettings({ hotTtlSeconds: value });
+            if (invoke) invoke('set_stack_config', { stack: 'ml', patch: { hot_ttl_seconds: value } }).catch(console.error);
         });
 
         (async () => {
             await loadModels();
-            restoreSettings();
+            await restoreSettings();
             updateEngineUi();
             await loadVoices();
         })();

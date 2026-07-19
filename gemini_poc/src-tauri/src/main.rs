@@ -1,6 +1,6 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+﻿#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-//! AlienVox — single-binary TTS desktop application (Tauri + Win32).
+//! AlienVox â€” single-binary TTS desktop application (Tauri + Win32).
 //!
 //! Architecture:
 //! - **System tray** (Win32): invisible hidden window owns the tray icon.
@@ -40,7 +40,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     TPM_TOPALIGN, WM_DESTROY, WM_USER, WNDCLASSW,
 };
 
-// ─── Win32 Platform Modules ───────────────────────────────────────────────────
+// â”€â”€â”€ Win32 Platform Modules â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Platform-specific audio and text-capture backends. Only the module matching
 // the target OS is compiled in (cfg-gated).
 
@@ -65,22 +65,23 @@ mod telemetry;
 
 // Unified, deployment-safe path resolution (ADR-003).  Cross-platform.
 mod paths;
+mod config;
 
 // Multi-stack TTS engine abstraction (ADR-004).  Cross-platform.
 mod engines;
 use engines::TtsEngine;
 
-// ─── System Tray ──────────────────────────────────────────────────────────────
+// â”€â”€â”€ System Tray â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // A hidden Win32 window owns the tray icon.  The UI/UX spec requires a
-// right-click context menu with: Speak Selection, Stop, Voice ▸, Settings…,
-// About, Quit — in that order.
+// right-click context menu with: Speak Selection, Stop, Voice â–¸, Settingsâ€¦,
+// About, Quit â€” in that order.
 
 /// Stores the hidden window handle so we can destroy it on shutdown.
 static TRAY_HWND: Mutex<Option<HWND>> = Mutex::new(None);
 
 /// Register a Win32 window class and create a hidden window for tray ownership.
 /// `icon_path` is resolved via `paths::tray_icon_path` so it is valid in both dev
-/// and deployed builds (ADR-003 §3).
+/// and deployed builds (ADR-003 Â§3).
 fn create_tray_icon(icon_path: &Path) -> Result<(), String> {
     unsafe {
         // 1. Register a hidden window class whose proc handles tray notifications.
@@ -104,7 +105,7 @@ fn create_tray_icon(icon_path: &Path) -> Result<(), String> {
             return Err(format!("RegisterClassW failed: {}", GetLastError()));
         }
 
-        // 2. Create a hidden (zero-sized, SW_HIDE) window — required by Shell_NotifyIconW.
+        // 2. Create a hidden (zero-sized, SW_HIDE) window â€” required by Shell_NotifyIconW.
         let hwnd = CreateWindowExW(
             0,
             class_name.as_ptr(),
@@ -166,7 +167,7 @@ fn create_tray_icon(icon_path: &Path) -> Result<(), String> {
             return Err("Shell_NotifyIconW failed".to_string());
         }
 
-        // 5. Hide the ownership window — only the tray icon should be visible.
+        // 5. Hide the ownership window â€” only the tray icon should be visible.
         ShowWindow(hwnd, SW_HIDE);
 
         let mut tray = TRAY_HWND.lock().unwrap();
@@ -208,12 +209,12 @@ unsafe extern "system" fn tray_window_proc(
         msg if msg == WM_USER + 1 => {
             let notification = (lparam & 0xFFFF) as u32;
             match notification {
-                // WM_RBUTTONUP — show context menu on right-click.
+                // WM_RBUTTONUP â€” show context menu on right-click.
                 0x205 => {
                     show_tray_context_menu(_hwnd);
                     0
                 }
-                // WM_LBUTTONDBLCLK — toggle main window visibility on double-click.
+                // WM_LBUTTONDBLCLK â€” toggle main window visibility on double-click.
                 0x0203 => {
                     if let Ok(w) = MAIN_WINDOW.lock() {
                         if let Some(ref win) = *w {
@@ -235,7 +236,7 @@ unsafe extern "system" fn tray_window_proc(
 }
 
 /// Show the right-click context menu per the UI/UX design spec:
-/// Speak Selection | Stop | --- | Voice ▸ | Settings… | About | Quit
+/// Speak Selection | Stop | --- | Voice â–¸ | Settingsâ€¦ | About | Quit
 fn show_tray_context_menu(hwnd: HWND) {
     unsafe {
         let menu = CreatePopupMenu();
@@ -243,7 +244,7 @@ fn show_tray_context_menu(hwnd: HWND) {
             return;
         }
 
-        // Separator helper — returns true on success.
+        // Separator helper â€” returns true on success.
         let mut ok = true;
 
         // Menu items (IDs are arbitrary constants).
@@ -282,13 +283,13 @@ fn show_tray_context_menu(hwnd: HWND) {
             menu,
             MF_ENABLED | 0x100, /* MF_POPUP */
             ID_VOICE as usize,
-            to_wstring("Voice ▸").as_ptr(),
+            to_wstring("Voice â–¸").as_ptr(),
         ) != 0;
         ok &= AppendMenuW(
             menu,
             MF_ENABLED,
             ID_SETTINGS as usize,
-            to_wstring("Settings…").as_ptr(),
+            to_wstring("Settingsâ€¦").as_ptr(),
         ) != 0;
         ok &= AppendMenuW(
             menu,
@@ -331,7 +332,7 @@ fn show_tray_context_menu(hwnd: HWND) {
             fn GetCursorPos(lppt: *mut POINT) -> i32;
         }
         GetCursorPos(&mut pt);
-        // NOTE: Do NOT call SetForegroundWindow here — it causes Explorer/taskbar flicker.
+        // NOTE: Do NOT call SetForegroundWindow here â€” it causes Explorer/taskbar flicker.
         let cmd = TrackPopupMenuEx(
             menu,
             TPM_RETURNCMD | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RIGHTBUTTON,
@@ -355,7 +356,7 @@ fn show_tray_context_menu(hwnd: HWND) {
                 }
             }
             ID_ABOUT => {
-                println!("[Tray] About menu item clicked — invoking open_about_window");
+                println!("[Tray] About menu item clicked â€” invoking open_about_window");
                 if let Ok(guard) = APP_HANDLE.lock() {
                     if let Some(handle) = &*guard {
                         match open_about_window(handle.clone()) {
@@ -363,7 +364,7 @@ fn show_tray_context_menu(hwnd: HWND) {
                             Err(e) => eprintln!("[Tray] Failed to show About: {}", e),
                         }
                     } else {
-                        eprintln!("[Tray] APP_HANDLE is None — cannot show About");
+                        eprintln!("[Tray] APP_HANDLE is None â€” cannot show About");
                     }
                 } else {
                     eprintln!("[Tray] Failed to lock APP_HANDLE");
@@ -388,7 +389,7 @@ fn to_wstring(value: &str) -> Vec<u16> {
         .collect()
 }
 
-// ─── Global TTS Engine State ──────────────────────────────────────────────────
+// â”€â”€â”€ Global TTS Engine State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 /// Lazy-initialized native SAPI engine.  Created on first call to `speak_text`.
 /// The engine owns a dedicated STA thread that holds the `ISpVoice` COM object;
 /// see `audio/audio_win.rs`.
@@ -397,7 +398,7 @@ static ML_SPEAKER: Mutex<Option<engines::ml::MlEngine>> = Mutex::new(None);
 static INSTALL_JOBS: LazyLock<Mutex<HashMap<String, InstallJob>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
-// ─── Tauri Command Types ──────────────────────────────────────────────────────
+// â”€â”€â”€ Tauri Command Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 struct VoiceInfo {
@@ -454,7 +455,7 @@ fn telemetry_config(
     }
 }
 
-// ─── Tauri Commands ───────────────────────────────────────────────────────────
+// â”€â”€â”€ Tauri Commands â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // These functions are exposed to the frontend via Tauri's IPC bridge.
 // The frontend calls them through `invoke()` in JavaScript.
 
@@ -465,7 +466,7 @@ fn telemetry_config(
 fn get_ml_models(app: tauri::AppHandle) -> Result<Vec<engines::ml::MlModel>, String> {
     let mut guard = ML_SPEAKER.lock().map_err(|e| e.to_string())?;
     if guard.is_none() {
-        *guard = Some(engines::ml::MlEngine::new(paths::model_dirs(&app, "ml")));
+        *guard = Some(engines::ml::MlEngine::with_app(paths::model_dirs(&app, "ml"), app.clone()));
     }
     Ok(guard.as_ref().unwrap().models())
 }
@@ -479,7 +480,7 @@ fn get_voices(
     if engine == "ml" {
         let mut guard = ML_SPEAKER.lock().map_err(|e| e.to_string())?;
         if guard.is_none() {
-            *guard = Some(engines::ml::MlEngine::new(paths::model_dirs(&app, "ml")));
+            *guard = Some(engines::ml::MlEngine::with_app(paths::model_dirs(&app, "ml"), app.clone()));
         }
         let ml = guard.as_ref().unwrap();
         return ml
@@ -596,7 +597,7 @@ fn speak_text(
     if engine == "ml" {
         let mut guard = ML_SPEAKER.lock().map_err(|e| e.to_string())?;
         if guard.is_none() {
-            *guard = Some(engines::ml::MlEngine::new(paths::model_dirs(&app, "ml")));
+            *guard = Some(engines::ml::MlEngine::with_app(paths::model_dirs(&app, "ml"), app.clone()));
         }
         let ml = guard.as_ref().unwrap();
         let params = engines::SpeakParams {
@@ -689,7 +690,7 @@ fn export_wav(
     }
     let mut guard = ML_SPEAKER.lock().map_err(|e| e.to_string())?;
     if guard.is_none() {
-        *guard = Some(engines::ml::MlEngine::new(paths::model_dirs(&app, "ml")));
+        *guard = Some(engines::ml::MlEngine::with_app(paths::model_dirs(&app, "ml"), app.clone()));
     }
     let params = engines::SpeakParams {
         rate,
@@ -714,7 +715,7 @@ fn export_wav(
 fn install_ml_model(app: tauri::AppHandle, model: String) -> Result<String, String> {
     let mut guard = ML_SPEAKER.lock().map_err(|e| e.to_string())?;
     if guard.is_none() {
-        *guard = Some(engines::ml::MlEngine::new(paths::model_dirs(&app, "ml")));
+        *guard = Some(engines::ml::MlEngine::with_app(paths::model_dirs(&app, "ml"), app.clone()));
     }
     guard
         .as_ref()
@@ -730,7 +731,7 @@ fn start_ml_model_install(
 ) -> Result<InstallJobStatus, String> {
     let mut guard = ML_SPEAKER.lock().map_err(|e| e.to_string())?;
     if guard.is_none() {
-        *guard = Some(engines::ml::MlEngine::new(paths::model_dirs(&app, "ml")));
+        *guard = Some(engines::ml::MlEngine::with_app(paths::model_dirs(&app, "ml"), app.clone()));
     }
     let (model, root, mut command) = guard
         .as_ref()
@@ -825,11 +826,16 @@ fn start_ml_model_install(
                 break;
             }
 
-            progress = progress.saturating_add(3).min(95);
-            if let Ok(mut state) = thread_state.lock() {
-                state.progress = progress;
-                state.message =
-                    format!("Installing {thread_model} under {}.", thread_root.display());
+            // Real progress comes from the stdout reader (PROGRESS lines).
+            // Only nudge the initial "started" state so the bar visibly moves out of 0
+            // before the first PROGRESS line arrives.
+            if progress < 3 {
+                progress = 3;
+                if let Ok(mut state) = thread_state.lock() {
+                    if state.progress < 3 {
+                        state.progress = 3;
+                    }
+                }
             }
         }
     });
@@ -890,26 +896,39 @@ fn spawn_install_output_reader(
     stream: Option<impl Read + Send + 'static>,
     state: Arc<Mutex<InstallJobStatus>>,
 ) {
-    let Some(mut stream) = stream else {
+    let Some(stream) = stream else {
         return;
     };
     let model = model.to_string();
     thread::spawn(move || {
-        let mut text = String::new();
-        let _ = stream.read_to_string(&mut text);
-        if !text.trim().is_empty() {
-            eprintln!(
-                "[ML model installer {stream_name}: {model}]\n{}",
-                text.trim()
-            );
-            if let Ok(mut state) = state.lock() {
-                if !state.done {
-                    state.message = text
-                        .trim()
-                        .lines()
-                        .last()
-                        .unwrap_or(&state.message)
-                        .to_string();
+        use std::io::BufRead;
+        let reader = std::io::BufReader::new(stream);
+        for line in reader.lines().map_while(Result::ok) {
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            // Parse "PROGRESS <pct> <msg>" emitted by install_ml_model.py.
+            if let Some(rest) = trimmed.strip_prefix("PROGRESS ") {
+                let mut parts = rest.splitn(2, ' ');
+                let pct = parts.next().and_then(|s| s.parse::<u8>().ok());
+                let msg = parts.next().unwrap_or("").to_string();
+                if let Some(pct) = pct {
+                    if let Ok(mut s) = state.lock() {
+                        if !s.done {
+                            s.progress = pct.min(100);
+                            if !msg.is_empty() {
+                                s.message = msg;
+                            }
+                        }
+                    }
+                    continue;
+                }
+            }
+            eprintln!("[ML model installer {stream_name}: {model}] {trimmed}");
+            if let Ok(mut s) = state.lock() {
+                if !s.done {
+                    s.message = trimmed.to_string();
                 }
             }
         }
@@ -959,8 +978,8 @@ fn resume_speaking() -> Result<(), String> {
 }
 
 /// Open the Windows "Speech / voices" settings page so the user can install more
-/// voices.  Silent installation isn't possible — voice packages require the
-/// Settings/Store flow — so we surface the official page instead.
+/// voices.  Silent installation isn't possible â€” voice packages require the
+/// Settings/Store flow â€” so we surface the official page instead.
 #[tauri::command]
 fn open_voice_settings() -> Result<(), String> {
     use std::os::windows::process::CommandExt;
@@ -973,7 +992,61 @@ fn open_voice_settings() -> Result<(), String> {
         .map_err(|e| format!("Failed to open voice settings: {e}"))
 }
 
-// ─── Main Entry Point ─────────────────────────────────────────────────────────
+// â”€â”€â”€ Config commands (SKILL Â§5 one-way data flow) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+/// Read the merged effective config for a (stack, model).  UI renders from this.
+#[tauri::command]
+fn get_effective_config(
+    app: tauri::AppHandle,
+    stack: String,
+    model: Option<String>,
+) -> Result<serde_yaml::Value, String> {
+    // Built-in defaults are engine-owned; empty for the generic command.
+    // Per-engine wrappers may pass richer defaults later.
+    let defaults = serde_yaml::Value::Null;
+    config::resolve_effective(&app, &stack, model.as_deref(), defaults)
+        .map(|c| c.value)
+        .map_err(|e| e.to_string())
+}
+
+/// Read the raw user overrides (last-picked engine/model + all persisted knobs).
+#[tauri::command]
+fn get_user_overrides(app: tauri::AppHandle) -> Result<config::UserOverrides, String> {
+    config::load_user_overrides(&app).map_err(|e| e.to_string())
+}
+
+/// Persist a per-model control change (single write sink for model-scoped values).
+#[tauri::command]
+fn set_model_config(
+    app: tauri::AppHandle,
+    stack: String,
+    model: String,
+    patch: serde_yaml::Value,
+) -> Result<config::UserOverrides, String> {
+    config::set_model_override(&app, &stack, &model, patch).map_err(|e| e.to_string())
+}
+
+/// Persist a stack-scoped change (e.g. hot_ttl_seconds for ml).
+#[tauri::command]
+fn set_stack_config(
+    app: tauri::AppHandle,
+    stack: String,
+    patch: serde_yaml::Value,
+) -> Result<config::UserOverrides, String> {
+    config::set_stack_override(&app, &stack, patch).map_err(|e| e.to_string())
+}
+
+/// Persist the active engine/model selection (top-level app state).
+#[tauri::command]
+fn set_active_selection(
+    app: tauri::AppHandle,
+    engine: Option<String>,
+    model: Option<String>,
+) -> Result<config::UserOverrides, String> {
+    config::set_active_selection(&app, engine, model).map_err(|e| e.to_string())
+}
+
+// â”€â”€â”€ Main Entry Point â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 /// Application entry point.  Initializes COM, then hands control to Tauri for the
 /// WebView2 UI window.  The system tray icon is created in `setup` (below), where
 /// the `AppHandle` is available for deployment-safe path resolution (ADR-003).
@@ -983,7 +1056,7 @@ fn main() {
         CoInitializeEx(std::ptr::null(), COINIT_APARTMENTTHREADED as u32);
     }
 
-    // 2. Boot Tauri — manages the Balabolka-style UI window.
+    // 2. Boot Tauri â€” manages the Balabolka-style UI window.
     //    Intercept window close to minimize to tray (like the original native app).
     //    Only "Quit" from tray menu should exit the process.
     telemetry::init_session();
@@ -1009,6 +1082,11 @@ fn main() {
             open_voice_settings,
             open_about_window,
             close_about_window,
+            get_effective_config,
+            get_user_overrides,
+            set_model_config,
+            set_stack_config,
+            set_active_selection,
         ])
         .setup(|app| {
             // Store the main window handle for tray double-click toggle.
@@ -1024,9 +1102,9 @@ fn main() {
             Ok(())
         })
         .on_window_event(|_window, event| {
-            // Intercept the close button (X) — minimize to tray instead of quitting.
+            // Intercept the close button (X) â€” minimize to tray instead of quitting.
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                println!("[Window] Close requested — minimizing to tray");
+                println!("[Window] Close requested â€” minimizing to tray");
                 _window.hide().ok();
                 api.prevent_close();
             }

@@ -16,6 +16,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rate", type=int, default=0)
     parser.add_argument("--volume", type=int, default=100)
     parser.add_argument("--hot-ttl-seconds", type=int, default=0)
+    parser.add_argument("--voice", default="")
+    # Piper-specific runtime knobs (upstream docs: rhasspy/piper CLI).
+    parser.add_argument("--length-scale", type=float, default=None,
+                        help="Overrides rate-derived length scale (>1 = slower).")
+    parser.add_argument("--noise-scale", type=float, default=0.667,
+                        help="Prosody / expressiveness variability (0..1).")
+    parser.add_argument("--noise-w", type=float, default=0.8,
+                        help="Speaking-style variation (0..1).")
+    parser.add_argument("--sentence-silence", type=float, default=0.2,
+                        help="Seconds of silence inserted between sentences.")
+    parser.add_argument("--speaker", type=int, default=-1,
+                        help="Speaker id for multi-speaker models; -1 = default.")
     parser.add_argument("--output-wav", default="")
     parser.add_argument("--session-id", default="")
     parser.add_argument("--telemetry-request-id", default="")
@@ -48,7 +60,7 @@ def emit_telemetry(event: str, args: argparse.Namespace, status: str = "ok", det
         "requestId": args.telemetry_request_id,
         "engine": "ml",
         "model": "piper",
-        "voice": "en_US-lessac-medium",
+        "voice": args.voice or "en_US-lessac-medium",
         "textChars": args.text_chars,
         "textBytes": args.text_bytes,
         "config": {
@@ -87,6 +99,11 @@ def main() -> int:
         print(f"Piper model not found: {model_path}", file=sys.stderr)
         return 1
 
+    length_scale = (
+        args.length_scale
+        if args.length_scale is not None
+        else max(0.5, min(2.0, 1.0 - (args.rate / 30.0)))
+    )
     base_cmd = [
         sys.executable,
         "-m",
@@ -96,10 +113,18 @@ def main() -> int:
         "--config",
         str(config_path),
         "--length-scale",
-        str(max(0.5, min(2.0, 1.0 - (args.rate / 30.0)))),
+        str(length_scale),
+        "--noise-scale",
+        str(max(0.0, min(1.0, args.noise_scale))),
+        "--noise-w",
+        str(max(0.0, min(1.0, args.noise_w))),
+        "--sentence-silence",
+        str(max(0.0, min(5.0, args.sentence_silence))),
         "--volume",
         str(max(0.0, args.volume / 100.0)),
     ]
+    if args.speaker >= 0:
+        base_cmd.extend(["--speaker", str(args.speaker)])
 
     try:
         if args.output_wav:
