@@ -11,6 +11,8 @@ from pathlib import Path
 
 import pytest
 
+from src.engines.base import SpeakParams
+
 pytestmark = pytest.mark.skipif(
     sys.platform != "win32", reason="Windows-only"
 )
