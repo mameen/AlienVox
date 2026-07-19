@@ -127,7 +127,74 @@ Local, zero-dependency speech via the platform's built-in engine is the fastest 
 
 ---
 
-## 5. Architecture Decision Records (ADRs)
+## 5. Configuration — One-Way Data Flow (see also: ADR to be recorded)
+
+Every configurable setting in AlienVox is owned by a YAML descriptor on disk. The
+engine layer, the UI, and telemetry all **read** from the merged config; user input
+**writes** back to the config file and the app reloads. No code path mutates engine
+state, UI widgets, or persisted values out-of-band. This keeps state single-sourced,
+diffable, and testable without a running app.
+
+### 5.1 Read / Write Directions
+
+- **Read (fan-out)**: YAML → engine construction, YAML → UI control rendering, YAML → telemetry stack configuration.
+- **Write (single sink)**: user input → YAML file → reload → fan-out again.
+- The UI **must not** hard-code model-specific fields (voice lists, rate/pitch ranges, install manifests). If a knob isn't declared in YAML, it isn't rendered. Adding a new model means dropping a folder with `model.yaml` — no Rust or frontend edits.
+- The engine **must not** cache setting values past a reload. Every `speak` reads the effective config for the current stack/model/voice.
+
+### 5.2 Four-Layer Config Hierarchy
+
+Later layers override earlier ones. The resolver merges bottom-up and hands the
+flattened view to both the engine and the UI.
+
+| # | Layer | Location | Purpose |
+| :--- | :--- | :--- | :--- |
+| 1 | Built-in defaults | Compiled into the engine | Baseline values so a missing YAML never crashes the app. |
+| 2 | Stack config | `.models/<stack>/stack.yaml`, `.apis/<provider>/provider.yaml` | Stack- or provider-wide settings (default TTL, models root, API base URL, auth env-var name). |
+| 3 | Model / voice config | `.models/<stack>/<model>/model.yaml` | Per-model knobs, voice roster, install manifest, UI hints (control ranges, labels, which sliders apply). |
+| 4 | User overrides | `%LOCALAPPDATA%\<identifier>\user.yaml` (per ADR-003 §4·1) | Last-picked engine/model/voice, slider values, hotkey binding — the persisted UI state. |
+
+### 5.3 Concrete Paths
+
+- Stacks live under `.models/<stack>/` (matches ADR-004 §5 folder layout).
+- Cloud providers live under `.apis/<provider>/` alongside `.models`.
+- All paths resolve through the ADR-003 `paths.rs` search order (`app_local_data_dir` → `resource_dir` → dev override). The config resolver reuses that search order — it does **not** invent its own path scheme.
+- Secrets referenced by `provider.yaml` (API keys) resolve from OS environment variables named in the YAML; the key value is never written into any YAML on disk (per `workspace-discipline` §2 secret cordoning).
+
+### 5.4 UI Hint Schema (informative)
+
+Model YAML declares what the UI should render, so the frontend is a generic renderer:
+
+```yaml
+# .models/ml/kokoro/model.yaml (illustrative)
+id: kokoro
+name: Kokoro-82M
+runtime: python-worker           # engine chooses adapter
+adapter: dev/kokoro_worker.py
+voices:
+  - { id: af_heart, label: "American F · Heart" }
+  - { id: bm_george, label: "British M · George" }
+controls:
+  rate:   { min: -10, max: 10, default: 0, applies: true }
+  pitch:  { applies: false }     # Kokoro ignores pitch — hide the slider
+  volume: { min: 0, max: 100, default: 100, applies: true }
+  ttl_seconds: { min: 0, max: 300, default: 30, applies: true }
+```
+
+An engine that doesn't map a field marks it `applies: false`; the UI reclaims the
+space (aligns with `ui_ux_design` §2.2). This replaces ad-hoc per-model branches in
+the Rust engine and the frontend.
+
+### 5.5 Consequences
+
+- **Adding a stack, provider, or model is data-only** in the steady state.
+- **Persistence is trivial**: writing `user.yaml` is the only mutation site.
+- **Diffing is straightforward**: `git diff` on the config folder shows exactly what changed between runs.
+- **Testing is decoupled**: engine and renderer tests take a YAML fixture instead of mocking IPC.
+
+---
+
+## 6. Architecture Decision Records (ADRs)
 
 All significant, long-lived architecture decisions for AlienVox are recorded as ADRs in
 the **`docs/adr/`** folder (repo root, i.e. `C:\dev\tts\docs\adr\`). Before proposing or
