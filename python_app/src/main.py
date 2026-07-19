@@ -87,9 +87,7 @@ def main() -> int:
                     pitch=cfg.get("pitch", 0),
                     volume=cfg.get("volume", 100),
                 )
-                voice_id = cfg.get("voice", "")
-                print(f"[AlienVox] speak: engine={active_stack}, voice_id='{voice_id}', text_len={len(text)}, params={params}")
-                engine.speak(text, voice_id, params)
+                engine.speak(text, cfg.get("voice", ""), params)
 
                 # Emit first_audio telemetry (latency to SAPI submit) — matches Rust pattern
                 tel.emit(
