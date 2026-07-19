@@ -30,7 +30,9 @@ class AboutDialog(QDialog):
         self.setWindowTitle("About AlienVox")
         self.setFixedSize(580, 520)
         self.setWindowFlags(
-            self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint
+            Qt.WindowType.Dialog |
+            Qt.WindowType.WindowTitleHint |
+            Qt.WindowType.WindowCloseButtonHint
         )
 
         root = QVBoxLayout(self)

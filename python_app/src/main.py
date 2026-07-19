@@ -26,7 +26,13 @@ def _load_engine(engine_id: str):
             return SapiEngine()
         except Exception:
             return None
-    # ML engines wired in Stage 3
+    # ML engines — Piper is Stage 3 priority
+    if engine_id == "ml":
+        try:
+            from .engines.piper_win import PiperEngine
+            return PiperEngine()
+        except Exception:
+            return None
     return None
 
 
@@ -141,6 +147,15 @@ def main() -> int:
         if engine and active_stack == "sapi5":
             voices = [{"id": v.id, "label": v.name} for v in engine.list_voices()]
             tray.populate_voices(voices, vid, lambda v: on_voice_changed(v))
+        elif engine and active_stack == "ml":
+            # Refresh ML voices from engine (PiperEngine reads from stacks.yaml)
+            ml_voices = engine.list_voices() if hasattr(engine, 'list_voices') else []
+            if ml_voices:
+                tray.populate_voices(
+                    [{"id": v.id, "label": v.name} for v in ml_voices],
+                    vid,
+                    lambda v: on_voice_changed(v),
+                )
 
     def on_config_saved(patch: dict[str, Any]) -> None:
         save_user_override(patch)
@@ -168,6 +183,7 @@ def main() -> int:
                 on_stop=_do_stop,
                 on_voice_changed=on_voice_changed,
                 on_config_saved=on_config_saved,
+                on_about=open_about,
             )
         return _main_window
 
@@ -205,6 +221,12 @@ def main() -> int:
         try:
             live_voices = engine.list_voices()
             voices = [{"id": v.id, "label": v.name} for v in live_voices]
+        except Exception:
+            pass
+    # For ML engines, populate from stacks.yaml if not already set
+    elif active_stack == "ml" and not voices:
+        try:
+            voices = get_voices(active_stack, active_model or "piper")
         except Exception:
             pass
 

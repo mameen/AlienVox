@@ -148,6 +148,7 @@ class MainWindow(QMainWindow):
         on_stop: Callable | None = None,
         on_voice_changed: Callable[[str], None] | None = None,
         on_config_saved: Callable[[dict[str, Any]], None] | None = None,
+        on_about: Callable | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -163,6 +164,7 @@ class MainWindow(QMainWindow):
         self._on_stop_cb = on_stop
         self._on_voice_changed_cb = on_voice_changed
         self._on_config_saved_cb = on_config_saved
+        self._on_about_cb = on_about
 
         # Collectors for post-build wiring
         self._voice_combos: list[tuple[QComboBox, str]] = []
@@ -245,6 +247,13 @@ class MainWindow(QMainWindow):
         self._btn_play  = _icon_btn(_make_play_icon(),  "Play (speak text)", self._on_play)
         self._btn_pause = _icon_btn(_make_pause_icon(), "Pause",             self._on_pause)
         self._btn_stop  = _icon_btn(_make_stop_icon(),  "Stop",              self._on_stop)
+
+        # Spacer to push About to the right
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        tb.addWidget(spacer)
+        _sep()
+        _icon_btn(_make_about_icon(), "About AlienVox", self._on_about)
         self.addToolBar(tb)
 
     # ── Central widget ────────────────────────────────────────────────────────
@@ -521,6 +530,14 @@ class MainWindow(QMainWindow):
             self._on_stop_cb()
         self._set_status("Stopped")
 
+    def _on_about(self) -> None:
+        if self._on_about_cb:
+            self._on_about_cb()
+        else:
+            from .about import AboutDialog
+            dlg = AboutDialog(parent=self)
+            dlg.exec()
+
     def _on_tab_changed(self, idx: int) -> None:
         tab = self._tabs.widget(idx)
         if tab:
@@ -635,6 +652,32 @@ def _make_stop_icon(size: int = 16) -> QIcon:
     p.setPen(Qt.PenStyle.NoPen)
     m = size // 4
     p.drawRect(m, m, size - m * 2, size - m * 2)
+    p.end()
+    return QIcon(pix)
+
+
+def _make_about_icon(size: int = 16) -> QIcon:
+    """App logo scaled to toolbar size — used for the About button."""
+    from pathlib import Path
+    icons_dir = Path(__file__).parent / "resources" / "icons"
+    logo = icons_dir / "icon_16x16.png"
+    if logo.exists():
+        pix = QPixmap(str(logo))
+        if not pix.isNull():
+            return QIcon(pix)
+    # Fallback: draw a blue circle with a white "i"
+    pix = _make_icon(size)
+    p = QPainter(pix)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    p.setBrush(QColor("#0078d4"))
+    p.setPen(Qt.PenStyle.NoPen)
+    p.drawEllipse(1, 1, size - 2, size - 2)
+    p.setPen(QColor("#ffffff"))
+    f = p.font()
+    f.setBold(True)
+    f.setPixelSize(size - 4)
+    p.setFont(f)
+    p.drawText(pix.rect(), Qt.AlignmentFlag.AlignCenter, "i")
     p.end()
     return QIcon(pix)
 

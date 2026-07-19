@@ -26,8 +26,8 @@
 
 ## Stage 2 — Windows APIs
 
-- [ ] Real text capture: UIA → clipboard fallback (`capture.py`)
-- [ ] SAPI5 engine: full speak/stop/pause/resume/voice-list via pywin32 COM
+- [x] Real text capture: WM_COPY tier-1 → Ctrl+C clipboard fallback (`capture.py`)
+- [x] SAPI5 engine: full speak/stop/pause/resume/voice-list via pywin32 COM
 - [ ] Windows autostart (Registry `HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run`)
 - [ ] Hook global hotkey via pynput fully tested on Windows
 
@@ -58,9 +58,11 @@
 
 ## Stage 4 — Testing Harness (Main Window)
 
-- [ ] Balabolka-style main window: engine tabs, sliders, text canvas, playback toolbar
+- [/] Balabolka-style main window: engine tabs, sliders, text canvas, playback toolbar
 - [ ] All controls wired to config + telemetry
 - [ ] Preferences / Settings panel (deferred from Stage 1)
+- [x] Fix the OS close [X] button in AboutDialog by correcting window flags
+- [x] Add About button to toolbar/menu bar in MainWindow that opens AboutDialog
 
 ## Stage 5 — Packaging
 

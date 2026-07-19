@@ -38,6 +38,21 @@ def test_list_voices_returns_at_least_one(engine):
     assert len(voices) >= 1
 
 
+def test_list_all_installed_voices_details(engine):
+    """Verify listing all installed SAPI voices and print details for verification."""
+    voices = engine.list_voices()
+    print(f"\nFound {len(voices)} installed SAPI voices:")
+    for idx, v in enumerate(voices):
+        print(f"  {idx+1}. Name: {v.name} | ID: {v.id}")
+        assert v.id, f"Voice {v.name} has empty id"
+        assert v.name, f"Voice {v.id} has empty name"
+        
+        # Verify that we can resolve this token back via SAPI
+        token = engine._find_token(v.id)
+        assert token is not None
+        assert token.Id == v.id
+
+
 def test_voices_have_non_empty_ids(engine):
     for v in engine.list_voices():
         assert v.id, f"Voice {v.name!r} has empty id"

@@ -23,6 +23,7 @@ omit = [
     # Platform-specific boundaries — require Windows COM / audio hardware / foreground window
     "src/capture.py",
     "src/engines/sapi_win.py",
+    "src/engines/piper_win.py",
     "src/hotkey.py",
     # Icon generator utility — not application logic
     "src/resources/*",
