@@ -21,6 +21,9 @@ from PySide6.QtCore import QUrl
 _ICONS = Path(__file__).parent / "resources" / "icons"
 
 
+from .version import version as get_version
+
+
 class AboutDialog(QDialog):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -76,7 +79,7 @@ class AboutDialog(QDialog):
         name_lbl.setFont(f)
         name_lbl.setStyleSheet("color:#1a1a1a;")
 
-        ver_lbl = QLabel("v0.2.0 — Python / PySide6")
+        ver_lbl = QLabel(f"v{get_version()} — Python / PySide6")
         ver_lbl.setStyleSheet("color:#666; font-size:11px;")
 
         tag_lbl = QLabel(
