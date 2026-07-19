@@ -33,12 +33,28 @@
 
 ## Stage 3 — ML Inference (in-process, no subprocess)
 
-- [ ] Kokoro-82M: in-process inference via `kokoro` package
-- [ ] Piper: in-process ONNX inference via `piper-tts`
-- [ ] Dia: in-process via `dia` package
-- [ ] VibeVoice: in-process via `transformers` + `torch`
-- [ ] ML model install flow (download from HuggingFace Hub with progress)
-- [ ] TTL-based model cache (keep model hot for N seconds after last use)
+- [ ] **Kokoro-82M: in-process inference via `kokoro` package**
+- [ ] **Piper: in-process ONNX inference via `piper-tts`**
+- [ ] **Dia: in-process via `dia` package**
+- [ ] **VibeVoice: in-process via `transformers` + `torch`**
+- [ ] **ML model install flow (download from HuggingFace Hub with progress)**
+- [ ] **TTL-based model cache (keep model hot for N seconds after last use)**
+
+### 🔴 Open: ML engine not wired into `_load_engine()`
+
+**Status:** Blocked — ML engines declared in stacks.yaml but `_load_engine()` returns `None` for any non-sapi5 stack.
+
+- [ ] Add `ml` engine loader to `_load_engine()` that instantiates a Piper (or Kokoro) engine class
+- [ ] Ensure `speak()` path works when `engine` is an ML engine instance (not just sapi5)
+- [ ] Verify telemetry emits `tts.first_audio` and `tts.playback_end` for ML engines
+
+### 🔴 Open: No voices listed in tray dropdown for ML engines
+
+**Status:** Voices are declared in stacks.yaml but only sapi5 populates them via `engine.list_voices()`.
+
+- [ ] Populate tray voice dropdown from stacks.yaml `voices` list when active stack is `ml`
+- [ ] Wire voice selection to save user override (same as sapi5 path)
+- [ ] Ensure main window voice dropdown also shows ML voices from stacks.yaml
 
 ## Stage 4 — Testing Harness (Main Window)
 
