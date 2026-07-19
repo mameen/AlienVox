@@ -1,0 +1,7 @@
+engine: sapi5
+model: ""
+voice: ""
+rate: 2
+pitch: 0
+volume: 90
+hotkey: "<ctrl>+<esc>"

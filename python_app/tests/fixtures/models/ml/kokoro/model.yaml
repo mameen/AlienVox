@@ -1,0 +1,11 @@
+id: kokoro
+name: Kokoro-82M
+voices:
+  - { id: af_heart, label: "American F · Heart" }
+  - { id: af_bella, label: "American F · Bella" }
+  - { id: bm_george, label: "British M · George" }
+controls:
+  rate:   { min: -10, max: 10, default: 0, applies: true }
+  pitch:  { applies: false }
+  volume: { min: 0, max: 100, default: 100, applies: true }
+  ttl_seconds: { min: 0, max: 300, default: 30, applies: true }

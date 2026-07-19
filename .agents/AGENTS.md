@@ -4,7 +4,7 @@ This repository uses `.agents/` to control AI assistant behavior and ensure safe
 
 ## Key rules
 
-- Operate only inside `c:\dev\tts` and treat `gemini_poc` as the active implementation area.
+- Operate only inside `c:\dev\tts` and treat `python_app` as the active implementation area. `gemini_poc` is a retired Rust+Tauri POC — do not add new code there.
 - Respect the existing skills in `.agents/SKILLS/` and load them only when relevant.
 - Do not add broad workspace rules or cross-repo assumptions.
 - Keep the prototype focused on MVP scope: tray support, minimal options, Windows local TTS, and one open-source ML/AI TTS provider.

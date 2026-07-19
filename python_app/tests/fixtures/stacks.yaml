@@ -1,0 +1,51 @@
+# Fixture stacks.yaml used by tests — mirrors production structure exactly.
+# Weights are never actually downloaded in tests; availability is checked
+# by whether weights_subpath exists under the models_root fixture.
+stacks:
+
+  - id: sapi5
+    name: SAPI 5
+    platform: win32
+    weights_subpath: ""
+    controls:
+      rate:        { min: -10, max: 10,  default: 0,   applies: true }
+      pitch:       { min: -10, max: 10,  default: 0,   applies: true }
+      volume:      { min: 0,   max: 100, default: 100, applies: true }
+      ttl_seconds: { applies: false }
+
+  - id: ml
+    name: ML / AI
+    platform: any
+    controls:
+      rate:        { min: -10, max: 10,  default: 0,   applies: true }
+      pitch:       { applies: false }
+      volume:      { min: 0,   max: 100, default: 100, applies: true }
+      ttl_seconds: { min: 0,   max: 300, default: 30,  applies: true }
+    models:
+
+      - id: kokoro
+        name: Kokoro-82M
+        weights_subpath: ml/kokoro
+        voices:
+          - { id: af_heart,  label: "American F · Heart" }
+          - { id: bm_george, label: "British M · George" }
+        controls:
+          rate:        { min: -10, max: 10,  default: 0,   applies: true }
+          pitch:       { applies: false }
+          volume:      { min: 0,   max: 100, default: 100, applies: true }
+          ttl_seconds: { min: 0,   max: 300, default: 30,  applies: true }
+
+      - id: piper
+        name: Piper
+        weights_subpath: ml/piper
+        voices:
+          - { id: en_US-lessac-medium, label: "Lessac US M · Medium" }
+          - { id: en_US-amy-medium,    label: "Amy US F · Medium" }
+        controls:
+          rate:             { applies: false }
+          pitch:            { applies: false }
+          volume:           { min: 0,   max: 100, default: 100, applies: true }
+          noise_scale:      { min: 0.0, max: 1.0, default: 0.667, applies: true }
+          noise_w:          { min: 0.0, max: 1.0, default: 0.8,   applies: true }
+          sentence_silence: { min: 0.0, max: 2.0, default: 0.2,   applies: true }
+          ttl_seconds:      { applies: false }

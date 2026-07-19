@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Universal file-system access
 metadata:
   author: AlienTech.Software
-  version: "1.1"
+  version: "1.2"
 ---
 
 # Workspace Discipline & Repository Boundary Rules
@@ -46,7 +46,32 @@ This skill dictates how you must behave when operating in a workspace that serve
 
 ---
 
-## 4. Reflection & Self-Check
+## 4. Testing Standards
+
+These rules apply to every implementation under this workspace.
+
+### 4.1 Coverage
+- **Minimum 80% line coverage** on all `src/` modules, measured by the implementation's test runner.
+- Coverage is enforced in CI and must not drop below the floor between commits.
+- Platform-specific modules (e.g. `*_win.py`, `*_mac.py`) are exempt from the floor when running on a non-matching OS — they must `skip`, not `fail`.
+
+### 4.2 No Mocking Internal Code
+- **Do not mock internal modules, classes, or functions.** Test them with real instances.
+- The only acceptable substitution is at the **OS/hardware boundary**: you may stub COM objects, audio devices, or display servers when a test would otherwise require physical hardware or a specific OS. Scope these stubs tightly — never as global patches.
+- **Never mock the config system, the telemetry sink, or the engine dispatcher.** Tests that exercise those paths must use real instances against real fixture files.
+
+### 4.3 Fixture Files over Fabricated Data
+- Use **real YAML fixture files** (stored under `tests/fixtures/`) for config tests — not dicts constructed in test code.
+- Use **real audio files** when testing output correctness. Synthetic sine waves are not a substitute.
+- When a test needs model weights that must be downloaded, mark it `skipif` the weights are absent. Never download inside a test run.
+
+### 4.4 Tests Prove Behavior, Not Implementation
+- Every test must survive a complete internal refactor. If a test only works because it knows an internal variable name, rewrite it.
+- Ask: "If I rewrote the internals from scratch, would this test still be meaningful?" If yes, keep it. If no, it's testing implementation details.
+
+---
+
+## 5. Reflection & Self-Check
 
 ### Mandatory Pre-Response Review
 - **Reflect Before Responding:** Before emitting any response or committing to an action, pause and reflect on the work performed. Do not respond reflexively or on autopilot.

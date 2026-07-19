@@ -1,0 +1,14 @@
+id: piper
+name: Piper
+voices:
+  - { id: en_US-lessac-medium, label: "Lessac US M · Medium" }
+  - { id: en_US-amy-medium, label: "Amy US F · Medium" }
+  - { id: en_GB-jenny_dioco-medium, label: "Jenny GB F · Medium" }
+controls:
+  rate:   { applies: false }
+  pitch:  { applies: false }
+  volume: { min: 0, max: 100, default: 100, applies: true }
+  noise_scale:       { min: 0.0, max: 1.0, default: 0.667, applies: true }
+  noise_w:           { min: 0.0, max: 1.0, default: 0.8,   applies: true }
+  sentence_silence:  { min: 0.0, max: 2.0, default: 0.2,   applies: true }
+  ttl_seconds: { applies: false }

@@ -1,0 +1,91 @@
+# AlienVox bundled stack configuration.
+# This file lives next to the executable (or next to setup.py in dev mode).
+# It is the single source of truth for what stacks, models, voices, and
+# controls exist. User overrides go to user.yaml — never here.
+#
+# Model weights are NOT bundled. The `weights_subpath` field is relative to
+# the models root (.models/ next to this file in dev, or %LOCALAPPDATA%/... in prod).
+# A stack/model is *available* when its weights_subpath exists on disk.
+# SAPI5 is always available on Windows — no weights needed.
+
+stacks:
+
+  - id: sapi5
+    name: SAPI 5
+    platform: win32
+    weights_subpath: ""        # no local weights — uses OS voices
+    controls:
+      rate:        { min: -10, max: 10,  default: 0,   applies: true }
+      pitch:       { min: -10, max: 10,  default: 0,   applies: true }
+      volume:      { min: 0,   max: 100, default: 100, applies: true }
+      ttl_seconds: { applies: false }
+
+  - id: ml
+    name: ML / AI
+    platform: any
+    controls:
+      rate:        { min: -10, max: 10,  default: 0,   applies: true }
+      pitch:       { applies: false }
+      volume:      { min: 0,   max: 100, default: 100, applies: true }
+      ttl_seconds: { min: 0,   max: 300, default: 30,  applies: true }
+    models:
+
+      - id: kokoro
+        name: Kokoro-82M
+        weights_subpath: ml/kokoro
+        voices:
+          - { id: af_heart,  label: "American F · Heart" }
+          - { id: af_bella,  label: "American F · Bella" }
+          - { id: af_nicole, label: "American F · Nicole" }
+          - { id: am_adam,   label: "American M · Adam" }
+          - { id: am_michael,label: "American M · Michael" }
+          - { id: bf_emma,   label: "British F · Emma" }
+          - { id: bm_george, label: "British M · George" }
+        controls:
+          rate:        { min: -10, max: 10,  default: 0,   applies: true }
+          pitch:       { applies: false }
+          volume:      { min: 0,   max: 100, default: 100, applies: true }
+          ttl_seconds: { min: 0,   max: 300, default: 30,  applies: true }
+
+      - id: piper
+        name: Piper
+        weights_subpath: ml/piper
+        voices:
+          - { id: en_US-lessac-medium,              label: "Lessac US M · Medium" }
+          - { id: en_US-amy-medium,                 label: "Amy US F · Medium" }
+          - { id: en_US-ryan-high,                  label: "Ryan US M · High" }
+          - { id: en_US-kathleen-low,               label: "Kathleen US F · Low" }
+          - { id: en_GB-southern_english_female-medium, label: "Southern GB F · Medium" }
+          - { id: en_GB-jenny_dioco-medium,         label: "Jenny GB F · Medium" }
+          - { id: en_GB-alan-medium,                label: "Alan GB M · Medium" }
+        controls:
+          rate:             { applies: false }
+          pitch:            { applies: false }
+          volume:           { min: 0,   max: 100, default: 100, applies: true }
+          noise_scale:      { min: 0.0, max: 1.0, default: 0.667, applies: true }
+          noise_w:          { min: 0.0, max: 1.0, default: 0.8,   applies: true }
+          sentence_silence: { min: 0.0, max: 2.0, default: 0.2,   applies: true }
+          ttl_seconds:      { applies: false }
+
+      - id: dia
+        name: Dia 1.6B
+        weights_subpath: ml/dia
+        voices:
+          - { id: s1, label: "[S1] Speaker 1" }
+          - { id: s2, label: "[S2] Speaker 2" }
+        controls:
+          rate:        { applies: false }
+          pitch:       { applies: false }
+          volume:      { min: 0, max: 100, default: 100, applies: true }
+          ttl_seconds: { min: 0, max: 300, default: 30,  applies: true }
+
+      - id: vibevoice
+        name: VibeVoice 0.5B
+        weights_subpath: ml/vibevoice-realtime-0.5b
+        voices:
+          - { id: default, label: "Default" }
+        controls:
+          rate:        { applies: false }
+          pitch:       { applies: false }
+          volume:      { min: 0, max: 100, default: 100, applies: true }
+          ttl_seconds: { min: 0, max: 300, default: 30,  applies: true }

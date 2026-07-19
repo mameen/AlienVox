@@ -1,0 +1,8 @@
+id: sapi5
+name: SAPI 5
+platform: win32
+controls:
+  rate:   { min: -10, max: 10, default: 0, applies: true }
+  pitch:  { min: -10, max: 10, default: 0, applies: true }
+  volume: { min: 0, max: 100, default: 100, applies: true }
+  ttl_seconds: { applies: false }

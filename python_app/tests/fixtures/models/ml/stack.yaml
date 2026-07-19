@@ -1,0 +1,9 @@
+id: ml
+name: ML / AI
+platform: any
+ttl_seconds: 30
+controls:
+  rate:   { min: -10, max: 10, default: 0, applies: true }
+  pitch:  { applies: false }
+  volume: { min: 0, max: 100, default: 100, applies: true }
+  ttl_seconds: { min: 0, max: 300, default: 30, applies: true }
