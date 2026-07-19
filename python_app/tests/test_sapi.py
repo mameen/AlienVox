@@ -321,14 +321,14 @@ def test_build_ssml_returns_plain_text_when_pitch_zero(engine):
 def test_build_ssml_includes_pitch_element_when_nonzero(engine):
     params = SpeakParams(pitch=5)
     ssml = engine._build_ssml("hello", params)
-    assert '<prosody pitch="+5st">' in ssml
+    assert '<pitch absmiddle="5"/>' in ssml
     assert "hello" in ssml
 
 
 def test_build_ssml_escapes_xml_in_text(engine):
     params = SpeakParams(pitch=3)
     ssml = engine._build_ssml("a & b < c > d", params)
-    assert "<prosody pitch=\"+3st\">" in ssml
+    assert '<pitch absmiddle="3"/>' in ssml
     assert "&amp;" in ssml
     assert "&lt;" in ssml
     assert "&gt;" in ssml

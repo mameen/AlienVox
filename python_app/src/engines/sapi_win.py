@@ -1,108 +1,225 @@
 """Windows SAPI5 TTS engine via pywin32 COM.
 
-Voice IDs are the SAPI token registry paths, e.g.:
-  HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Speech\\Voices\\Tokens\\TTS_MS_EN-US_DAVID_11.0
+Architecture mirrors the Rust implementation (audio_win.rs):
+- A single dedicated STA thread owns the ISpVoice COM object for its lifetime.
+- All SAPI calls are dispatched through a queue.Queue, so any Python thread
+  can safely call speak/stop/pause without COM apartment violations.
+- Completion is tracked via SpeakCompleteEvent (Win32 HANDLE) waited on a
+  separate lightweight thread, matching Rust's WaitForSingleObject pattern.
 
-These are stable across installs; index-based IDs change when voices are added.
+Voice IDs are the stable SAPI token registry paths, e.g.:
+  HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Speech_OneCore\\Voices\\Tokens\\MSTTS_V110_enUS_MarkM
 """
 from __future__ import annotations
 
+import queue
 import sys
 import threading
 from pathlib import Path
+from typing import Callable
 
 if sys.platform != "win32":
     raise ImportError("sapi_win is Windows-only")
 
-import win32com.client  # type: ignore
+import pythoncom          # type: ignore
+import win32com.client    # type: ignore
+import win32event         # type: ignore
 
 from .base import TtsEngine, Voice, SpeakParams
 
-# SAPI SpeakFlags constants
-_SVSFlagsAsync       = 1   # non-blocking speak
-_SVSFPurgeBeforeSpeak = 2  # stop current speech before starting
+# SAPI SpeakFlags
+_SPF_ASYNC            = 1
+_SPF_PURGEBEFORESPEAK = 2
+_SPF_IS_XML           = 8   # tell SAPI to parse the string as SAPI XML
 
 # SpFileStream open mode
 _SSFMCreateForWrite = 3
 
-# Thread-local storage for SAPI COM objects.
-# COM objects MUST be created and used on the same thread with CoInitialize().
-# Using a single shared object across threads causes silent audio failure or
-# COM exception 0xe0000002 when accessed from a daemon thread that never called
-# CoInitializeEx.
-_thread_local = threading.local()
+# Registry categories — Classic SAPI5 desktop voices + OneCore modern voices.
+_VOICE_CATEGORIES = [
+    r"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices",
+    r"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech_OneCore\Voices",
+]
+
+# Sentinel to shut down the worker thread cleanly.
+_STOP_WORKER = object()
 
 
-def _get_sapi() -> object:
-    """Return a SAPI.SpVoice COM object for the current thread.
+class _SapiWorker:
+    """Dedicated STA thread that owns a single ISpVoice COM object.
 
-    Creates a fresh COM object per thread so each thread has its own
-    apartment-initialized instance.
+    Mirrors Rust's NativeAudioEngine: commands arrive via queue.Queue;
+    all COM calls happen exclusively on the worker thread.
     """
-    sapi = getattr(_thread_local, "sapi", None)
-    if sapi is None:
-        _thread_local.sapi = win32com.client.Dispatch("SAPI.SpVoice")
-        return _thread_local.sapi
-    return sapi
 
-
-class SapiEngine(TtsEngine):
     def __init__(self) -> None:
-        self._lock = threading.Lock()
+        self._q: queue.Queue = queue.Queue()
+        self._sapi = None          # set by worker thread only
+        self._ready = threading.Event()
+        self._thread = threading.Thread(
+            target=self._run, daemon=True, name="alienvox-sapi"
+        )
+        self._thread.start()
+        self._ready.wait(timeout=5)  # wait for COM init
 
-    def _speak_obj(self):
-        """Get the thread-local SAPI COM object for speak operations."""
-        return _get_sapi()
+    # ── Public command API (any thread) ───────────────────────────────────────
 
-    def get_thread_local_sapi(self):
-        """Return the current thread's SAPI object (for tests/debugging)."""
-        return getattr(_thread_local, "sapi", None)
+    def speak(
+        self,
+        text: str,
+        voice_id: str,
+        params: SpeakParams,
+        on_complete: Callable[[], None] | None = None,
+    ) -> None:
+        self._q.put(("speak", text, voice_id, params, on_complete))
 
-    # ── Voice enumeration ─────────────────────────────────────────────────────
+    def stop(self) -> None:
+        self._q.put(("stop",))
 
-    # Registry category IDs for the two SAPI voice hives on Windows.
-    # Classic SAPI5 (legacy desktop voices, e.g. David Desktop) and
-    # OneCore (modern voices added via Settings > Time & Language > Speech).
-    _VOICE_CATEGORIES = [
-        r"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices",
-        r"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech_OneCore\Voices",
-    ]
+    def pause(self) -> None:
+        self._q.put(("pause",))
 
-    def _enum_category(self, category_id: str) -> list[Voice]:
-        """Enumerate voices from one SAPI token category registry hive."""
-        try:
-            cat = win32com.client.Dispatch("SAPI.SpObjectTokenCategory")
-            cat.SetId(category_id, False)
-            tokens = cat.EnumerateTokens()
-            result = []
-            for i in range(tokens.Count):
-                t = tokens.Item(i)
-                result.append(Voice(id=t.Id, name=t.GetDescription()))
-            return result
-        except Exception:
-            return []
+    def resume(self) -> None:
+        self._q.put(("resume",))
+
+    def speak_to_wav(
+        self,
+        text: str,
+        voice_id: str,
+        params: SpeakParams,
+        out_path: Path,
+        done: threading.Event,
+    ) -> None:
+        """Queue a synchronous WAV render; caller waits on `done`."""
+        self._q.put(("speak_to_wav", text, voice_id, params, out_path, done))
 
     def list_voices(self) -> list[Voice]:
-        """Return all installed voices from both Classic SAPI5 and OneCore hives.
+        """Synchronous round-trip: enumerate voices on the STA thread."""
+        reply: queue.Queue = queue.Queue()
+        self._q.put(("list_voices", reply))
+        return reply.get()
 
-        Classic SAPI5 only sees the legacy desktop voices.  Newer voices
-        downloaded via Settings > Time & Language > Speech live in the
-        Speech_OneCore hive and must be enumerated separately via
-        SpObjectTokenCategory.  Both hives are merged and deduplicated by ID.
-        """
-        seen: set[str] = set()
-        result: list[Voice] = []
-        for cat_id in self._VOICE_CATEGORIES:
-            for v in self._enum_category(cat_id):
-                if v.id not in seen:
-                    seen.add(v.id)
-                    result.append(v)
-        return result
+    def wait_until_done(self, timeout_ms: int = 30_000) -> bool:
+        """Block the calling thread until speech is complete or timeout."""
+        reply: queue.Queue = queue.Queue()
+        self._q.put(("wait_until_done", timeout_ms, reply))
+        return reply.get()
 
-    def _find_token(self, voice_id: str, sapi: object | None = None):
-        """Return the SAPI token for voice_id, searching both hives."""
-        # Search each category until we find the token
-        for cat_id in self._VOICE_CATEGORIES:
+    def shutdown(self) -> None:
+        self._q.put(_STOP_WORKER)
+
+    # ── Worker thread ─────────────────────────────────────────────────────────
+
+    def _run(self) -> None:
+        pythoncom.CoInitialize()  # STA — required for ISpVoice
+        try:
+            self._sapi = win32com.client.Dispatch("SAPI.SpVoice")
+            self._ready.set()
+
+            while True:
+                cmd = self._q.get()
+                if cmd is _STOP_WORKER:
+                    break
+
+                op = cmd[0]
+
+                if op == "speak":
+                    _, text, voice_id, params, on_complete = cmd
+                    self._do_speak(text, voice_id, params, on_complete)
+
+                elif op == "stop":
+                    self._sapi.Speak("", _SPF_ASYNC | _SPF_PURGEBEFORESPEAK)
+
+                elif op == "pause":
+                    self._sapi.Pause()
+
+                elif op == "resume":
+                    self._sapi.Resume()
+
+                elif op == "speak_to_wav":
+                    _, text, voice_id, params, out_path, done = cmd
+                    self._do_speak_to_wav(text, voice_id, params, out_path)
+                    done.set()
+
+                elif op == "list_voices":
+                    _, reply = cmd
+                    reply.put(self._enum_all_voices())
+
+                elif op == "wait_until_done":
+                    _, timeout_ms, reply = cmd
+                    try:
+                        result = self._sapi.WaitUntilDone(timeout_ms)
+                    except Exception:
+                        result = False
+                    reply.put(result)
+
+        finally:
+            self._sapi = None
+            pythoncom.CoUninitialize()
+
+    def _do_speak(
+        self,
+        text: str,
+        voice_id: str,
+        params: SpeakParams,
+        on_complete: Callable[[], None] | None,
+    ) -> None:
+        self._apply_params(voice_id, params)
+        xml = _build_sapi_xml(text, params)
+        flags = _SPF_ASYNC | _SPF_PURGEBEFORESPEAK | _SPF_IS_XML
+        try:
+            self._sapi.Speak(xml, flags)
+        except Exception as exc:
+            print(f"[SAPI] Speak() failed: {exc}; retrying as plain text")
+            try:
+                self._sapi.Speak(text, _SPF_ASYNC | _SPF_PURGEBEFORESPEAK)
+            except Exception:
+                return
+
+        if on_complete is not None:
+            # Get the completion event handle and wait on a throw-away thread,
+            # exactly as Rust does with SpeakCompleteEvent + WaitForSingleObject.
+            # The STA worker thread must NOT block so it can keep processing commands.
+            try:
+                handle = self._sapi.SpeakCompleteEvent()
+                threading.Thread(
+                    target=_wait_complete_event,
+                    args=(handle, on_complete),
+                    daemon=True,
+                    name="sapi-complete",
+                ).start()
+            except Exception:
+                pass  # on_complete never called — caller handles timeout
+
+    def _do_speak_to_wav(
+        self,
+        text: str,
+        voice_id: str,
+        params: SpeakParams,
+        out_path: Path,
+    ) -> None:
+        stream = win32com.client.Dispatch("SAPI.SpFileStream")
+        stream.Open(str(out_path), _SSFMCreateForWrite, False)
+        old = self._sapi.AudioOutputStream
+        try:
+            self._sapi.AudioOutputStream = stream
+            self._apply_params(voice_id, params)
+            xml = _build_sapi_xml(text, params)
+            self._sapi.Speak(xml, _SPF_IS_XML)  # synchronous (no _SPF_ASYNC)
+        finally:
+            self._sapi.AudioOutputStream = old
+        stream.Close()
+
+    def _apply_params(self, voice_id: str, params: SpeakParams) -> None:
+        token = self._find_token(voice_id)
+        if token is not None:
+            self._sapi.Voice = token
+        self._sapi.Rate   = max(-10, min(10, params.rate))
+        self._sapi.Volume = max(0,   min(100, params.volume))
+
+    def _find_token(self, voice_id: str):
+        """Search both hives for the token matching voice_id."""
+        for cat_id in _VOICE_CATEGORIES:
             try:
                 cat = win32com.client.Dispatch("SAPI.SpObjectTokenCategory")
                 cat.SetId(cat_id, False)
@@ -113,8 +230,8 @@ class SapiEngine(TtsEngine):
                         return t
             except Exception:
                 continue
-        # Fallback: return first available voice from any hive
-        for cat_id in self._VOICE_CATEGORIES:
+        # Fallback: first voice in any hive
+        for cat_id in _VOICE_CATEGORIES:
             try:
                 cat = win32com.client.Dispatch("SAPI.SpObjectTokenCategory")
                 cat.SetId(cat_id, False)
@@ -125,116 +242,120 @@ class SapiEngine(TtsEngine):
                 continue
         return None
 
-    # ── Speak ─────────────────────────────────────────────────────────────────
+    def _enum_all_voices(self) -> list[Voice]:
+        seen: set[str] = set()
+        result: list[Voice] = []
+        for cat_id in _VOICE_CATEGORIES:
+            try:
+                cat = win32com.client.Dispatch("SAPI.SpObjectTokenCategory")
+                cat.SetId(cat_id, False)
+                tokens = cat.EnumerateTokens()
+                for i in range(tokens.Count):
+                    t = tokens.Item(i)
+                    if t.Id not in seen:
+                        seen.add(t.Id)
+                        result.append(Voice(id=t.Id, name=t.GetDescription()))
+            except Exception:
+                continue
+        return result
+
+
+def _wait_complete_event(handle: int, callback: Callable[[], None]) -> None:
+    """Wait on the Win32 SpeakCompleteEvent handle then invoke callback."""
+    try:
+        win32event.WaitForSingleObject(handle, win32event.INFINITE)
+    except Exception:
+        pass
+    try:
+        callback()
+    except Exception:
+        pass
+
+
+# ── SAPI XML helpers ──────────────────────────────────────────────────────────
+
+def _escape_xml(text: str) -> str:
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _build_sapi_xml(text: str, params: SpeakParams) -> str:
+    """Build SAPI native XML — matches Rust's format exactly.
+
+    Rust: `<pitch absmiddle="N"/>escaped_text`  (with SPF_IS_XML flag)
+    No W3C SSML <prosody> — SAPI5 native XML only.
+    """
+    escaped = _escape_xml(text)
+    if params.pitch != 0:
+        pitch_val = max(-10, min(10, params.pitch))
+        return f'<pitch absmiddle="{pitch_val}"/>{escaped}'
+    return escaped
+
+
+# ── Public engine ─────────────────────────────────────────────────────────────
+
+class SapiEngine(TtsEngine):
+    """SAPI5 + OneCore TTS engine backed by a single dedicated STA worker thread."""
+
+    def __init__(self) -> None:
+        self._worker = _SapiWorker()
+        self._done_event = threading.Event()
+
+    def list_voices(self) -> list[Voice]:
+        return self._worker.list_voices()
 
     def speak(self, text: str, voice_id: str, params: SpeakParams) -> None:
-        """Speak text asynchronously. Returns immediately; call stop() to interrupt."""
         if not isinstance(text, str):
             raise TypeError(f"text must be str, not {type(text).__name__}")
-        sapi = self._speak_obj()
-        with self._lock:
-            self._apply_params(sapi, voice_id, params)
-            ssml = self._build_ssml(text, params)
-            print(f"[SAPI] speak: voice_id='{voice_id}', ssml_len={len(ssml)}, first_80={repr(ssml[:80])}")
-            try:
-                sapi.Speak(ssml, _SVSFlagsAsync)
-                print(f"[SAPI] Speak() returned OK")
-            except Exception as exc:
-                print(f"[SAPI] Speak() FAILED: {exc}, falling back to plain text")
-                # SSML may fail on some voices/OS versions; fall back to plain text
-                if ssml != text:
-                    try:
-                        sapi.Speak(text, _SVSFlagsAsync)
-                    except Exception:
-                        pass  # Silently ignore audio errors in tests
+        if not text:
+            return
+        self._done_event.clear()
+        self._worker.speak(text, voice_id, params, on_complete=self._on_done)
 
     def speak_sync(self, text: str, voice_id: str, params: SpeakParams) -> None:
-        """Blocking speak — waits until audio completes. Used by speak_to_wav tests."""
-        sapi = self._speak_obj()
-        with self._lock:
-            self._apply_params(sapi, voice_id, params)
-            sapi.Speak(text, 0)  # synchronous
+        """Blocking speak — waits until audio completes (used by tests)."""
+        if not text:
+            return
+        done = threading.Event()
+        self._worker.speak(text, voice_id, params, on_complete=done.set)
+        done.wait(timeout=60)
 
     def speak_to_wav(
-        self,
-        text: str,
-        voice_id: str,
-        params: SpeakParams,
-        out_path: Path,
+        self, text: str, voice_id: str, params: SpeakParams, out_path: Path
     ) -> None:
-        """Render speech to a WAV file — no audio hardware required.
-
-        Useful for offline tests and preview export.
-        """
-        sapi = self._speak_obj()
-        stream = win32com.client.Dispatch("SAPI.SpFileStream")
-        stream.Open(str(out_path), _SSFMCreateForWrite, False)
-        with self._lock:
-            old_output = sapi.AudioOutputStream
-            try:
-                sapi.AudioOutputStream = stream
-                self._apply_params(sapi, voice_id, params)
-                ssml = self._build_ssml(text, params)
-                sapi.Speak(ssml, 0)  # must be synchronous before closing stream
-            finally:
-                sapi.AudioOutputStream = old_output
-        stream.Close()
-
-    # ── Control ───────────────────────────────────────────────────────────────
+        done = threading.Event()
+        self._worker.speak_to_wav(text, voice_id, params, out_path, done)
+        done.wait(timeout=60)
 
     def stop(self) -> None:
-        """Stop current speech immediately, purging the queue."""
-        sapi = self._speak_obj()
-        sapi.Speak("", _SVSFlagsAsync | _SVSFPurgeBeforeSpeak)
+        self._worker.stop()
 
     def pause(self) -> None:
-        sapi = self._speak_obj()
-        sapi.Pause()
+        self._worker.pause()
 
     def resume(self) -> None:
-        sapi = self._speak_obj()
-        sapi.Resume()
+        self._worker.resume()
 
-    # ── Internals ─────────────────────────────────────────────────────────────
+    def wait_until_done(self, timeout_ms: int = 30_000) -> bool:
+        """Block until speech completes or timeout (ms). Returns True on completion."""
+        return self._done_event.wait(timeout=timeout_ms / 1000.0)
 
-    def _apply_params(self, sapi: object, voice_id: str, params: SpeakParams) -> None:
-        sapi.Voice = self._find_token(voice_id, sapi=sapi)
-        sapi.Rate = max(-10, min(10, params.rate))
-        sapi.Volume = max(0, min(100, params.volume))
+    def _on_done(self) -> None:
+        self._done_event.set()
+
+    # ── Test / debug helpers ──────────────────────────────────────────────────
+
+    def get_thread_local_sapi(self):
+        """Return the worker's SAPI object (tests use this for low-level checks)."""
+        return self._worker._sapi
+
+    def _find_token(self, voice_id: str, sapi: object | None = None):
+        """Synchronous token lookup — used by tests."""
+        return self._worker._find_token(voice_id)
 
     @staticmethod
     def _escape_xml(text: str) -> str:
-        """Escape characters significant in SAPI XML/SSML."""
-        return (text
-                .replace('&', '&amp;')
-                .replace('<', '&lt;')
-                .replace('>', '&gt;'))
+        return _escape_xml(text)
 
-    def _build_ssml(self, text: str, params: SpeakParams) -> str:
-        """Build SSML string if pitch is non-zero, otherwise return plain text.
-
-        SAPI's SSML requires pitch to be applied via <prosody pitch="..."> wrapping
-        the text content. A bare <pitch> element as a sibling before text causes
-        COM exception 0xe0000002 because SAPI doesn't recognize it in that position.
-
-        Pitch values are converted from SAPI's -10..+10 range to musical semitones
-        (+/-Nst) for the <prosody> element.
-        """
-        if params.pitch != 0:
-            escaped = self._escape_xml(text)
-            pitch_val = max(-10, min(10, params.pitch))
-            # Use SAPI's prosody element with semitone notation
-            return f'<speak><prosody pitch="+{pitch_val}st">{escaped}</prosody></speak>'
-        return text
-
-    def wait_until_done(self, timeout_ms: int = 30_000) -> bool:
-        """Wait for speech queue to drain with finite timeout.
-
-        Returns True if speech completed, False if timed out or error.
-        Unlike WaitUntilDone(-1), this will not block forever.
-        """
-        sapi = self._speak_obj()
-        try:
-            return sapi.WaitUntilDone(timeout_ms)
-        except Exception:
-            return False
+    @staticmethod
+    def _build_ssml(text: str, params: SpeakParams) -> str:
+        return _build_sapi_xml(text, params)
