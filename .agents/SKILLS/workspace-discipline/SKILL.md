@@ -75,6 +75,17 @@ These rules apply to every implementation under this workspace.
 - **If you introduce a regression, revert or fix it immediately.** Do not carry broken tests forward across commits or branches.
 - **CI green is the gate.** No PR merges to `main` unless CI passes all tests on all supported platforms.
 
+### 4.6 Lint Before Every Commit
+- **Run the linter before every commit.** Fix all lint errors and warnings — do not suppress them with `# noqa` or inline disables unless explicitly approved by the developer.
+- **Use the project's configured linter** (e.g., `ruff`, `flake8`, `eslint`) as defined in `pyproject.toml`, `setup.cfg`, or equivalent. Do not invent your own lint rules.
+- **Format code consistently.** Run the formatter (`ruff format`, `black`, `prettier`, etc.) before committing. Never submit unformatted code.
+
+### 4.7 Version Bumping
+- **Version format:** `major.minor.YYYYMMDDHHmmss` (e.g., `0.2.20260719143022`).
+- **Major and minor bumps are developer-only.** Only the developer may increment the major or minor version number. Do not touch them.
+- **Build timestamp bumps are automatic.** After every completed medium or large step (new feature, fix, refactor spanning multiple files), bump the build timestamp portion to the current UTC time.
+- **Small steps do not require a bump.** Trivial changes (typo fixes, comment updates, single-line tweaks) can be committed without version bumping — use discretion.
+
 ---
 
 ## 5. Reflection & Self-Check
