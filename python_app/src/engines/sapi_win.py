@@ -59,7 +59,8 @@ class SapiEngine(TtsEngine):
         """Speak text asynchronously. Returns immediately; call stop() to interrupt."""
         with self._lock:
             self._apply_params(voice_id, params)
-            self._sapi.Speak(text, _SVSFlagsAsync)
+            ssml = self._build_ssml(text, params)
+            self._sapi.Speak(ssml, _SVSFlagsAsync)
 
     def speak_sync(self, text: str, voice_id: str, params: SpeakParams) -> None:
         """Blocking speak — waits until audio completes. Used by speak_to_wav tests."""
@@ -85,7 +86,8 @@ class SapiEngine(TtsEngine):
             try:
                 self._sapi.AudioOutputStream = stream
                 self._apply_params(voice_id, params)
-                self._sapi.Speak(text, 0)  # must be synchronous before closing stream
+                ssml = self._build_ssml(text, params)
+                self._sapi.Speak(ssml, 0)  # must be synchronous before closing stream
             finally:
                 self._sapi.AudioOutputStream = old_output
         stream.Close()
@@ -108,3 +110,30 @@ class SapiEngine(TtsEngine):
         self._sapi.Voice = self._find_token(voice_id)
         self._sapi.Rate = max(-10, min(10, params.rate))
         self._sapi.Volume = max(0, min(100, params.volume))
+
+    @staticmethod
+    def _escape_xml(text: str) -> str:
+        """Escape characters significant in SAPI XML/SSML."""
+        return (text
+                .replace('&', '&amp;')
+                .replace('<', '&lt;')
+                .replace('>', '&gt;'))
+
+    def _build_ssml(self, text: str, params: SpeakParams) -> str:
+        """Build SSML string if pitch is non-zero, otherwise return plain text."""
+        if params.pitch != 0:
+            escaped = self._escape_xml(text)
+            pitch_val = max(-10, min(10, params.pitch))
+            return f'<pitch absmiddle="{pitch_val}"/>{escaped}'
+        return text
+
+    def wait_until_done(self, timeout_ms: int = 30_000) -> bool:
+        """Wait for speech queue to drain with finite timeout.
+
+        Returns True if speech completed, False if timed out or error.
+        Unlike WaitUntilDone(-1), this will not block forever.
+        """
+        try:
+            return self._sapi.WaitUntilDone(timeout_ms)
+        except Exception:
+            return False

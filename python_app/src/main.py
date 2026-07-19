@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import sys
 import threading
+import time
 
 from PySide6.QtWidgets import QApplication
 
@@ -48,20 +49,27 @@ def main() -> int:
     _about_dialog: AboutDialog | None = None
     _speak_lock = threading.Lock()
 
-    def speak() -> None:
+    def speak(text: str | None = None) -> None:
+        """Speak text — from provided string or captured selection.
+
+        Called from tray menu (no text → capture selection) or main window
+        Play button (text provided → use editor content directly).
+        """
         if not _speak_lock.acquire(blocking=False):
             _do_stop()
             return
         try:
             rid = tel.new_request_id()
+            start_ms = time.time_ns() // 1_000_000
             tray.set_speaking()
 
-            text = ""
-            try:
-                from .capture import get_selected_text
-                text = get_selected_text()
-            except ImportError:
-                pass
+            # Use provided text (from main window editor) or capture from selection
+            if text is None:
+                try:
+                    from .capture import get_selected_text
+                    text = get_selected_text()
+                except ImportError:
+                    pass
 
             tel.emit(
                 "speak.triggered",
@@ -80,16 +88,33 @@ def main() -> int:
                     volume=cfg.get("volume", 100),
                 )
                 engine.speak(text, cfg.get("voice", ""), params)
-                # Wait for SAPI to finish with a 30-second timeout to prevent deadlock.
-                # If SAPI hangs (possible with some voices/apps), this returns False instead of blocking forever.
+
+                # Emit first_audio telemetry (latency to SAPI submit) — matches Rust pattern
+                tel.emit(
+                    "tts.first_audio",
+                    request_id=rid,
+                    engine=active_stack,
+                    model=active_model,
+                    latency_ms=time.time_ns() // 1_000_000 - start_ms,
+                    status="submitted_to_sapi",
+                )
+
+                # Wait for completion with finite timeout (Rust: SpeakCompleteEvent + WaitForSingleObject)
+                completed = False
                 try:
-                    done = engine._sapi.WaitUntilDone(30_000)
-                    if not done:
-                        tel.emit("tts.error", request_id=rid, status="error", detail="SAPI WaitUntilDone timed out")
-                        tray.set_error("TTS engine did not respond in time")
+                    completed = engine.wait_until_done(30_000)  # 30s timeout, not -1
                 except Exception as exc:
-                    tel.emit("tts.error", request_id=rid, status="error", detail=str(exc))
+                    tel.emit("tts.error", request_id=rid, status="error",
+                             detail=f"WaitUntilDone failed: {exc}")
                     tray.set_error(str(exc))
+
+                if completed:
+                    tel.emit("tts.playback_end", request_id=rid, engine=active_stack,
+                             model=active_model, status="complete")
+                else:
+                    tel.emit("tts.error", request_id=rid, status="timeout",
+                             detail="WaitUntilDone timed out after 30s")
+                    tray.set_error("TTS playback timed out")
 
             tray.set_idle()
             tel.emit("speak.done", request_id=rid, engine=active_stack, status="ok")
@@ -99,8 +124,20 @@ def main() -> int:
         finally:
             _speak_lock.release()
 
-    def speak_async() -> None:
-        threading.Thread(target=speak, daemon=True).start()
+    def speak_async(text: str | None = None) -> None:
+        """Async wrapper — spawns daemon thread with optional text argument."""
+        threading.Thread(target=speak, args=(text,), daemon=True).start()
+
+    # ── Persistence callbacks ───────────────────────────────────────────────
+
+    def on_voice_changed(vid: str) -> None:
+        save_user_override({"voice": vid})
+        if engine and active_stack == "sapi5":
+            voices = [{"id": v.id, "label": v.name} for v in engine.list_voices()]
+            tray.populate_voices(voices, vid, lambda v: on_voice_changed(v))
+
+    def on_config_saved(patch: dict[str, Any]) -> None:
+        save_user_override(patch)
 
     def _do_stop() -> None:
         if engine:
@@ -123,7 +160,12 @@ def main() -> int:
                 telemetry=tel,
                 on_speak=speak_async,
                 on_stop=_do_stop,
+<<<<<<< HEAD
                 sapi5_voices=live_voices,
+=======
+                on_voice_changed=on_voice_changed,
+                on_config_saved=on_config_saved,
+>>>>>>> 57b6170 (feat(python_app): complete SAPI5 engine — pitch/SSML, WaitUntilDone timeout, voice/slider persistence, 27 tests)
             )
         return _main_window
 

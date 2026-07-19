@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 from typing import Any, Callable
 
-from PySide6.QtCore import Qt, QUrl, Signal, QSize
+from PySide6.QtCore import Qt, QUrl, Signal, QSize, QTimer
 from PySide6.QtGui import QAction, QColor, QDesktopServices, QFont, QIcon, QPainter, QPixmap, QPolygon
 from PySide6.QtCore import QPoint
 from PySide6.QtWidgets import (
@@ -146,7 +146,8 @@ class MainWindow(QMainWindow):
         telemetry=None,
         on_speak: Callable | None = None,
         on_stop: Callable | None = None,
-        sapi5_voices: list[dict] | None = None,
+        on_voice_changed: Callable[[str], None] | None = None,
+        on_config_saved: Callable[[dict[str, Any]], None] | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -160,46 +161,26 @@ class MainWindow(QMainWindow):
         self._tel = telemetry
         self._on_speak_cb = on_speak
         self._on_stop_cb = on_stop
-        self._pending_sapi5_voices = sapi5_voices
+        self._on_voice_changed_cb = on_voice_changed
+        self._on_config_saved_cb = on_config_saved
+
+        # Collectors for post-build wiring
+        self._voice_combos: list[tuple[QComboBox, str]] = []
+        self._sliders: list[tuple[str, _SliderRow]] = []
+
+        # Slider debounce timer
+        self._slider_save_timer = QTimer()
+        self._slider_save_timer.setSingleShot(True)
+        self._slider_save_timer.timeout.connect(self._save_pending_sliders)
+        self._pending_slider_changes: dict[str, float] = {}
 
         self._build_toolbar()
         self._build_central()
         self._build_statusbar()
         self._load_stacks()
 
-        # Populate SAPI5 voices if available (engine was loaded at startup)
-        if sapi5_voices:
-            self.update_sapi_voices(sapi5_voicesl()
-        self._build_statusbar()
-        self._load_stacks()
-
-        # Populate SAPI5 voices if available (engine was loaded at startup)
-        if sapi5_voices:
-            self.update_sapi_voices(sapi5_voicesl()
-        self._build_statusbar()
-        self._load_stacks()
-
-        # Populate SAPI5 voices if available (engine was loaded at startup)
-        if sapi5_voices:
-            self.update_sapi_voices(sapi5_voicesl()
-        self._build_statusbar()
-        self._load_stacks()
-
-        # Populate SAPI5 voices if available (engine was loaded at startup)
-        if sapi5_voices:
-            self.update_sapi_voices(sapi5_voicesl()
-        self._build_statusbar()
-        self._load_stacks()
-
-        # Populate SAPI5 voices if available (engine was loaded at startup)
-        if sapi5_voices:
-            self.update_sapi_voices(sapi5_voicesl()
-        self._build_statusbar()
-        self._load_stacks()
-
-        # Populate SAPI5 voices if available (engine was loaded at startup)
-        if sapi5_voices:
-            self.update_sapi_voices(sapi5_voices)
+        # Wire up collected widgets
+        self._wire_voices_and_sliders()
 
     # ── Toolbar ───────────────────────────────────────────────────────────────
 
@@ -310,6 +291,39 @@ class MainWindow(QMainWindow):
         sb.addPermanentWidget(self._chars_lbl)
         self.setStatusBar(sb)
 
+    # ── Wiring ────────────────────────────────────────────────────────────────
+
+    def _wire_voices_and_sliders(self) -> None:
+        """Connect voice combos and sliders after all tabs are built."""
+        for combo, stack_id in self._voice_combos:
+            combo.currentIndexChanged.connect(
+                lambda idx, c=combo, s=stack_id: self._on_voice_changed(c, s)
+            )
+
+        for name, slider in self._sliders:
+            slider.valueChanged.connect(
+                lambda v, n=name: self._on_slider_debounced(n, v)
+            )
+
+    def _on_voice_changed(self, combo: QComboBox, stack_id: str) -> None:
+        """Handle voice dropdown change — save to user.yaml and update tray."""
+        vid = combo.itemData(combo.currentIndex())
+        if vid and self._on_voice_changed_cb:
+            self._on_voice_changed_cb(vid)
+
+    def _on_slider_debounced(self, name: str, value: float) -> None:
+        """Called on every slider change; debounces saves via QTimer."""
+        self._pending_slider_changes[name] = value
+        self._slider_save_timer.start(350)  # 350ms debounce
+
+    def _save_pending_sliders(self) -> None:
+        """Save pending slider changes to user.yaml and clear the pending dict."""
+        if not self._pending_slider_changes or not self._on_config_saved_cb:
+            return
+        patch = {k: int(v) for k, v in self._pending_slider_changes.items()}
+        self._on_config_saved_cb(patch)
+        self._pending_slider_changes.clear()
+
     # ── Stack tabs ────────────────────────────────────────────────────────────
 
     def _load_stacks(self) -> None:
@@ -389,6 +403,7 @@ class MainWindow(QMainWindow):
         voice_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         voice_combo.setStyleSheet(_combo_style())
         bar.setProperty("voice_combo", voice_combo)
+        self._voice_combos.append((voice_combo, stack.id))
 
         # Populate initial voices
         if has_models and stack.models:
@@ -468,8 +483,9 @@ class MainWindow(QMainWindow):
             enabled=vol_spec.get("applies", True),
         )
 
-        for s in (s_rate, s_pitch, s_vol):
+        for name, s in (("rate", s_rate), ("pitch", s_pitch), ("volume", s_vol)):
             grid.addWidget(s)
+            self._sliders.append((name, s))
 
         strip.setProperty("slider_rate",   s_rate)
         strip.setProperty("slider_pitch",  s_pitch)

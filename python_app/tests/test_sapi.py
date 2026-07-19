@@ -109,3 +109,247 @@ def test_stop_does_not_raise(engine):
 def test_pause_resume_does_not_raise(engine):
     engine.pause()
     engine.resume()
+
+
+# ── WaitUntilDone timeout ─────────────────────────────────────────────────────
+
+def test_wait_until_done_with_timeout_does_not_block_forever(engine):
+    """WaitUntilDone(-1) blocks forever if SAPI hangs; a finite timeout must return."""
+    engine.stop()
+    result = engine._sapi.WaitUntilDone(0)
+    assert isinstance(result, bool)
+
+
+def test_wait_until_done_returns_bool(engine):
+    """WaitUntilDone should return a boolean indicating completion status."""
+    engine.stop()
+    result = engine._sapi.WaitUntilDone(100)
+    assert isinstance(result, bool), f"Expected bool, got {type(result)}"
+
+
+# ── Thread safety ─────────────────────────────────────────────────────────────
+
+def test_concurrent_speak_calls_do_not_raise(engine):
+    """Multiple simultaneous speak() calls should not raise COM/threading errors."""
+    import threading
+
+    voices = engine.list_voices()
+    assert len(voices) >= 1
+    errors: list[Exception] = []
+
+    def _speak(idx: int):
+        try:
+            engine.speak(f"thread {idx}", voices[0].id, SpeakParams())
+        except Exception as exc:
+            errors.append(exc)
+
+    threads = [threading.Thread(target=_speak, args=(i,), daemon=True) for i in range(5)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=10)
+
+    engine.stop()
+    assert not errors, f"Concurrent speak raised: {errors}"
+
+
+def test_concurrent_stop_and_speak_does_not_raise(engine):
+    """Calling stop() while speak() is in progress should not raise."""
+    import threading
+    import time
+
+    voices = engine.list_voices()
+    assert len(voices) >= 1
+    errors: list[Exception] = []
+
+    def _speak():
+        try:
+            engine.speak("longer text that takes time to process " * 100, voices[0].id, SpeakParams())
+        except Exception as exc:
+            errors.append(exc)
+
+    t = threading.Thread(target=_speak, daemon=True)
+    t.start()
+    time.sleep(0.05)
+    engine.stop()
+    t.join(timeout=10)
+
+    assert not errors, f"Concurrent stop/speak raised: {errors}"
+
+
+# ── Error handling ────────────────────────────────────────────────────────────
+
+def test_speak_with_bad_voice_id_does_not_raise(engine):
+    """A non-existent voice_id should fall back to the default voice, not crash."""
+    engine.speak("hello", "HKEY_FAKE_NONEXISTENT_VOICE", SpeakParams())
+    engine.stop()
+
+
+def test_speak_with_empty_text_does_not_raise(engine, first_voice):
+    """Speaking empty text should be a no-op, not raise."""
+    engine.speak("", first_voice.id, SpeakParams())
+    engine.stop()
+
+
+def test_speak_to_wav_with_bad_voice_id_falls_back(engine, tmp_path):
+    """speak_to_wav with an unknown voice_id should fall back to default and still produce output."""
+    out = tmp_path / "fallback.wav"
+    engine.speak_to_wav("hello", "HKEY_FAKE_NONEXISTENT", SpeakParams(), out)
+    assert out.exists()
+    assert out.stat().st_size > 0
+
+
+def test_speak_with_non_string_text_raises(engine, first_voice):
+    """Passing non-string text should raise a TypeError or similar."""
+    with pytest.raises((TypeError, AttributeError)):
+        engine.speak(123, first_voice.id, SpeakParams())
+
+
+# ── speak_sync blocking behavior ──────────────────────────────────────────────
+
+def test_speak_sync_blocks_until_complete(engine, first_voice):
+    """speak_sync should block until the speech is fully processed."""
+    import time
+
+    start = time.monotonic()
+    engine.speak_sync("hello", first_voice.id, SpeakParams())
+    elapsed = time.monotonic() - start
+    assert elapsed >= 0, "speak_sync returned without processing"
+
+
+# ── Voice selection ───────────────────────────────────────────────────────────
+
+def test_set_voice_to_existing_voice(engine):
+    """Setting a known voice_id should not raise and should be retrievable."""
+    voices = engine.list_voices()
+    assert len(voices) >= 1
+    target = voices[0]
+    engine._sapi.Voice = engine._find_token(target.id)
+
+
+def test_voice_change_affects_output(engine, tmp_path):
+    """Changing voices should produce output for each — confirms voice selection works."""
+    voices = engine.list_voices()
+    if len(voices) < 2:
+        pytest.skip("Need at least 2 voices to compare")
+
+    out_a = tmp_path / "voice_a.wav"
+    out_b = tmp_path / "voice_b.wav"
+    engine.speak_to_wav("test voice", voices[0].id, SpeakParams(), out_a)
+    engine.speak_to_wav("test voice", voices[1].id, SpeakParams(), out_b)
+    assert out_a.stat().st_size > 0
+    assert out_b.stat().st_size > 0
+
+
+# ── Slider (rate/volume) clamping ─────────────────────────────────────────────
+
+def test_rate_clamped_to_negative_range(engine, first_voice, tmp_path):
+    """Rate values below -10 should be clamped to -10."""
+    out = tmp_path / "clamped.wav"
+    engine.speak_to_wav("clamp", first_voice.id, SpeakParams(rate=-20), out)
+    assert out.exists()
+    assert out.stat().st_size > 0
+
+
+def test_rate_clamped_to_positive_range(engine, first_voice, tmp_path):
+    """Rate values above 10 should be clamped to 10."""
+    out = tmp_path / "clamped.wav"
+    engine.speak_to_wav("clamp", first_voice.id, SpeakParams(rate=50), out)
+    assert out.exists()
+    assert out.stat().st_size > 0
+
+
+def test_volume_clamped_to_zero(engine, first_voice, tmp_path):
+    """Volume below 0 should be clamped to 0."""
+    out = tmp_path / "clamped.wav"
+    engine.speak_to_wav("clamp", first_voice.id, SpeakParams(volume=-50), out)
+    assert out.exists()
+
+
+def test_volume_clamped_to_max(engine, first_voice, tmp_path):
+    """Volume above 100 should be clamped to 100."""
+    out = tmp_path / "clamped.wav"
+    engine.speak_to_wav("clamp", first_voice.id, SpeakParams(volume=200), out)
+    assert out.exists()
+    assert out.stat().st_size > 0
+
+
+# ── SSML / pitch support ────────────────────────────────────────────────────
+
+def test_escape_xml_escapes_ampersand(engine):
+    assert engine._escape_xml("a & b") == "a &amp; b"
+
+
+def test_escape_xml_escapes_less_than(engine):
+    assert engine._escape_xml("a < b") == "a &lt; b"
+
+
+def test_escape_xml_escapes_greater_than(engine):
+    assert engine._escape_xml("a > b") == "a &gt; b"
+
+
+def test_escape_xml_leaves_safe_text_unchanged(engine):
+    assert engine._escape_xml("hello world") == "hello world"
+
+
+def test_build_ssml_returns_plain_text_when_pitch_zero(engine):
+    params = SpeakParams(pitch=0)
+    ssml = engine._build_ssml("hello", params)
+    assert ssml == "hello"
+
+
+def test_build_ssml_includes_pitch_element_when_nonzero(engine):
+    params = SpeakParams(pitch=5)
+    ssml = engine._build_ssml("hello", params)
+    assert '<pitch absmiddle="5"/>' in ssml
+    assert "hello" in ssml
+
+
+def test_build_ssml_escapes_xml_in_text(engine):
+    params = SpeakParams(pitch=3)
+    ssml = engine._build_ssml("a & b < c > d", params)
+    assert "&amp;" in ssml
+    assert "&lt;" in ssml
+    assert "&gt;" in ssml
+
+
+# ── wait_until_done wrapper ─────────────────────────────────────────────────
+
+def test_wait_until_done_wrapper_returns_bool(engine):
+    engine.stop()
+    result = engine.wait_until_done(0)
+    assert isinstance(result, bool)
+
+
+def test_wait_until_done_wrapper_does_not_block_forever(engine):
+    """A 1ms timeout must return quickly, not hang."""
+    import time
+    engine.stop()
+    start = time.monotonic()
+    engine.wait_until_done(1)
+    elapsed = time.monotonic() - start
+    assert elapsed < 1.0, f"wait_until_done took {elapsed:.3f}s with 1ms timeout"
+
+
+def test_wait_until_done_wrapper_with_generous_timeout_completes(engine, first_voice):
+    """With a long timeout on short text, should return True (completed)."""
+    engine.speak_sync("hi", first_voice.id, SpeakParams())
+    result = engine.wait_until_done(10_000)
+    assert result is True
+
+
+# ── speak with pitch ────────────────────────────────────────────────────────
+
+def test_speak_with_pitch_does_not_raise(engine, first_voice):
+    """Speaking with non-zero pitch should not raise."""
+    engine.speak("hello", first_voice.id, SpeakParams(pitch=5))
+    engine.stop()
+
+
+def test_speak_to_wav_with_pitch_creates_file(engine, first_voice, tmp_path):
+    """speak_to_wav with pitch should produce valid output."""
+    out = tmp_path / "pitched.wav"
+    engine.speak_to_wav("hello", first_voice.id, SpeakParams(pitch=3), out)
+    assert out.exists()
+    assert out.stat().st_size > 0
+

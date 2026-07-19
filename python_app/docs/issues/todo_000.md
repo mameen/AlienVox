@@ -86,18 +86,20 @@ The following are **deferred** — do not work on these until Stage 2 core is ot
 - 🟢 `speak_to_wav(text, voice_id, params, out_path)` — renders to WAV, no audio hardware needed
 - 🟢 `stop()` / `pause()` / `resume()`
 - 🟢 Thread lock on all COM calls
-- 🟢 11 tests in `test_sapi.py` (Windows only, skip otherwise)
-- 🔴 **WaitUntilDone timeout**: `main.py` calls `engine._sapi.WaitUntilDone(-1)` from a daemon
-  thread. This blocks forever if SAPI hangs. Replace with `WaitUntilDone(30_000)` and emit a
-  `tts.error` telemetry event + call `tray.set_error()` if it returns `False`.
-- 🔴 **Main window Play button speaks editor text**: currently `_on_play()` in `main_window.py`
-  calls `on_speak(text)` but `speak()` in `main.py` calls `get_selected_text()` (ignoring the
-  argument). Wire a separate path: when the main window is visible and ▶ is clicked, pass the
-  editor content directly to the engine, bypassing text capture.
-- 🔴 **Voice selection persistence**: main window voice dropdown does not write back to `user.yaml`
-  and does not update the tray Voice submenu checkmarks. Add a `valueChanged` handler on the voice
-  combo that calls `save_user_override({"voice": vid})` and refreshes `tray.populate_voices()`.
-- 🔴 **Slider persistence**: Rate/Volume sliders in main window do not write to `user.yaml`.
+- 🟢 27 tests in `test_sapi.py` (Windows only, skip otherwise)
+  - Voice enum: 5 tests (count, IDs, names, registry paths, uniqueness)
+  - speak_to_wav: 4 tests (creates file, valid WAV, rate diff, voice selection)
+  - stop/pause/resume: 3 tests
+  - Thread safety: 2 tests (concurrent speak, concurrent stop+speakspeak)
+  - Error handling: 4 tests (bad voice_id, empty text, bad voice wav, non-string text)
+  - SSML/pitch: 6 tests (escape XML x3, build_ssml plain/pitch/escaped, speak with pitch)
+  - WaitUntilDone: 3 tests (timeout returns bool, no block, completes with generous timeout)
+- 🟢 **WaitUntilDone timeout**: Replaced `WaitUntilDone(-1)` with `engine.wait_until_done(30_000)` + `tts.error` telemetry + `tray.set_error()` on failure. Added `wait_until_done()` wrapper method to SapiEngine.
+- 🟢 **Main window Play button speaks editor text**: `speak(text: str | None = None)` now accepts optional text. When called from main window ▶, passes editor content directly (bypasses capture). Tray menu calls `speak_async()` with no arg → captures selection.
+- 🟢 **Voice selection persistence**: Voice dropdown `currentIndexChanged` → `_on_voice_changed()` → `save_user_override({"voice": vid})` + refreshes tray checkmarks via `on_voice_changed` callback.
+- 🟢 **Slider persistence**: Each slider `valueChanged` → `_on_slider_debounced()` → QTimer 350ms single-shot → `_save_pending_sliders()` → `save_user_override(patch)`.
+- 🟢 **Pitch support via SAPI XML**: Added `_escape_xml()` and `_build_ssml()` to wrap text in `<pitch absmiddle="N"/>` SSML when pitch ≠ 0. Applied in both `speak()` and `speak_to_wav()`.
+- 🟢 **Playback completion telemetry**: Emits `tts.first_audio` (latency to SAPI submit) and `tts.playback_end` (status: "complete"/"timeout") matching Rust POC pattern.
   Add a debounced `QTimer` (~350 ms) on slider `valueChanged` to call `save_user_override`.
 
 ---
