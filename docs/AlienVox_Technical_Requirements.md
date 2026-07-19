@@ -55,10 +55,11 @@ The app must lack a traditional main UI window, instead exposing configurations 
 
 ---
 
-## 4. Non-Functional Requirements & Technical Stack Recommendations
+## 4. Non-Functional Requirements
 
-*   **Framework Options:** 
-    *   *Option A (Recommended):* **Rust with Tauri**. Highly recommended for achieving sub-10MB idle memory footprints, excellent security, and clean, native system tray hooks on both platforms.
-    *   *Option B:* A lightweight C#/.NET Core background app for Windows paired with a Swift/AppKit companion wrapper for macOS.
-*   **State Preservation:** All configuration variables (playback speeds, selected voice, API tokens, global hotkeys) must be stored locally via an encrypted JSON structure or local OS keychain abstractions.
+*   **Single Standalone Process:** The application must ship as a single executable with no external runtime dependencies at inference time. No separate backend process, sidecar, or interpreter subprocess is permitted during operation.
+*   **Sub-10MB Idle Footprint:** The process must consume under 10MB RAM at idle (no active speech). The OS platform engine (SAPI5 / AVFoundation) is the zero-cost fallback.
+*   **Sub-150ms Latency:** Total time from global hotkey press to audio initialization must not exceed 150ms when using a local engine.
+*   **State Preservation:** All configuration variables (playback speeds, selected voice, API tokens, global hotkeys) must be stored locally via YAML descriptors or OS keychain abstractions. See `highlevel_design` skill §5 for the four-layer config hierarchy.
 *   **Privacy & Security:** No text captured from selection or clipboard should ever be logged, cached, or persisted locally. If a Cloud AI engine is selected, data transmission must happen via secure TLS streams directly to the provider endpoint without intermediary proxies.
+*   **Implementation stack:** The choice of language and framework for each implementation is recorded in that implementation's `docs/adr/adr-001`. The requirements above are stack-agnostic constraints that any implementation must satisfy.

@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Cross-platform environment (Windows 11 / macOS 14+)
 metadata:
   author: AlienTech.Software
-  version: "1.0"
+  version: "1.1"
 ---
 
 # UI/UX Design Guidelines
@@ -19,7 +19,7 @@ This skill codifies the visual language, layout hierarchy, and component vocabul
 - **Style:** Traditional, highly functional desktop interface matching the native Windows Classic/Forms look (Win32/WPF layout). Maximize workspace utility — prioritize explicit control buttons, tabbed configurations, and sliders over modern minimalist whitespace.
 - **Density over decoration:** Controls are compact, labeled, and always visible. Avoid hidden gestures or ambiguous affordances.
 - **Determinism:** Every control maps to one explicit action. No speculative or decorative UI ("no ghost abstractions").
-- **Cross-platform parity:** The same layout hierarchy applies on Windows 11 and macOS 14+, rendered through the native webview per the Rust + Tauri stack.
+- **Cross-platform parity:** The same layout hierarchy applies on Windows 11 and macOS 14+, rendered through the native UI layer of the chosen implementation.
 
 ## 2. Reference Interface Breakdown
 
@@ -80,7 +80,7 @@ AlienVox lives primarily in the system tray. The tray is the default entry point
 - **Semantic color reserved for transport controls only:** green Play, gray Pause, red Stop. All other toolbar icons are monochrome/neutral.
 - **Consistent shape per type:** one shape vocabulary per action category (file ops, playback, text utilities); do not mix metaphors within a category.
 - **Tray icon set:** provide state variants (idle / speaking / error) plus light and dark theme versions, sized for OS tray requirements (Windows 16/32 px, macOS template images).
-- **Assets:** ship icons as embedded binary assets baked into the single binary (per the production build model); never load icons from a network source at runtime.
+- **Assets:** ship icons as embedded binary assets baked into the single application binary; never load icons from a network source at runtime.
 
 ## 5. Briefing an LLM to Generate the Interface
 
@@ -88,7 +88,7 @@ When asking an LLM to generate or replicate an AlienVox surface, provide: (a) th
 
 **Suggested prompt template:**
 
-> "Act as a senior front-end engineer. Based on the description above, generate the structural layout and code for a desktop application window matching this classic Windows-forms utility layout. It needs a menu bar, a row of playback controls (Play, Pause, Stop), speech engine tabs (SAPI5 / Cloud Engine), audio sliders for Rate/Pitch/Volume, and a large central text input area. Implement this using **[target: Slint / HTML+Tailwind for the Tauri frontend / WPF]**."
+> "Act as a senior front-end engineer. Based on the description above, generate the structural layout and code for a desktop application window matching this classic Windows-forms utility layout. It needs a menu bar, a row of playback controls (Play, Pause, Stop), speech engine tabs (SAPI5 / Cloud Engine), audio sliders for Rate/Pitch/Volume, and a large central text input area. Implement this using **[target: PySide6 QWidget / Slint / WPF]**."
 
 Always state the concrete target technology; never leave the rendering stack ambiguous.
 
@@ -97,3 +97,4 @@ Always state the concrete target technology; never leave the rendering stack amb
 ## 6. Related Decisions
 - See `highlevel_design` skill — single standalone binary and asset embedding (governs how icons and UI assets ship).
 - See `workspace-discipline` skill — reflection/self-check and no-ghost-abstraction rules apply to every UI addition.
+- See the active implementation's `docs/adr/adr-001` for the chosen UI framework.

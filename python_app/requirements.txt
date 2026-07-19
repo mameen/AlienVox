@@ -1,0 +1,37 @@
+# AlienVox python_app — runtime dependencies
+# Install with:  pip install -r requirements.txt
+#
+# All inference happens in-process inside this environment.
+# No subprocess calls to Python at runtime — that is the whole point.
+
+# ── UI / Tray ─────────────────────────────────────────────────────────────────
+PySide6>=6.7.0
+
+# ── Global hotkeys ────────────────────────────────────────────────────────────
+pynput>=1.7.6
+
+# ── Windows platform APIs (SAPI5 COM, UI Automation, clipboard) ───────────────
+pywin32>=306; sys_platform == "win32"
+
+# ── Config ────────────────────────────────────────────────────────────────────
+pyyaml>=6.0
+
+# ── Audio I/O ─────────────────────────────────────────────────────────────────
+sounddevice>=0.4.6
+soundfile>=0.12.1
+numpy>=1.24.0
+
+# ── Core ML / inference (lazy-imported — not loaded at startup) ───────────────
+torch>=2.0.0
+transformers>=4.30.0
+safetensors>=0.4.0
+accelerate>=0.20.0
+
+# ── TTS engines ───────────────────────────────────────────────────────────────
+kokoro>=0.9.0
+piper-tts>=1.2.0
+# Dia: pip install git+https://github.com/nari-labs/dia.git
+# (no stable PyPI release yet — install manually or add to setup.py)
+
+# ── Model hub / download ──────────────────────────────────────────────────────
+huggingface_hub[hf_xet]>=0.20.0

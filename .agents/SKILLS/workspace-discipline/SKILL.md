@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Universal file-system access
 metadata:
   author: AlienTech.Software
-  version: "1.0"
+  version: "1.1"
 ---
 
 # Workspace Discipline & Repository Boundary Rules
@@ -36,8 +36,13 @@ This skill dictates how you must behave when operating in a workspace that serve
 
 ## 3. Documentation Discipline
 - **Keep Docs & Comments Current:** Whenever behavior, APIs, or design changes, update the affected documentation and code comments in the same change. Never leave docs or comments describing superseded behavior.
-- **Record Large Design Changes as ADRs:** Document large or architecturally significant design changes as an ADR under `docs/adr/`.
+- **Record Large Design Changes as ADRs:** Document large or architecturally significant design changes as an ADR under `docs/adr/` inside the relevant implementation folder.
 - **Log Issues:** Document defects, known problems, and investigations under `docs/issues/`.
+
+### Doc Location Rule
+- **Outer docs are technology-agnostic**: All documentation under `tts/docs/` and `tts/.agents/SKILLS/` must remain free of implementation-specific decisions, framework names, and stack-specific details. They capture project intent, functional requirements, UI/UX patterns, and stable cross-cutting principles only.
+- **Implementation docs live inside the implementation folder**: ADRs, architecture diagrams, setup guides, and decisions tied to a specific implementation (e.g. `gemini_poc/`, `python_app/`) belong in that folder's own `docs/adr/` subdirectory — never in the outer `tts/docs/adr/`.
+- **Before writing to outer docs:** Ask — "Does this apply regardless of implementation language or framework?" If the answer is no, it belongs in the implementation folder, not in `tts/docs/` or `tts/.agents/SKILLS/`.
 
 ---
 
