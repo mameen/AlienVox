@@ -238,7 +238,6 @@ class PreferencesWindow(QDialog):
         for stack in stacks:
             cfg = load_effective_config(
                 stack.id,
-                root=models_root,
                 user_file=user_file,
             )
             tab = _StackTab(

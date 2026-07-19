@@ -23,6 +23,7 @@ class AlienVoxTray:
         on_settings: Callable[[], None],
         on_about: Callable[[], None],
         on_quit: Callable[[], None],
+        on_window_toggle: Callable[[], None] | None = None,
     ) -> None:
         self._tray = QSystemTrayIcon()
         self._icons = {
@@ -35,6 +36,7 @@ class AlienVoxTray:
 
         self._on_speak = on_speak
         self._on_stop = on_stop
+        self._on_window_toggle = on_window_toggle or on_settings
 
         menu = QMenu()
         self._act_speak = menu.addAction("Speak Selection")
@@ -102,4 +104,8 @@ class AlienVoxTray:
 
     def _on_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
         if reason == QSystemTrayIcon.ActivationReason.Trigger:
+            # Single click → speak selection (primary action)
             self._on_speak()
+        elif reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+            # Double click → toggle main window
+            self._on_window_toggle()

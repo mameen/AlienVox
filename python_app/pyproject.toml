@@ -1,6 +1,15 @@
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--cov=src --cov-report=term-missing --cov-fail-under=80"
+# test_perf.py passes --no-cov explicitly to suppress coverage overhead during timing runs
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]
 
 [tool.coverage.run]
 source = ["src"]
@@ -10,7 +19,8 @@ omit = [
     "src/about.py",
     "src/preferences.py",
     "src/main.py",
-    # Platform-specific boundaries — require Windows COM / audio hardware
+    "src/main_window.py",
+    # Platform-specific boundaries — require Windows COM / audio hardware / foreground window
     "src/capture.py",
     "src/engines/sapi_win.py",
     "src/hotkey.py",
