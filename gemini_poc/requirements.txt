@@ -1,0 +1,33 @@
+# AlienVox Python inference stack
+# Install with:  pip install -r requirements.txt
+# setup.py runs this automatically when creating the .venv.
+#
+# Python is NOT part of the distributed binary — this venv is the dev/local-run
+# harness only.  All inference happens inside this venv via subprocess calls from
+# the Rust binary.  No package should be downloaded at inference runtime.
+
+# ── Audio I/O ────────────────────────────────────────────────────────────────
+sounddevice>=0.4.6
+soundfile>=0.12.1
+numpy>=1.24.0
+
+# ── Core ML / inference ──────────────────────────────────────────────────────
+torch>=2.0.0
+transformers>=4.30.0
+safetensors>=0.4.0
+accelerate>=0.20.0
+
+# ── TTS engines ──────────────────────────────────────────────────────────────
+# Kokoro — neural TTS (warm-worker model)
+kokoro>=0.9.0
+
+# Piper — fast offline neural TTS (one-shot runner via `-m piper`)
+piper-tts>=1.2.0
+
+# Dia — expressive dialogue TTS (nari-labs)
+# PyPI package name may differ; install from source if the name below fails:
+#   pip install git+https://github.com/nari-labs/dia.git
+dia
+
+# ── Model hub / download (used only by install_ml_model.py) ─────────────────
+huggingface_hub[hf_xet]>=0.20.0

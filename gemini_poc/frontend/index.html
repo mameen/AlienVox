@@ -835,6 +835,11 @@
                     <dt>Type</dt>
                     <dd id="install-type"></dd>
                 </dl>
+                <!-- Voice picker — visible only for Piper -->
+                <div id="install-voice-picker" style="display:none;margin-top:10px">
+                    <div style="font-size:11px;font-weight:600;color:#555;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em">Select voices to install</div>
+                    <div id="install-voice-list" style="display:flex;flex-direction:column;gap:4px;max-height:160px;overflow-y:auto;font-size:12px"></div>
+                </div>
                 <div class="progress-track" id="install-progress">
                     <div class="progress-bar"></div>
                 </div>
@@ -1035,6 +1040,17 @@
         const installProgressBar = installProgress.querySelector('.progress-bar');
         const installCancel = document.getElementById('install-cancel');
         const installStart = document.getElementById('install-start');
+        // Static catalog — mirrors PIPER_VOICES in install_ml_model.py.
+        const PIPER_VOICE_CATALOG = [
+            { id: 'en_US-lessac-medium',                  label: 'Lessac',                  gender: 'M', lang: 'en-US', quality: 'medium' },
+            { id: 'en_US-amy-medium',                     label: 'Amy',                     gender: 'F', lang: 'en-US', quality: 'medium' },
+            { id: 'en_US-ryan-high',                      label: 'Ryan',                    gender: 'M', lang: 'en-US', quality: 'high'   },
+            { id: 'en_US-kathleen-low',                   label: 'Kathleen',                gender: 'F', lang: 'en-US', quality: 'low'    },
+            { id: 'en_GB-southern_english_female-medium', label: 'Southern English Female', gender: 'F', lang: 'en-GB', quality: 'medium' },
+            { id: 'en_GB-jenny_dioco-medium',             label: 'Jenny Dioco',             gender: 'F', lang: 'en-GB', quality: 'medium' },
+            { id: 'en_GB-alan-medium',                    label: 'Alan',                    gender: 'M', lang: 'en-GB', quality: 'medium' },
+        ];
+
         const settingsKey = 'alienvox.dev.settings.v1';
         let pendingInstall = null;
         let installPollTimer = null;
@@ -1185,9 +1201,11 @@
 
         function openInstallDialog() {
             const isMl = activeEngine() === 'ml';
+            const model = modelSelect.value;
+            const isPiper = isMl && model === 'piper';
             pendingInstall = {
                 kind: isMl ? 'ml' : 'native',
-                model: modelSelect.value,
+                model,
                 running: false,
                 jobId: '',
             };
@@ -1203,6 +1221,32 @@
             installStart.disabled = false;
             installCancel.disabled = false;
             installCancel.textContent = 'Cancel';
+
+            // Populate voice picker for Piper.
+            const voicePicker = document.getElementById('install-voice-picker');
+            const voiceList   = document.getElementById('install-voice-list');
+            voicePicker.style.display = isPiper ? '' : 'none';
+            voiceList.innerHTML = '';
+            if (isPiper) {
+                const installed = new Set([...voiceSelect.options].map(o => o.value));
+                PIPER_VOICE_CATALOG.forEach(v => {
+                    const alreadyHave = installed.has(v.id);
+                    const row = document.createElement('label');
+                    row.style.cssText = 'display:flex;align-items:center;gap:6px;cursor:pointer;padding:2px 0';
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.value = v.id;
+                    cb.checked = !alreadyHave;
+                    cb.disabled = false;
+                    const glyph = v.gender === 'F' ? '♀' : '♂';
+                    const badge = alreadyHave ? ' ✓' : '';
+                    row.appendChild(cb);
+                    row.append(`${glyph} ${v.label} — ${v.lang} · ${v.quality}${badge}`);
+                    if (alreadyHave) row.style.color = '#888';
+                    voiceList.appendChild(row);
+                });
+            }
+
             installOverlay.classList.add('visible');
             installStart.focus();
         }
@@ -1217,7 +1261,10 @@
             setStatus('Installing');
             try {
                 if (pendingInstall.kind === 'ml') {
-                    const status = await invoke('start_ml_model_install', { model: pendingInstall.model });
+                    const voices = pendingInstall.model === 'piper'
+                        ? [...document.querySelectorAll('#install-voice-list input[type=checkbox]:checked')].map(cb => cb.value)
+                        : null;
+                    const status = await invoke('start_ml_model_install', { model: pendingInstall.model, voices });
                     pendingInstall.jobId = status.id;
                     renderInstallStatus(status);
                     installPollTimer = setInterval(pollInstallStatus, 700);

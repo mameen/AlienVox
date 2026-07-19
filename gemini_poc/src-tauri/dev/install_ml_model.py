@@ -54,19 +54,61 @@ def _start_progress_poller(
 
 PIPER_REPO = "rhasspy/piper-voices"
 PIPER_REVISION = "v1.0.0"
-# Each entry is (remote_path_in_repo, dest_filename).
-# Voices are from rhasspy/piper-voices@v1.0.0 — all English, mix of M/F.
-PIPER_FILES = [
-    # en_US-lessac-medium — male (US)
-    ("en/en_US/lessac/medium/en_US-lessac-medium.onnx",      "en_US-lessac-medium.onnx"),
-    ("en/en_US/lessac/medium/en_US-lessac-medium.onnx.json", "en_US-lessac-medium.onnx.json"),
-    # en_US-amy-medium — female (US)
-    ("en/en_US/amy/medium/en_US-amy-medium.onnx",            "en_US-amy-medium.onnx"),
-    ("en/en_US/amy/medium/en_US-amy-medium.onnx.json",       "en_US-amy-medium.onnx.json"),
-    # en_GB-southern_english_female-medium — female (GB)
-    ("en/en_GB/southern_english_female/medium/en_GB-southern_english_female-medium.onnx",      "en_GB-southern_english_female-medium.onnx"),
-    ("en/en_GB/southern_english_female/medium/en_GB-southern_english_female-medium.onnx.json", "en_GB-southern_english_female-medium.onnx.json"),
-]
+
+# Full catalog of available Piper voices.
+# Each entry: voice_id -> { files: [(remote, dest), ...], gender, lang, quality }
+# Paths are relative to rhasspy/piper-voices@v1.0.0.
+PIPER_VOICES: dict[str, dict] = {
+    "en_US-lessac-medium": {
+        "files": [
+            ("en/en_US/lessac/medium/en_US-lessac-medium.onnx",      "en_US-lessac-medium.onnx"),
+            ("en/en_US/lessac/medium/en_US-lessac-medium.onnx.json", "en_US-lessac-medium.onnx.json"),
+        ],
+        "gender": "M", "lang": "en-US", "quality": "medium",
+    },
+    "en_US-amy-medium": {
+        "files": [
+            ("en/en_US/amy/medium/en_US-amy-medium.onnx",      "en_US-amy-medium.onnx"),
+            ("en/en_US/amy/medium/en_US-amy-medium.onnx.json", "en_US-amy-medium.onnx.json"),
+        ],
+        "gender": "F", "lang": "en-US", "quality": "medium",
+    },
+    "en_US-ryan-high": {
+        "files": [
+            ("en/en_US/ryan/high/en_US-ryan-high.onnx",      "en_US-ryan-high.onnx"),
+            ("en/en_US/ryan/high/en_US-ryan-high.onnx.json", "en_US-ryan-high.onnx.json"),
+        ],
+        "gender": "M", "lang": "en-US", "quality": "high",
+    },
+    "en_US-kathleen-low": {
+        "files": [
+            ("en/en_US/kathleen/low/en_US-kathleen-low.onnx",      "en_US-kathleen-low.onnx"),
+            ("en/en_US/kathleen/low/en_US-kathleen-low.onnx.json", "en_US-kathleen-low.onnx.json"),
+        ],
+        "gender": "F", "lang": "en-US", "quality": "low",
+    },
+    "en_GB-southern_english_female-medium": {
+        "files": [
+            ("en/en_GB/southern_english_female/medium/en_GB-southern_english_female-medium.onnx",      "en_GB-southern_english_female-medium.onnx"),
+            ("en/en_GB/southern_english_female/medium/en_GB-southern_english_female-medium.onnx.json", "en_GB-southern_english_female-medium.onnx.json"),
+        ],
+        "gender": "F", "lang": "en-GB", "quality": "medium",
+    },
+    "en_GB-jenny_dioco-medium": {
+        "files": [
+            ("en/en_GB/jenny_dioco/medium/en_GB-jenny_dioco-medium.onnx",      "en_GB-jenny_dioco-medium.onnx"),
+            ("en/en_GB/jenny_dioco/medium/en_GB-jenny_dioco-medium.onnx.json", "en_GB-jenny_dioco-medium.onnx.json"),
+        ],
+        "gender": "F", "lang": "en-GB", "quality": "medium",
+    },
+    "en_GB-alan-medium": {
+        "files": [
+            ("en/en_GB/alan/medium/en_GB-alan-medium.onnx",      "en_GB-alan-medium.onnx"),
+            ("en/en_GB/alan/medium/en_GB-alan-medium.onnx.json", "en_GB-alan-medium.onnx.json"),
+        ],
+        "gender": "M", "lang": "en-GB", "quality": "medium",
+    },
+}
 
 SNAPSHOT_MODELS = {
     "vibevoice-realtime-0.5b": {
@@ -89,17 +131,22 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model", required=True)
     parser.add_argument("--models-root", required=True)
     parser.add_argument("--hf-home", required=True)
+    parser.add_argument("--voices", default="",
+                        help="Comma-separated list of Piper voice ids to install. "
+                             "Empty = install all voices in catalog.")
     return parser.parse_args()
 
 
 def ensure_huggingface_hub() -> None:
     try:
         import huggingface_hub  # noqa: F401
-        return
-    except Exception:
-        subprocess.check_call(
-            [sys.executable, "-m", "pip", "install", "huggingface_hub[hf_xet]"]
+    except ImportError:
+        print(
+            "ERROR: 'huggingface_hub' not installed.\n"
+            "Run:  pip install -r requirements.txt  or rerun setup.py.",
+            file=sys.stderr, flush=True,
         )
+        raise
 
 
 def write_manifest(path: Path, payload: dict) -> None:
@@ -135,32 +182,45 @@ def install_kokoro(models_root: Path, hf_home: Path) -> None:
     )
 
 
-def install_piper(models_root: Path) -> None:
+def install_piper(models_root: Path, voices: list[str]) -> None:
     from huggingface_hub import hf_hub_download
+
+    # Resolve which voices to install.
+    selected = [v for v in voices if v in PIPER_VOICES] if voices else list(PIPER_VOICES.keys())
+    if not selected:
+        _emit(0, f"Unknown voice(s) {voices}; available: {list(PIPER_VOICES.keys())}")
+        return
 
     target = models_root / "piper"
     target.mkdir(parents=True, exist_ok=True)
-    total = max(1, len(PIPER_FILES))
-    for i, (remote, dest_name) in enumerate(PIPER_FILES):
+
+    # Build flat file list for selected voices.
+    all_files = [(remote, dest) for vid in selected for remote, dest in PIPER_VOICES[vid]["files"]]
+    total = max(1, len(all_files))
+    for i, (remote, dest_name) in enumerate(all_files):
         _emit(int(5 + (i / total) * 90), f"Downloading {dest_name}")
-        downloaded = Path(
-            hf_hub_download(
-                repo_id=PIPER_REPO,
-                filename=remote,
-                revision=PIPER_REVISION,
-                repo_type="model",
+        try:
+            downloaded = Path(
+                hf_hub_download(
+                    repo_id=PIPER_REPO,
+                    filename=remote,
+                    revision=PIPER_REVISION,
+                    repo_type="model",
+                )
             )
-        )
-        (target / dest_name).write_bytes(downloaded.read_bytes())
+            (target / dest_name).write_bytes(downloaded.read_bytes())
+        except Exception as e:
+            _emit(int(5 + (i / total) * 90), f"WARNING: {dest_name} skipped — {e}")
+
     _emit(99, "Finalizing piper")
-    voices = [dest for _, dest in PIPER_FILES if dest.endswith(".onnx")]
+    installed_voices = [vid for vid in selected if (target / f"{vid}.onnx").exists()]
     write_manifest(
         target,
         {
             "id": "piper",
             "repo_id": PIPER_REPO,
             "revision": PIPER_REVISION,
-            "voices": voices,
+            "voices": installed_voices,
             "status": "installed",
         },
     )
@@ -215,7 +275,8 @@ def main() -> int:
     if model == "kokoro":
         install_kokoro(models_root, hf_home)
     elif model == "piper":
-        install_piper(models_root)
+        voices = [v.strip() for v in args.voices.split(",") if v.strip()] if args.voices else []
+        install_piper(models_root, voices)
     elif model in SNAPSHOT_MODELS:
         install_snapshot(model, models_root)
     else:

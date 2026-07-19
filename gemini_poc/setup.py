@@ -181,6 +181,26 @@ def create_venv(target: Path) -> None:
     run([sys.executable, '-m', 'venv', str(target)])
 
 
+def venv_python(venv_dir: Path) -> str:
+    if sys.platform.startswith('win'):
+        return str(venv_dir / 'Scripts' / 'python.exe')
+    return str(venv_dir / 'bin' / 'python')
+
+
+def install_requirements(venv_dir: Path) -> int:
+    req_file = ROOT / 'requirements.txt'
+    if not req_file.exists():
+        print('No requirements.txt found — skipping package install.')
+        return 0
+    python = venv_python(venv_dir)
+    print(f'\nInstalling Python requirements from {req_file.name}…')
+    print('(This may take several minutes on first run — torch alone is ~2 GB.)')
+    rc = run([python, '-m', 'pip', 'install', '--upgrade', 'pip'])
+    if rc != 0:
+        print('pip upgrade failed — continuing anyway.')
+    return run([python, '-m', 'pip', 'install', '-r', str(req_file)])
+
+
 def remove_venv(target: Path) -> None:
     print(f'Removing existing virtual environment at {target}')
     if target.exists():
@@ -336,6 +356,9 @@ def main() -> int:
 
     if env_dir is not None:
         configure_venv_activation_paths(env_dir)
+        if install_requirements(env_dir) != 0:
+            print('\nWARNING: Some Python requirements failed to install.')
+            print('Run manually:  pip install -r requirements.txt')
 
     if missing_required_tool:
         print('\nBootstrap incomplete: required toolchain components are missing.')

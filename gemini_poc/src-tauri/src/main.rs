@@ -728,6 +728,7 @@ fn install_ml_model(app: tauri::AppHandle, model: String) -> Result<String, Stri
 fn start_ml_model_install(
     app: tauri::AppHandle,
     model: String,
+    voices: Option<Vec<String>>,
 ) -> Result<InstallJobStatus, String> {
     let mut guard = ML_SPEAKER.lock().map_err(|e| e.to_string())?;
     if guard.is_none() {
@@ -738,6 +739,11 @@ fn start_ml_model_install(
         .unwrap()
         .install_command(&model)
         .map_err(|e| e.to_string())?;
+    if let Some(ref v) = voices {
+        if !v.is_empty() {
+            command.arg("--voices").arg(v.join(","));
+        }
+    }
     let mut child = command.spawn().map_err(|e| e.to_string())?;
     let mut stdout = child.stdout.take();
     let mut stderr = child.stderr.take();

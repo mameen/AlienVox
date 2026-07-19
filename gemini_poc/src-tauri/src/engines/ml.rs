@@ -108,9 +108,9 @@ impl MlEngine {
                 }
             };
 
-        // Runnable adapters: kokoro (via warm worker), piper (via runner).
-        // Weights-only models (vibevoice/zonos2/dia) have no runtime adapter yet — mark
-        // Unavailable (yellow) when weights are present so the UI doesn't lie about playability.
+        // Runnable adapters: kokoro (via warm worker), piper, vibevoice, dia (via runners).
+        // A model is Installed iff weights AND a runner script are both present.
+        // Unavailable = weights present but runner missing (shouldn't happen after this commit).
         vec![
             entry(
                 KOKORO_MODEL_ID,
@@ -136,7 +136,7 @@ impl MlEngine {
                 "vibevoice-realtime-0.5b",
                 "VibeVoice-Realtime-0.5B",
                 if self.snapshot_weights_present("vibevoice-realtime-0.5b") {
-                    MlModelState::Unavailable
+                    if Self::vibevoice_runner().exists() { MlModelState::Installed } else { MlModelState::Unavailable }
                 } else {
                     MlModelState::NotInstalled
                 },
@@ -156,7 +156,7 @@ impl MlEngine {
                 "dia",
                 "Dia",
                 if self.snapshot_weights_present("dia") {
-                    MlModelState::Unavailable
+                    if Self::dia_runner().exists() { MlModelState::Installed } else { MlModelState::Unavailable }
                 } else {
                     MlModelState::NotInstalled
                 },
@@ -171,16 +171,16 @@ impl MlEngine {
             PIPER_MODEL_ID => Ok(self.piper_installed_voices()),
             "vibevoice-realtime-0.5b" => Ok(vec![Voice {
                 id: "vibevoice-default".to_string(),
-                name: "VibeVoice default (not installed)".to_string(),
+                name: "VibeVoice Default".to_string(),
             }]),
             "zonos2" => Ok(vec![Voice {
                 id: "zonos2-default".to_string(),
-                name: "ZONOS2 default (not installed)".to_string(),
+                name: "ZONOS2 Default".to_string(),
             }]),
-            "dia" => Ok(vec![Voice {
-                id: "dia-default".to_string(),
-                name: "Dia default (not installed)".to_string(),
-            }]),
+            "dia" => Ok(vec![
+                Voice { id: "dia-s1".to_string(), name: "Dia — Speaker 1 [S1]".to_string() },
+                Voice { id: "dia-s2".to_string(), name: "Dia — Speaker 2 [S2]".to_string() },
+            ]),
             other => Err(anyhow!("unknown ML model: {other}")),
         }
     }
@@ -198,16 +198,20 @@ impl MlEngine {
                 self.stop_kokoro_worker()?;
                 self.speak_piper(text, voice_id, params)
             }
-            "vibevoice-realtime-0.5b" | "zonos2" | "dia" => {
+            "vibevoice-realtime-0.5b" => {
                 self.stop_kokoro_worker()?;
-                let present = self.snapshot_weights_present(model);
+                self.speak_vibevoice(text, params)
+            }
+            "dia" => {
+                self.stop_kokoro_worker()?;
+                self.speak_dia(text, voice_id, params)
+            }
+            "zonos2" => {
+                let present = self.snapshot_weights_present("zonos2");
                 Err(anyhow!(
-                    "{model}: {}",
-                    if present {
-                        "weights installed, but the runtime adapter is not implemented yet"
-                    } else {
-                        "not installed — download it first from the model settings"
-                    }
+                    "zonos2: {}",
+                    if present { "weights installed but runtime adapter not yet implemented" }
+                    else { "not installed — download it first from the model settings" }
                 ))
             }
             other => Err(anyhow!("unknown ML model: {other}")),
@@ -329,6 +333,14 @@ impl MlEngine {
 
     fn piper_runner() -> PathBuf {
         Self::manifest_root().join("dev").join("piper_tts.py")
+    }
+
+    fn vibevoice_runner() -> PathBuf {
+        Self::manifest_root().join("dev").join("vibevoice_tts.py")
+    }
+
+    fn dia_runner() -> PathBuf {
+        Self::manifest_root().join("dev").join("dia_tts.py")
     }
 
     fn model_installer() -> PathBuf {
@@ -767,6 +779,73 @@ impl MlEngine {
         let output = Self::export_path();
         self.run_piper(text, voice_id, params, Some(&output), true)?;
         Ok(output)
+    }
+
+    fn speak_vibevoice(&self, text: &str, params: &SpeakParams) -> Result<()> {
+        if text.trim().is_empty() {
+            return Ok(());
+        }
+        let runner = Self::vibevoice_runner();
+        if !runner.exists() {
+            return Err(anyhow!("VibeVoice runner not found at {}", runner.display()));
+        }
+        let model_dir = self
+            .model_dir("vibevoice-realtime-0.5b")
+            .ok_or_else(|| anyhow!("VibeVoice weights not found — install the model first"))?;
+        let text_file = Self::text_file_path();
+        std::fs::write(&text_file, text)
+            .with_context(|| format!("failed to write {}", text_file.display()))?;
+        let status = Command::new(Self::python_exe())
+            .arg(&runner)
+            .arg("--text-file").arg(&text_file)
+            .arg("--model-dir").arg(&model_dir)
+            .arg("--rate").arg(params.rate.to_string())
+            .arg("--volume").arg(params.volume.to_string())
+            .arg("--telemetry-request-id").arg(&params.telemetry_request_id)
+            .arg("--requested-at-unix-ms").arg(params.requested_at_unix_ms.to_string())
+            .arg("--text-chars").arg(params.text_chars.to_string())
+            .arg("--text-bytes").arg(params.text_bytes.to_string())
+            .status()
+            .with_context(|| "failed to launch vibevoice_tts.py")?;
+        if !status.success() {
+            return Err(anyhow!("vibevoice_tts.py exited with {status}"));
+        }
+        Ok(())
+    }
+
+    fn speak_dia(&self, text: &str, voice_id: &str, params: &SpeakParams) -> Result<()> {
+        if text.trim().is_empty() {
+            return Ok(());
+        }
+        let runner = Self::dia_runner();
+        if !runner.exists() {
+            return Err(anyhow!("Dia runner not found at {}", runner.display()));
+        }
+        let model_dir = self
+            .model_dir("dia")
+            .ok_or_else(|| anyhow!("Dia weights not found — install the model first"))?;
+        let text_file = Self::text_file_path();
+        // Prepend speaker tag based on selected voice.
+        let speaker_tag = if voice_id == "dia-s2" { "[S2]" } else { "[S1]" };
+        let tagged = format!("{speaker_tag} {text}");
+        std::fs::write(&text_file, &tagged)
+            .with_context(|| format!("failed to write {}", text_file.display()))?;
+        let status = Command::new(Self::python_exe())
+            .arg(&runner)
+            .arg("--text-file").arg(&text_file)
+            .arg("--model-dir").arg(&model_dir)
+            .arg("--rate").arg(params.rate.to_string())
+            .arg("--volume").arg(params.volume.to_string())
+            .arg("--telemetry-request-id").arg(&params.telemetry_request_id)
+            .arg("--requested-at-unix-ms").arg(params.requested_at_unix_ms.to_string())
+            .arg("--text-chars").arg(params.text_chars.to_string())
+            .arg("--text-bytes").arg(params.text_bytes.to_string())
+            .status()
+            .with_context(|| "failed to launch dia_tts.py")?;
+        if !status.success() {
+            return Err(anyhow!("dia_tts.py exited with {status}"));
+        }
+        Ok(())
     }
 
     fn export_kokoro_wav(
