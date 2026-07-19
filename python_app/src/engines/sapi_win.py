@@ -57,10 +57,17 @@ class SapiEngine(TtsEngine):
 
     def speak(self, text: str, voice_id: str, params: SpeakParams) -> None:
         """Speak text asynchronously. Returns immediately; call stop() to interrupt."""
+        if not isinstance(text, str):
+            raise TypeError(f"text must be str, not {type(text).__name__}")
         with self._lock:
             self._apply_params(voice_id, params)
             ssml = self._build_ssml(text, params)
-            self._sapi.Speak(ssml, _SVSFlagsAsync)
+            try:
+                self._sapi.Speak(ssml, _SVSFlagsAsync)
+            except Exception:
+                # SSML may fail on some voices/OS versions; fall back to plain text
+                if ssml != text:
+                    self._sapi.Speak(text, _SVSFlagsAsync)
 
     def speak_sync(self, text: str, voice_id: str, params: SpeakParams) -> None:
         """Blocking speak — waits until audio completes. Used by speak_to_wav tests."""
@@ -120,11 +127,15 @@ class SapiEngine(TtsEngine):
                 .replace('>', '&gt;'))
 
     def _build_ssml(self, text: str, params: SpeakParams) -> str:
-        """Build SSML string if pitch is non-zero, otherwise return plain text."""
+        """Build SSML string if pitch is non-zero, otherwise return plain text.
+
+        SSML must be a complete document wrapped in <speak> root element;
+        bare <pitch> tags cause SAPI to crash with COM exception 0xe0000002.
+        """
         if params.pitch != 0:
             escaped = self._escape_xml(text)
             pitch_val = max(-10, min(10, params.pitch))
-            return f'<pitch absmiddle="{pitch_val}"/>{escaped}'
+            return f'<speak><pitch absmiddle="{pitch_val}"/>{escaped}</speak>'
         return text
 
     def wait_until_done(self, timeout_ms: int = 30_000) -> bool:

@@ -21,6 +21,15 @@ This skill dictates how you must behave when operating in a workspace that serve
 
 ---
 
+## 1.5 Always Start Green
+
+- **Never land broken code.** Before committing, pushing, or declaring a task complete, run the full pipeline: `lint → build → test → coverage floor`. If any step fails, fix it — do not skip or suppress failures.
+- **Coverage floor is non-negotiable.** Minimum 80% line coverage on all `src/` modules. If a new feature drops coverage below the floor, write tests for it before committing.
+- **Full pipeline before every commit.** The developer's golden rule: "always lint, and test." Run `python run.py all` (or the repo-equivalent) before any `git commit` or `git push`.
+- **Fix branches for fixes.** If a PR or merge introduces a break, create a dedicated fix branch (`fix/...`) and land the correction separately — never bury it in feature commits.
+
+---
+
 ## 2. Strict Constraints & Security Boundaries
 
 ### Version Control System (VCS) Limits
