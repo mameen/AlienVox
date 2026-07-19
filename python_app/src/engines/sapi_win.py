@@ -26,6 +26,9 @@ import win32com.client    # type: ignore
 import win32event         # type: ignore
 
 from .base import TtsEngine, Voice, SpeakParams
+from .. import logger as _logger_mod
+
+_log = _logger_mod.get_logger("sapi")
 
 # SAPI SpeakFlags
 _SPF_ASYNC            = 1
@@ -114,6 +117,7 @@ class _SapiWorker:
         pythoncom.CoInitialize()  # STA — required for ISpVoice
         try:
             self._sapi = win32com.client.Dispatch("SAPI.SpVoice")
+            _log.info("STA worker started — ISpVoice ready")
             self._ready.set()
 
             while True:
@@ -169,11 +173,13 @@ class _SapiWorker:
         flags = _SPF_ASYNC | _SPF_PURGEBEFORESPEAK | _SPF_IS_XML
         try:
             self._sapi.Speak(xml, flags)
+            _log.trace("Speak() submitted — xml_len=%d", len(xml))
         except Exception as exc:
-            print(f"[SAPI] Speak() failed: {exc}; retrying as plain text")
+            _log.warn("Speak() failed: %s — retrying as plain text", exc)
             try:
                 self._sapi.Speak(text, _SPF_ASYNC | _SPF_PURGEBEFORESPEAK)
-            except Exception:
+            except Exception as exc2:
+                _log.error("Speak() plain-text fallback also failed: %s", exc2)
                 return
 
         if on_complete is not None:
@@ -188,8 +194,9 @@ class _SapiWorker:
                     daemon=True,
                     name="sapi-complete",
                 ).start()
-            except Exception:
-                pass  # on_complete never called — caller handles timeout
+                _log.trace("SpeakCompleteEvent watcher spawned")
+            except Exception as exc:
+                _log.warn("SpeakCompleteEvent unavailable: %s", exc)
 
     def _do_speak_to_wav(
         self,
@@ -214,6 +221,9 @@ class _SapiWorker:
         token = self._find_token(voice_id)
         if token is not None:
             self._sapi.Voice = token
+            _log.trace("voice set: %s", voice_id.split("\\")[-1])
+        else:
+            _log.warn("voice not found: %s — using default", voice_id)
         self._sapi.Rate   = max(-10, min(10, params.rate))
         self._sapi.Volume = max(0,   min(100, params.volume))
 

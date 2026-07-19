@@ -33,3 +33,12 @@ class TtsEngine(ABC):
 
     def resume(self) -> None:
         pass
+
+    def wait_until_done(self, timeout_ms: int = 30_000) -> bool:
+        """Wait for speech to complete. Override in engines that support it."""
+        return True
+
+    def speak_sync(self, text: str, voice_id: str, params: SpeakParams) -> None:
+        """Blocking speak. Default: speak() + wait_until_done()."""
+        self.speak(text, voice_id, params)
+        self.wait_until_done()

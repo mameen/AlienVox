@@ -32,45 +32,23 @@
 
 ### Logging & Tracing (requested 2026-07-19)
 
-Rust had per-session structured log files in `.telemetry/session-<ts>_AlienVox.log`.
-Python only has the 4 telemetry events + a single `telemetry.jsonl` file.
-User wants verbose `[TRACE]` / `[INFO]` / `[WARN]` / `[ERROR]` log lines to console
-AND a per-session log file, separate from the concise telemetry JSONL.
+- [x] `src/logger.py` — structured `[LEVEL]  timestamp  component  message` logger
+- [x] Per-session log file: `%LOCALAPPDATA%/com.alientech.alienvox/logs/session-<id>_AlienVox.log`
+- [x] Startup banner prints session ID + log file path to stdout
+- [x] `sapi_win.py` bare `print()` calls replaced with `_log.trace/info/warn/error`
+- [x] Logger initialized from `tel.session_id` so logs and telemetry share the same session
 
-- [ ] Add `src/logging_win.py` (or extend `telemetry.py`) with a structured logger
-      that writes `[LEVEL] timestamp  component  message` lines to:
-      - stderr (always)
-      - `%LOCALAPPDATA%/com.alientech.alienvox/logs/session-<id>_AlienVox.log`
-- [ ] On startup, print session ID and log file path to stdout (from `run.py app`)
-- [ ] Replace bare `print(f"[SAPI] ...")` calls in `sapi_win.py` with logger calls
-- [ ] Log format should mirror Rust: `[INFO]  2026-07-19T16:43:07  sapi  Speak() OK`
+### Startup TTS Announcement
 
-### Startup TTS Announcement (requested 2026-07-19)
+- [x] `_speak_startup()` plays "AlienVox is ready. The dedicated audio engine is running."
+- [x] Fires 0.6s after startup (daemon thread) so UI is visible first
+- [x] SAPI5 stack only; picks first available voice if none configured
 
-User loved the announcement played during testing:
-`"Hello from AlienVox. The dedicated STA worker thread is running."`
+### Voice Dropdown "(populated from OS at runtime)"
 
-- [ ] Play a short startup announcement via SAPI on app launch (SAPI5 stack only)
-- [ ] Announcement text TBD — something like "AlienVox is ready"
-- [ ] Should fire after the main window is shown, on a daemon thread
-- [ ] Include session ID + log file path in the printed startup banner (not spoken)
-
-### Voice Dropdown Showing "(populated from OS at runtime)"
-
-Active stack in user config is `ml` (not `sapi5`), so SAPI voices never load.
-PiperEngine is partially implemented but model files are not downloaded.
-
-- [ ] When active stack is `sapi5`, populate voice dropdown from `engine.list_voices()`
-      at startup — this already works but the config must select `sapi5`
-- [ ] Fix `user.yaml` / default config so `sapi5` is the default engine
-- [ ] Show the actual voice name in the dropdown, not the placeholder string
-
-### PiperEngine Missing `wait_until_done`
-
-Telemetry shows: `'PiperEngine' object has no attribute 'wait_until_done'`
-
-- [ ] Add `wait_until_done(timeout_ms)` to `TtsEngine` base class as a no-op default
-- [ ] `PiperEngine` and any future ML engine inherits the no-op unless they override
+- [x] Root cause: `user.yaml` had `engine: ml` overriding the `sapi5` default
+- [x] Reset `user.yaml` to `engine: sapi5`
+- [x] `wait_until_done` no-op default added to `TtsEngine` base class
 
 ---
 

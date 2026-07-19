@@ -12,10 +12,13 @@ from .config import get_voices, load_effective_config, save_user_override
 from .engines.base import SpeakParams
 from .engines.registry import available_stacks
 from .hotkey import start_listener
+from . import logger as _logger
 from .main_window import MainWindow
 from .telemetry import Telemetry
 from .tray import AlienVoxTray
 from .version import version as get_version
+
+_log = _logger.get_logger("main")
 
 
 def _load_engine(engine_id: str):
@@ -36,6 +39,22 @@ def _load_engine(engine_id: str):
     return None
 
 
+def _speak_startup(engine, voice_id: str) -> None:
+    """Play a spoken startup announcement to confirm the audio pipeline is alive."""
+    import time as _time
+    _time.sleep(0.6)  # let the UI finish painting first
+    try:
+        from .engines.base import SpeakParams
+        engine.speak(
+            "AlienVox is ready. The dedicated audio engine is running.",
+            voice_id,
+            SpeakParams(),
+        )
+        _log.info("startup announcement spoken")
+    except Exception as exc:
+        _log.warn("startup announcement failed: %s", exc)
+
+
 def main() -> int:
     app = QApplication(sys.argv)
     app.setApplicationName("AlienVox")
@@ -43,6 +62,17 @@ def main() -> int:
     app.setQuitOnLastWindowClosed(False)
 
     tel = Telemetry()
+    log_path = _logger.init(tel.session_id)
+
+    # ── Startup banner (printed to stdout so `run.py app` shows it) ───────────
+    version = get_version()
+    print(f"")
+    print(f"  AlienVox  v{version}")
+    print(f"  Session : {tel.session_id}")
+    print(f"  Log     : {log_path}")
+    print(f"")
+
+    _log.info("AlienVox v%s starting — session %s", version, tel.session_id)
     tel.emit("app.start")
 
     cfg = load_effective_config()
@@ -50,7 +80,12 @@ def main() -> int:
 
     active_stack = cfg.get("engine", "sapi5")
     active_model = cfg.get("model", "")
+    _log.info("active stack=%s model=%s", active_stack, active_model or "(none)")
     engine = _load_engine(active_stack)
+    if engine:
+        _log.info("engine loaded: %s", type(engine).__name__)
+    else:
+        _log.warn("no engine loaded for stack=%s", active_stack)
 
     _main_window: MainWindow | None = None
     _about_dialog: AboutDialog | None = None
@@ -250,6 +285,21 @@ def main() -> int:
 
     tray.show()
     open_settings()  # show main window on startup
+
+    # Spoken startup announcement — confirms audio pipeline is alive.
+    if engine and active_stack == "sapi5":
+        voice_id = cfg.get("voice", "")
+        if not voice_id:
+            try:
+                all_voices = engine.list_voices()
+                voice_id = all_voices[0].id if all_voices else ""
+            except Exception:
+                voice_id = ""
+        threading.Thread(
+            target=_speak_startup,
+            args=(engine, voice_id),
+            daemon=True,
+        ).start()
 
     hotkey_listener = start_listener(
         cfg.get("hotkey", "<ctrl>+<esc>"),
