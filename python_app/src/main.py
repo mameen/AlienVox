@@ -235,18 +235,17 @@ def main() -> int:
                 if voices:
                     groups.append({"id": sid, "label": slabel, "voices": voices})
 
-        # ML stack — one model sub-menu per installed model
+        # ML stack — show ALL declared models as sub-menus with their voices
         ml_models: list[dict] = []
-        ml_model = active_model or "kokoro"
-        if active_stack == "ml" and engine:
+        from .config import list_models, get_voices as _get_voices
+        all_ml_model_ids = list_models("ml") or ["kokoro", "piper", "chatterbox", "dia", "f5tts", "outetts"]
+        for mid in all_ml_model_ids:
             try:
-                ml_voices = [{"id": v.id, "label": v.name} for v in engine.list_voices()]
+                ml_voices = _get_voices("ml", mid)
             except Exception:
-                ml_voices = get_voices("ml", ml_model)
-        else:
-            ml_voices = get_voices("ml", ml_model)
-        if ml_voices:
-            ml_models.append({"id": ml_model, "label": ml_model.title(), "voices": ml_voices})
+                ml_voices = []
+            if ml_voices:
+                ml_models.append({"id": mid, "label": mid.title(), "voices": ml_voices})
         if ml_models:
             groups.append({"id": "ml", "label": "ML / AI", "models": ml_models})
 
@@ -257,12 +256,20 @@ def main() -> int:
         tray.populate_voice_menu(
             groups,
             current_voice_id=cfg.get("voice", ""),
-            on_select=lambda sid, vid: _on_tray_voice_select(sid, vid),
+            on_select=lambda sid, mid, vid: _on_tray_voice_select(sid, mid, vid),
         )
 
-    def _on_tray_voice_select(stack_id: str, voice_id: str) -> None:
+    def _on_tray_voice_select(stack_id: str, model_id: str, voice_id: str) -> None:
         if stack_id != active_stack:
             on_stack_changed(stack_id, voice_id)
+            # Persist engine + model when switching stacks
+            save_user_override({"engine": stack_id})
+            if model_id:
+                save_user_override({"model": model_id})
+        elif model_id and model_id != cfg.get("model"):
+            # Same stack but different ML model
+            save_user_override({"model": model_id, "voice": voice_id})
+            on_voice_changed(voice_id)
         else:
             on_voice_changed(voice_id)
         tel.emit("config.changed", engine=stack_id, detail="voice")
@@ -421,6 +428,12 @@ def main() -> int:
         _about_dialog.exec()
 
     def quit_app() -> None:
+        # Persist current engine + model + voice before quitting
+        save_user_override({
+            "engine": active_stack,
+            "model": active_model,
+            "voice": cfg.get("voice", ""),
+        })
         tel.emit("app.quit")
         hotkey_listener.stop()
         if engine:

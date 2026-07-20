@@ -88,7 +88,7 @@ class AlienVoxTray:
         self,
         groups: list[dict],
         current_voice_id: str,
-        on_select: Callable[[str, str], None],
+        on_select: Callable[[str, str, str], None],
     ) -> None:
         """Rebuild the two-level Voice ▸ submenu.
 
@@ -98,7 +98,7 @@ class AlienVoxTray:
               {"id": "kokoro", "label": "Kokoro", "voices": [{id, label}, ...]}
           ]}
 
-        on_select(stack_id, voice_id) is called when the user picks a voice.
+        on_select(stack_id, model_id, voice_id) is called when the user picks a voice.
         """
         self._voice_menu.clear()
         has_any = False
@@ -121,9 +121,11 @@ class AlienVoxTray:
                         act = model_menu.addAction(v.get("label", v["id"]))
                         act.setCheckable(True)
                         act.setChecked(v["id"] == current_voice_id)
-                        vid = v["id"]
+                        _sid = stack_id
+                        _mid = model["id"]
+                        _vid = v["id"]
                         act.triggered.connect(
-                            lambda _, _sid=stack_id, _vid=vid: on_select(_sid, _vid)
+                            lambda _, _sid=_sid, _mid=_mid, _vid=_vid: on_select(_sid, _mid, _vid)
                         )
             else:
                 # SAPI-style: Stack ▸ Voice
@@ -136,9 +138,10 @@ class AlienVoxTray:
                     act = stack_menu.addAction(v.get("label", v["id"]))
                     act.setCheckable(True)
                     act.setChecked(v["id"] == current_voice_id)
-                    vid = v["id"]
+                    _sid = stack_id
+                    _vid = v["id"]
                     act.triggered.connect(
-                        lambda _, _sid=stack_id, _vid=vid: on_select(_sid, _vid)
+                        lambda _, _sid=_sid, _vid=_vid: on_select(_sid, "", _vid)
                     )
 
         if not has_any:
