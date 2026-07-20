@@ -47,16 +47,26 @@ def _load_engine(engine_id: str, model_id: str = "") -> "TtsEngine | None":
                 return None
     if engine_id == "ml":
         model = model_id or "kokoro"
-        if model == "kokoro":
+        _ML_ENGINES = {
+            "kokoro":     ("kokoro_engine",     "KokoroEngine"),
+            "chatterbox": ("chatterbox_engine", "ChatterboxEngine"),
+            "dia":        ("dia_engine",        "DiaEngine"),
+            "f5tts":      ("f5tts_engine",      "F5TTSEngine"),
+            "outetts":    ("outetts_engine",    "OuteTTSEngine"),
+        }
+        if model in _ML_ENGINES:
+            module_name, class_name = _ML_ENGINES[model]
             try:
-                from .engines.kokoro_engine import KokoroEngine
-                eng = KokoroEngine()
-                _log.info("KokoroEngine loaded")
+                import importlib
+                mod = importlib.import_module(f".engines.{module_name}", package=__package__)
+                cls = getattr(mod, class_name)
+                eng = cls()
+                _log.info("%s loaded", class_name)
                 return eng
             except Exception as exc:
-                _log.error("KokoroEngine init failed: %s", exc)
+                _log.error("%s init failed: %s", class_name, exc)
                 return None
-        _log.warn("ML model=%s not yet implemented", model)
+        _log.warn("ML model=%r not recognised", model)
         return None
     return None
 

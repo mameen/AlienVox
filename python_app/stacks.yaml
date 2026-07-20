@@ -78,9 +78,22 @@ stacks:
           sentence_silence: { min: 0.0, max: 2.0, default: 0.2,   applies: true }
           ttl_seconds:      { applies: false }
 
+      - id: chatterbox
+        name: Chatterbox 0.5B
+        weights_subpath: ml/chatterbox
+        auto_download: true        # ChatterboxTTS.from_pretrained() fetches on first use
+        voices:
+          - { id: default, label: "Default" }
+        controls:
+          rate:        { applies: false }
+          pitch:       { applies: false }
+          volume:      { min: 0,   max: 100, default: 100, applies: true }
+          ttl_seconds: { min: 0,   max: 300, default: 30,  applies: true }
+
       - id: dia
         name: Dia 1.6B
         weights_subpath: ml/dia
+        auto_download: true        # Dia.from_pretrained() fetches on first use (~3.5 GB)
         voices:
           - { id: s1, label: "[S1] Speaker 1" }
           - { id: s2, label: "[S2] Speaker 2" }
@@ -90,11 +103,28 @@ stacks:
           volume:      { min: 0, max: 100, default: 100, applies: true }
           ttl_seconds: { min: 0, max: 300, default: 30,  applies: true }
 
-      - id: vibevoice
-        name: VibeVoice 0.5B
-        weights_subpath: ml/vibevoice-realtime-0.5b
+      - id: f5tts
+        name: F5-TTS
+        weights_subpath: ml/f5tts
+        auto_download: true        # F5TTS() fetches model on first use (~1.2 GB)
         voices:
-          - { id: default, label: "Default" }
+          - { id: en_female_calm, label: "English F · Calm" }
+          - { id: en_male_warm,   label: "English M · Warm" }
+        controls:
+          rate:        { applies: false }
+          pitch:       { applies: false }
+          volume:      { min: 0, max: 100, default: 100, applies: true }
+          ttl_seconds: { min: 0, max: 300, default: 30,  applies: true }
+
+      - id: outetts
+        name: OuteTTS 0.5B
+        weights_subpath: ml/outetts
+        auto_download: true        # outetts.Interface() fetches on first use
+        voices:
+          - { id: male_1,   label: "Male 1" }
+          - { id: male_2,   label: "Male 2" }
+          - { id: female_1, label: "Female 1" }
+          - { id: female_2, label: "Female 2" }
         controls:
           rate:        { applies: false }
           pitch:       { applies: false }

@@ -1,0 +1,123 @@
+"""OuteTTS 0.5B real-time TTS engine (OuteAI).
+
+Auto-downloads from HuggingFace Hub on first use (OuteAI/OuteTTS-0.3-500M).
+Runs real-time on CPU; GPU accelerates inference further.
+Uses built-in speaker presets — no reference audio required.
+
+Install: pip install outetts
+"""
+from __future__ import annotations
+
+import threading
+
+import numpy as np
+
+from .. import logger as _logger_mod
+from ..audio_player import play_audio, stop_playback
+from .base import SpeakParams, TtsEngine, Voice
+
+_log = _logger_mod.get_logger("outetts")
+
+_VOICES = [
+    Voice(id="male_1",   name="Male 1"),
+    Voice(id="male_2",   name="Male 2"),
+    Voice(id="female_1", name="Female 1"),
+    Voice(id="female_2", name="Female 2"),
+]
+_DEFAULT_VOICE = "male_1"
+_VALID_VOICE_IDS: frozenset[str] = frozenset(v.id for v in _VOICES)
+_SAMPLE_RATE = 24_000
+_HF_REPO = "OuteAI/OuteTTS-0.3-500M"
+
+
+class OuteTTSEngine(TtsEngine):
+    """OuteTTS 0.5B — single class-level model singleton, daemon synth thread."""
+
+    _interface: object = None
+    _interface_lock = threading.Lock()
+
+    def __init__(self) -> None:
+        self._done = threading.Event()
+        self._done.set()
+        self._stop_requested = threading.Event()
+        _log.info("OuteTTSEngine created — model will auto-download on first use")
+
+    # ── Model singleton ───────────────────────────────────────────────────────
+
+    def _get_interface(self):
+        with OuteTTSEngine._interface_lock:
+            if OuteTTSEngine._interface is None:
+                import outetts
+                import torch
+                backend = outetts.Backend.CUDA if torch.cuda.is_available() else outetts.Backend.CPU
+                _log.info("loading OuteTTS from %s (backend=%s)", _HF_REPO, backend)
+                OuteTTSEngine._interface = outetts.Interface(
+                    model_path=_HF_REPO,
+                    backend=backend,
+                )
+                _log.info("OuteTTS model ready")
+            return OuteTTSEngine._interface
+
+    # ── TtsEngine API ─────────────────────────────────────────────────────────
+
+    def list_voices(self) -> list[Voice]:
+        return list(_VOICES)
+
+    def speak(self, text: str, voice_id: str, params: SpeakParams) -> None:
+        if not text:
+            return
+        self.stop()
+        self._stop_requested.clear()
+        self._done.clear()
+        threading.Thread(
+            target=self._do_speak,
+            args=(text, voice_id or _DEFAULT_VOICE, params),
+            daemon=True,
+            name="outetts-speak",
+        ).start()
+
+    def stop(self) -> None:
+        self._stop_requested.set()
+        stop_playback()
+        self._done.set()
+
+    def wait_until_done(self, timeout_ms: int = 30_000) -> bool:
+        return self._done.wait(timeout=timeout_ms / 1_000)
+
+    # ── Internal ──────────────────────────────────────────────────────────────
+
+    def _do_speak(self, text: str, voice_id: str, params: SpeakParams) -> None:
+        try:
+            if not text.strip():
+                return
+            if voice_id not in _VALID_VOICE_IDS:
+                _log.warn("voice_id=%r not in OuteTTS roster — using default", voice_id)
+                voice_id = _DEFAULT_VOICE
+
+            interface = self._get_interface()
+            if self._stop_requested.is_set():
+                return
+
+            speaker = interface.load_default_speaker(name=voice_id)
+            _log.info("OuteTTS generating %d chars (voice=%s)", len(text), voice_id)
+            output = interface.generate(
+                text=text,
+                speaker=speaker,
+                temperature=0.1,
+                repetition_penalty=1.1,
+                max_length=4096,
+            )
+
+            if self._stop_requested.is_set():
+                return
+
+            # output.audio is a numpy array (float32 or int16)
+            audio = np.asarray(output.audio, dtype=np.float32)
+            if audio.max() > 1.0:
+                audio = audio / 32768.0  # int16 → float32
+            volume_scale = max(0.0, min(1.0, params.volume / 100.0))
+            play_audio(audio * volume_scale, _SAMPLE_RATE)
+        except Exception as exc:
+            _log.error("OuteTTS synthesis failed: %s", exc)
+        finally:
+            self._done.set()

@@ -26,6 +26,10 @@ omit = [
     "src/engines/sapi_win.py",
     "src/engines/piper_win.py",
     "src/engines/kokoro_engine.py",
+    "src/engines/chatterbox_engine.py",
+    "src/engines/dia_engine.py",
+    "src/engines/f5tts_engine.py",
+    "src/engines/outetts_engine.py",
     "src/audio_player.py",
     "src/hotkey.py",
     # Icon generator utility — not application logic
