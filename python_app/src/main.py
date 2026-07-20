@@ -14,6 +14,7 @@ from PySide6.QtWidgets import QApplication
 from . import logger as _logger
 from .about import AboutDialog
 from .config import get_voices, load_effective_config, save_user_override
+from .config import models_root as _models_root
 from .engines.base import SpeakParams
 from .engines.registry import available_stacks
 from .hotkey import start_listener
@@ -308,6 +309,7 @@ def main() -> int:
                 on_stack_changed=on_stack_changed,
                 live_voices=win_live_voices,
                 current_voice_id=cfg.get("voice", ""),
+                models_root=_models_root(),
             )
         return _main_window
 

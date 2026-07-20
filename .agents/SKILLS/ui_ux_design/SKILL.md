@@ -94,7 +94,62 @@ Always state the concrete target technology; never leave the rendering stack amb
 
 ---
 
-## 6. Related Decisions
+## 6. Per-Model Configuration Panels and Install Dialogs
+
+Each TTS model has a different set of knobs, a different install strategy, and a different voice roster. The UI must adapt to these differences without hard-coding model-specific branches in generic rendering code.
+
+### 6.1 Per-Model Folder and File Structure
+
+Every model is self-describing through its folder layout. The app reads this structure — it does not hard-code it:
+
+```
+.models/
+  ml/
+    kokoro/                      # Kokoro-82M — one repo snapshot, all voices built-in
+      *.bin / *.safetensors      # weight files (downloaded from HuggingFace)
+    piper/                       # Piper ONNX — one file pair per voice
+      en_US-lessac-medium.onnx
+      en_US-lessac-medium.onnx.json
+      en_GB-alan-medium.onnx
+      en_GB-alan-medium.onnx.json
+    dia/                         # Dia 1.6B — future
+    vibevoice-realtime-0.5b/     # VibeVoice — future
+```
+
+**Rule:** `registry.py` checks for the presence of these paths to decide `ModelInfo.available`. No other code path does filesystem scanning. The catalog of expected paths comes from `stacks.yaml` (`weights_subpath`).
+
+### 6.2 Model-Specific Control Strips
+
+The slider strip below the voice bar is a **generic renderer** — it reads `controls:` from the model's `stacks.yaml` entry and renders only the controls marked `applies: true`. No model-specific `if` branches in `_build_slider_strip`.
+
+| Model | Rate | Pitch | Volume | Extra controls |
+| :--- | :--- | :--- | :--- | :--- |
+| SAPI5 / Speech Platform | ✓ | ✓ | ✓ | — |
+| Kokoro | ✓ (→ speed) | ✗ | ✓ | — |
+| Piper | ✗ | ✗ | ✓ | `noise_scale`, `noise_w`, `sentence_silence` |
+| Dia / VibeVoice | ✗ | ✗ | ✓ | — |
+
+Extra controls (Piper's `noise_scale` etc.) appear in a collapsible strip below the main sliders, rendered from the `controls:` block in stacks.yaml. If a control has no `applies: true` entry, the strip does not render it.
+
+### 6.3 Install Dialog — Rules Per Model
+
+The "Install Model" button opens a modal `InstallDialog`. The dialog content is keyed to the **active model** inside the stack, not the stack itself:
+
+| Model | Install strategy | Voice granularity | Progress |
+| :--- | :--- | :--- | :--- |
+| **Kokoro** | `snapshot_download(repo_id)` — one operation, all voices included | n/a — voices are built into the model | Indeterminate bar (HF Hub does not stream byte progress to Python) |
+| **Piper** | `hf_hub_download` per voice file pair (`.onnx` + `.onnx.json`) | Per-voice checkboxes — user picks which voices to install | Determinate bar (files_done / files_total) |
+| **Dia / VibeVoice** | Not yet supported — show "refer to docs" message | — | — |
+
+**Invariant:** The Install dialog never auto-starts a download. The user must click **Download** explicitly. On completion, the dialog shows a success message and re-checks which voices are already installed (marks them ✓ in green).
+
+### 6.4 Voice ID Cross-Contamination Guard
+
+When the user switches model (e.g., from Piper to Kokoro), the saved `voice` in `user.yaml` may be a Piper voice ID (`en_US-lessac-medium`) that is not valid for Kokoro. Each engine's `speak()` must validate the voice ID against its own roster and fall back to its default voice rather than passing the foreign ID to the inference backend (which would attempt a network download and fail).
+
+**Rule:** Every `TtsEngine` subclass that has a fixed voice roster must call `_validate_voice(voice_id, valid_ids, default)` before passing the voice to the backend.
+
+## 8. Related Decisions
 - See `highlevel_design` skill — single standalone binary and asset embedding (governs how icons and UI assets ship).
 - See `workspace-discipline` skill — reflection/self-check and no-ghost-abstraction rules apply to every UI addition.
 - See the active implementation's `docs/adr/adr-001` for the chosen UI framework.

@@ -32,4 +32,6 @@ omit = [
     "src/resources/*",
     # Version string reader — no logic to test
     "src/version.py",
+    # UI-only modules — require a running Qt display
+    "src/install_dialog.py",
 ]

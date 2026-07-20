@@ -29,6 +29,7 @@ _VOICES = [
 
 _SAMPLE_RATE = 24_000
 _DEFAULT_VOICE = "af_heart"
+_VALID_VOICE_IDS: frozenset[str] = frozenset(v.id for v in _VOICES)
 
 # lang_code per voice prefix: 'a' = American English, 'b' = British English
 _LANG_MAP = {
@@ -80,6 +81,9 @@ class KokoroEngine(TtsEngine):
 
     def _do_speak(self, text: str, voice_id: str, params: SpeakParams) -> None:
         try:
+            if voice_id not in _VALID_VOICE_IDS:
+                _log.warn("voice_id=%r is not a Kokoro voice — falling back to %s", voice_id, _DEFAULT_VOICE)
+                voice_id = _DEFAULT_VOICE
             lang_code = _lang_for_voice(voice_id)
             pipe = self._get_pipeline(lang_code)
 

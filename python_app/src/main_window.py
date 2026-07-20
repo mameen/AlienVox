@@ -155,6 +155,7 @@ class MainWindow(QMainWindow):
         on_stack_changed: Callable[[str], None] | None = None,
         live_voices: dict[str, list[dict]] | None = None,
         current_voice_id: str = "",
+        models_root: Path | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -172,12 +173,14 @@ class MainWindow(QMainWindow):
         self._on_config_saved_cb = on_config_saved
         self._on_about_cb = on_about
         self._on_stack_changed_cb = on_stack_changed
+        self._models_root = models_root
         # live_voices: {stack_id -> [{id, label}, ...]} from running engine
         self._live_voices: dict[str, list[dict]] = live_voices or {}
         self._current_voice_id = current_voice_id
 
         # Collectors for post-build wiring
         self._voice_combos: list[tuple[QComboBox, str]] = []
+        self._model_combos: list[tuple[QComboBox, str]] = []
         self._sliders: list[tuple[str, _SliderRow]] = []
 
         # Slider debounce timer
@@ -443,6 +446,7 @@ class MainWindow(QMainWindow):
             for m in stack.models:
                 model_combo.addItem(m.name, m.id)
             bar.setProperty("model_combo", model_combo)
+            self._model_combos.append((model_combo, stack.id))
             layout.addWidget(model_combo)
 
         voice_combo = QComboBox()
@@ -489,6 +493,7 @@ class MainWindow(QMainWindow):
         install_btn = QPushButton("Install" if not has_models else "Install Model")
         install_btn.setStyleSheet(_btn_style())
         install_btn.setFixedHeight(28)
+        install_btn.clicked.connect(lambda: self._open_install_dialog(stack))
         layout.addWidget(install_btn)
 
         if has_models:
@@ -594,6 +599,27 @@ class MainWindow(QMainWindow):
                     voice_id = combo.currentData() or ""
                     break
             self._on_stack_changed_cb(stack_id, voice_id)
+
+    def _open_install_dialog(self, stack: StackInfo) -> None:
+        from .config import models_root as _models_root
+        from .install_dialog import InstallDialog
+
+        # Resolve the currently selected model for this stack
+        active_model_id = ""
+        if stack.models:
+            active_model_id = stack.models[0].id
+            for combo, sid in getattr(self, "_model_combos", []):
+                if sid == stack.id:
+                    active_model_id = combo.currentData() or active_model_id
+                    break
+
+        dlg = InstallDialog(
+            stack=stack,
+            models_root=self._models_root or _models_root(),
+            active_model_id=active_model_id,
+            parent=self,
+        )
+        dlg.exec()
 
     def _on_model_changed(self, stack: StackInfo, model_id: str, voice_combo: QComboBox) -> None:
         model = next((m for m in stack.models if m.id == model_id), None)
