@@ -21,16 +21,18 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import (
     QComboBox,
+    QFileDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
     QMainWindow,
-    QPlainTextEdit,
+    QMessageBox,
     QPushButton,
     QSizePolicy,
     QSlider,
     QStatusBar,
     QTabWidget,
+    QTextEdit,
     QToolBar,
     QToolButton,
     QVBoxLayout,
@@ -135,6 +137,172 @@ class _SliderRow(QWidget):
         )
 
 
+class _MultiFormatEditor(QWidget):
+    """Text editor that can open and save TXT, MD, HTML, DOCX, and PDF files.
+
+    The editor always stays visible regardless of which engine tab is active
+    so content is never lost when switching stacks.
+    """
+
+    textChanged = Signal()
+
+    _OPEN_FILTER = (
+        "All Supported (*.txt *.md *.html *.htm *.docx *.pdf);;"
+        "Plain Text (*.txt);;"
+        "Markdown (*.md);;"
+        "HTML (*.html *.htm);;"
+        "Word Document (*.docx);;"
+        "PDF (*.pdf)"
+    )
+    _SAVE_FILTER = (
+        "Plain Text (*.txt);;"
+        "Markdown (*.md);;"
+        "HTML (*.html *.htm);;"
+        "Word Document (*.docx)"
+    )
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._current_path: Path | None = None
+        self._current_fmt: str = "txt"
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        self._edit = QTextEdit()
+        self._edit.setPlaceholderText("Enter or paste text here…")
+        self._edit.setFont(QFont("Consolas", 11))
+        self._edit.setAcceptRichText(True)
+        self._edit.setStyleSheet(
+            "QTextEdit { border: none; padding: 8px; background: #ffffff; }"
+        )
+        self._edit.textChanged.connect(self.textChanged)
+        layout.addWidget(self._edit)
+
+    # ── Public API used by MainWindow ─────────────────────────────────────────
+
+    def to_plain_text(self) -> str:
+        return self._edit.toPlainText()
+
+    def clear(self) -> None:
+        self._edit.clear()
+        self._current_path = None
+        self._current_fmt = "txt"
+
+    def current_path(self) -> Path | None:
+        return self._current_path
+
+    def current_fmt(self) -> str:
+        return self._current_fmt
+
+    def open_file(self, start_dir: str = "") -> Path | None:
+        """Show open dialog and load the chosen file. Returns path or None."""
+        path_str, _ = QFileDialog.getOpenFileName(
+            self, "Open", start_dir, self._OPEN_FILTER
+        )
+        if not path_str:
+            return None
+        path = Path(path_str)
+        self._load(path)
+        return path
+
+    def save_file(self, force_dialog: bool = False) -> Path | None:
+        """Save to current path (or show dialog if no path or force_dialog)."""
+        if not force_dialog and self._current_path and self._current_fmt != "pdf":
+            self._save(self._current_path)
+            return self._current_path
+        path_str, _ = QFileDialog.getSaveFileName(
+            self, "Save As",
+            str(self._current_path) if self._current_path else "",
+            self._SAVE_FILTER,
+        )
+        if not path_str:
+            return None
+        path = Path(path_str)
+        self._save(path)
+        return path
+
+    # ── Load ──────────────────────────────────────────────────────────────────
+
+    def _load(self, path: Path) -> None:
+        ext = path.suffix.lower()
+        try:
+            if ext in (".txt", ".md"):
+                self._edit.setPlainText(path.read_text(encoding="utf-8", errors="replace"))
+                self._current_fmt = ext.lstrip(".")
+            elif ext in (".html", ".htm"):
+                self._edit.setHtml(path.read_text(encoding="utf-8", errors="replace"))
+                self._current_fmt = "html"
+            elif ext == ".docx":
+                self._edit.setPlainText(self._read_docx(path))
+                self._current_fmt = "docx"
+            elif ext == ".pdf":
+                self._edit.setPlainText(self._read_pdf(path))
+                self._current_fmt = "pdf"  # read-only; save → dialog forces TXT/MD/HTML
+            else:
+                self._edit.setPlainText(path.read_text(encoding="utf-8", errors="replace"))
+                self._current_fmt = "txt"
+            self._current_path = path
+        except Exception as exc:
+            QMessageBox.warning(self, "Open Failed", str(exc))
+
+    def _read_docx(self, path: Path) -> str:
+        try:
+            from docx import Document  # type: ignore[import-untyped]
+            doc = Document(str(path))
+            return "\n".join(p.text for p in doc.paragraphs)
+        except ImportError:
+            raise RuntimeError(
+                "python-docx is not installed.\nRun: pip install python-docx"
+            ) from None
+
+    def _read_pdf(self, path: Path) -> str:
+        try:
+            import fitz  # PyMuPDF  # type: ignore[import-untyped]
+            doc = fitz.open(str(path))
+            return "\n\n".join(page.get_text() for page in doc)
+        except ImportError:
+            pass
+        try:
+            import pdfplumber  # type: ignore[import-untyped]
+            with pdfplumber.open(str(path)) as pdf:
+                return "\n\n".join(page.extract_text() or "" for page in pdf.pages)
+        except ImportError:
+            raise RuntimeError(
+                "PDF reading requires PyMuPDF or pdfplumber.\n"
+                "Run: pip install pymupdf   or   pip install pdfplumber"
+            ) from None
+
+    # ── Save ──────────────────────────────────────────────────────────────────
+
+    def _save(self, path: Path) -> None:
+        ext = path.suffix.lower()
+        try:
+            if ext in (".html", ".htm"):
+                path.write_text(self._edit.toHtml(), encoding="utf-8")
+            elif ext == ".docx":
+                self._write_docx(path)
+            else:
+                path.write_text(self._edit.toPlainText(), encoding="utf-8")
+            self._current_path = path
+            self._current_fmt = ext.lstrip(".") if ext != ".htm" else "html"
+        except Exception as exc:
+            QMessageBox.warning(self, "Save Failed", str(exc))
+
+    def _write_docx(self, path: Path) -> None:
+        try:
+            from docx import Document  # type: ignore[import-untyped]
+            doc = Document()
+            for line in self._edit.toPlainText().split("\n"):
+                doc.add_paragraph(line)
+            doc.save(str(path))
+        except ImportError:
+            raise RuntimeError(
+                "python-docx is not installed.\nRun: pip install python-docx"
+            ) from None
+
+
 class MainWindow(QMainWindow):
     """Balabolka-style main window — testing harness and settings."""
 
@@ -156,6 +324,7 @@ class MainWindow(QMainWindow):
         live_voices: dict[str, list[dict]] | None = None,
         current_voice_id: str = "",
         models_root: Path | None = None,
+        active_stack_id: str = "",
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -177,6 +346,7 @@ class MainWindow(QMainWindow):
         self._on_about_cb = on_about
         self._on_stack_changed_cb = on_stack_changed
         self._models_root = models_root
+        self._active_stack_id = active_stack_id
         # live_voices: {stack_id -> [{id, label}, ...]} from running engine
         self._live_voices: dict[str, list[dict]] = live_voices or {}
         self._current_voice_id = current_voice_id
@@ -255,8 +425,8 @@ class MainWindow(QMainWindow):
             tb.addWidget(sep)
 
         _text_btn("📄", "New document",  self._on_new)
-        _text_btn("📂", "Open text file")
-        _text_btn("💾", "Save document")
+        _text_btn("📂", "Open file (TXT / MD / HTML / DOCX / PDF)", self._on_open)
+        _text_btn("💾", "Save document", self._on_save)
         _sep()
         _text_btn("🎵", "Export to WAV")
         _sep()
@@ -303,6 +473,16 @@ class MainWindow(QMainWindow):
         """)
         self._tabs.currentChanged.connect(self._on_tab_changed)
         vbox.addWidget(self._tabs)
+
+        # Shared editor — lives below the engine tabs so content is never
+        # lost when switching stacks.
+        self._editor = _MultiFormatEditor()
+        self._editor.textChanged.connect(
+            lambda: self._chars_lbl.setText(
+                f"{len(self._editor.to_plain_text())} chars"
+            )
+        )
+        vbox.addWidget(self._editor, stretch=1)
 
     def _build_statusbar(self) -> None:
         sb = QStatusBar()
@@ -391,11 +571,24 @@ class MainWindow(QMainWindow):
                 idx = self._tabs.count() - 1
                 self._tabs.setTabEnabled(idx, False)
 
-        # Select first available tab
-        for i in range(self._tabs.count()):
-            if self._tabs.isTabEnabled(i):
-                self._tabs.setCurrentIndex(i)
-                break
+        # Restore last active stack, falling back to first available tab
+        restored = False
+        if self._active_stack_id:
+            for i in range(self._tabs.count()):
+                tab = self._tabs.widget(i)
+                if (
+                    tab
+                    and tab.property("stack_id") == self._active_stack_id
+                    and self._tabs.isTabEnabled(i)
+                ):
+                    self._tabs.setCurrentIndex(i)
+                    restored = True
+                    break
+        if not restored:
+            for i in range(self._tabs.count()):
+                if self._tabs.isTabEnabled(i):
+                    self._tabs.setCurrentIndex(i)
+                    break
 
     def _build_stack_tab(self, stack: StackInfo) -> QWidget:
         w = QWidget()
@@ -417,19 +610,6 @@ class MainWindow(QMainWindow):
         # Audio sliders
         vbox.addWidget(self._build_slider_strip(stack))
         vbox.addWidget(self._hsep())
-
-        # Text editor
-        editor = QPlainTextEdit()
-        editor.setPlaceholderText("Enter or paste text here…")
-        editor.setFont(QFont("Consolas", 11))
-        editor.setStyleSheet(
-            "QPlainTextEdit { border:none; padding:8px; background:#ffffff; }"
-        )
-        editor.textChanged.connect(
-            lambda: self._chars_lbl.setText(f"{len(editor.toPlainText())} chars")
-        )
-        w.setProperty("editor", editor)
-        vbox.addWidget(editor, stretch=1)
 
         return w
 
@@ -553,14 +733,23 @@ class MainWindow(QMainWindow):
     # ── Toolbar actions ───────────────────────────────────────────────────────
 
     def _on_new(self) -> None:
-        editor = self._active_editor()
-        if editor:
-            editor.clear()
+        self._editor.clear()
         self._set_status("Ready")
 
+    def _on_open(self) -> None:
+        start = str(self._editor.current_path().parent) if self._editor.current_path() else ""
+        path = self._editor.open_file(start_dir=start)
+        if path:
+            fmt = self._editor.current_fmt().upper()
+            self._set_status(f"Opened {path.name} [{fmt}]")
+
+    def _on_save(self) -> None:
+        path = self._editor.save_file()
+        if path:
+            self._set_status(f"Saved {path.name}")
+
     def _on_play(self) -> None:
-        editor = self._active_editor()
-        text = editor.toPlainText().strip() if editor else ""
+        text = self._editor.to_plain_text().strip()
         if not text:
             self._set_status("No text to speak")
             return
@@ -633,9 +822,8 @@ class MainWindow(QMainWindow):
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
-    def _active_editor(self) -> QPlainTextEdit | None:
-        tab = self._tabs.currentWidget()
-        return tab.property("editor") if tab else None
+    def _active_editor(self) -> _MultiFormatEditor:
+        return self._editor
 
     def _set_status(self, msg: str) -> None:
         self._status_lbl.setText(msg)
