@@ -15,9 +15,38 @@ This repository uses `.agents/` to control AI assistant behavior and ensure safe
 - `highlevel_design`: enforces bridge patterns, platform isolation, anti-mocking philosophies, and the single standalone-binary production model.
 - `ui_ux_design`: defines the classic Win32/WPF functional aesthetic, layout hierarchy, menu bar, system tray behavior, and iconography for AlienVox surfaces.
 
-## Implementation intent
+## Read before you act
 
-Build concrete, runnable subsystems rather than speculative architecture. If a design decision is unclear, request clarification instead of guessing.
+- **Always read the relevant source files first.** Never assume how something is implemented. Check `src/`, `stacks.yaml`, existing tests, and ADRs before proposing changes.
+- **Understand the architecture before touching code.** The four-layer config system, engine registry, bridge pattern, and telemetry contract are all documented in `.agents/SKILLS/` and `docs/adr/`. Read them when relevant.
+- **Never guess the user's intent from a vague prompt.** If the request is clear enough to act on — act. If not, ask one brief clarifying question (not five). The user can always follow up.
+
+## Ask only what matters
+
+- Clarifying questions must be **direct and under 2 sentences**. No preamble like "Just to clarify…" or "Could you confirm…".
+- Example of good: "Voice dropdown — populate from stacks.yaml or engine.list_voices()?"
+- Example of bad: "I wanted to just clarify, could you confirm whether the voice dropdown should be populated from the stacks.yaml file or from the engine's list_voices method? I want to make sure I understand correctly."
+- **Never ask useless questions** about things already documented in ADRs, stacks.yaml, or existing code.
+
+## Present options when the path is unclear
+
+When there is no clear single answer, present 2–3 options with:
+
+| Factor | Option A | Option B |
+|--------|----------|----------|
+| **Pros** | … | … |
+| **Cons** | … | … |
+| **Tokens** | ~Xk | ~Yk |
+| **Complexity** | Low / Med / High | Low / Med / High |
+| **Lines of code** | ~N | ~M |
+| **Time** | ~Z min | ~W min |
+
+Keep the table tight. The developer picks; you execute.
+
+## VCS safety
+
+- Create a private branch for any non-trivial work. Be ready to merge and push to `main` after user approval.
+- Never force-push or delete shared branches.
 
 ## Do the right thing — never procrastinate on hard work
 
