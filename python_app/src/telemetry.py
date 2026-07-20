@@ -21,19 +21,33 @@ from pathlib import Path
 from typing import Any
 
 
-def _default_sink() -> Path:
+def _now_ms() -> int:
+    return time.time_ns() // 1_000_000
+
+
+def _appdata_sink(session_id: str) -> Path:
     import os
     if sys.platform == "win32":
         base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
     else:
         base = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
-    return base / "com.alientech.alienvox" / "telemetry.jsonl"
+    return base / "com.alientech.alienvox" / "telemetry" / f"{session_id}_AlienVox.jsonl"
+
+
+def _dev_sink(session_id: str) -> Path:
+    """Repo-local .logs/ dir — easy to tail during dev."""
+    return Path(__file__).parent.parent / ".logs" / f"{session_id}_AlienVox.jsonl"
 
 
 class Telemetry:
     def __init__(self, sink: Path | None = None) -> None:
-        self._session_id = str(uuid.uuid4())
-        self._sink = sink if sink is not None else _default_sink()
+        self._session_id = f"session-{_now_ms()}"
+        # Two sinks: repo-local for dev, LOCALAPPDATA for production/installed.
+        self._sinks: list[Path] = [_dev_sink(self._session_id)]
+        if sink is not None:
+            self._sinks.append(sink)
+        else:
+            self._sinks.append(_appdata_sink(self._session_id))
 
     @property
     def session_id(self) -> str:
@@ -77,20 +91,17 @@ class Telemetry:
         self._write_stderr(line)
 
     def _write_file(self, line: str) -> None:
-        try:
-            self._sink.parent.mkdir(parents=True, exist_ok=True)
-            with self._sink.open("a", encoding="utf-8") as f:
-                f.write(line + "\n")
-                f.flush()
-        except Exception:
-            pass
+        for sink in self._sinks:
+            try:
+                sink.parent.mkdir(parents=True, exist_ok=True)
+                with sink.open("a", encoding="utf-8") as f:
+                    f.write(line + "\n")
+                    f.flush()
+            except Exception:
+                pass
 
     def _write_stderr(self, line: str) -> None:
         try:
             print(f"ALIENVOX_TELEMETRY {line}", file=sys.stderr, flush=True)
         except Exception:
             pass
-
-
-def _now_ms() -> int:
-    return time.time_ns() // 1_000_000

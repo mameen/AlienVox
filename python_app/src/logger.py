@@ -2,7 +2,8 @@
 
 Every line written to:
   1. stderr  (always, for `run.py app` console visibility)
-  2. %LOCALAPPDATA%/com.alientech.alienvox/logs/session-<id>_AlienVox.log
+  2. python_app/.logs/session-<id>_AlienVox.log  (dev — repo-local, gitignored)
+  3. %LOCALAPPDATA%/com.alientech.alienvox/logs/session-<id>_AlienVox.log  (production)
 
 Format (matches Rust):
   [LEVEL]  2026-07-19T16:43:07.123  component  message
@@ -21,37 +22,43 @@ import sys
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import IO
+from typing import TextIO
 
 _lock = threading.Lock()
-_log_file: IO[str] | None = None
+_log_files: list[TextIO] = []
 _session_id: str = ""
-_log_path: Path | None = None
+_log_path: Path | None = None  # primary path shown in startup banner (dev sink)
 
 
 def init(session_id: str) -> Path:
     """Call once at startup with the telemetry session_id.
 
-    Returns the path of the log file so the startup banner can print it.
+    Returns the path of the dev log file so the startup banner can print it.
+    Session ID format: session-<unix_ms>  (matches Rust convention).
     """
-    global _session_id, _log_file, _log_path
+    global _session_id, _log_files, _log_path
 
     _session_id = session_id
+    filename = f"{session_id}_AlienVox.log"
 
+    # Dev sink: repo-local .logs/ — easy to find during development.
+    dev_log_dir = Path(__file__).parent.parent / ".logs"
+    _log_path = dev_log_dir / filename
+
+    # Production sink: %LOCALAPPDATA%/com.alientech.alienvox/logs/
     import os
     if sys.platform == "win32":
         base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
     else:
         base = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
+    prod_log_path = base / "com.alientech.alienvox" / "logs" / filename
 
-    log_dir = base / "com.alientech.alienvox" / "logs"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    _log_path = log_dir / f"session-{session_id}_AlienVox.log"
-
-    try:
-        _log_file = _log_path.open("a", encoding="utf-8", buffering=1)
-    except Exception:
-        _log_file = None
+    for path in (dev_log_dir / filename, prod_log_path):
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            _log_files.append(path.open("a", encoding="utf-8", buffering=1))
+        except Exception:
+            pass
 
     return _log_path
 
@@ -70,10 +77,10 @@ def _write(level: str, component: str, msg: str) -> None:
             print(line, file=sys.stderr, flush=True)
         except Exception:
             pass
-        if _log_file is not None:
+        for f in _log_files:
             try:
-                _log_file.write(line + "\n")
-                _log_file.flush()
+                f.write(line + "\n")
+                f.flush()
             except Exception:
                 pass
 

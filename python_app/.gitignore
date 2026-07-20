@@ -15,6 +15,11 @@ htmlcov/
 .ruff_cache/
 perf_results*.json
 
+# Per-session log files (structured text + telemetry JSONL)
+# Format: session-<unix_ms>_AlienVox.{log,jsonl}  — mirrors Rust convention
+.logs/
+.telemetry/
+
 # Telemetry test sinks
 *.jsonl
 
