@@ -149,6 +149,8 @@ class MainWindow(QMainWindow):
         on_voice_changed: Callable[[str], None] | None = None,
         on_config_saved: Callable[[dict[str, Any]], None] | None = None,
         on_about: Callable | None = None,
+        live_voices: dict[str, list[dict]] | None = None,
+        current_voice_id: str = "",
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -165,6 +167,9 @@ class MainWindow(QMainWindow):
         self._on_voice_changed_cb = on_voice_changed
         self._on_config_saved_cb = on_config_saved
         self._on_about_cb = on_about
+        # live_voices: {stack_id -> [{id, label}, ...]} from running engine
+        self._live_voices: dict[str, list[dict]] = live_voices or {}
+        self._current_voice_id = current_voice_id
 
         # Collectors for post-build wiring
         self._voice_combos: list[tuple[QComboBox, str]] = []
@@ -300,6 +305,33 @@ class MainWindow(QMainWindow):
         sb.addPermanentWidget(self._chars_lbl)
         self.setStatusBar(sb)
 
+    # ── Public voice API ─────────────────────────────────────────────────────
+
+    def update_voices(self, stack_id: str, voices: list[dict], current_voice_id: str = "") -> None:
+        """Populate the voice dropdown for `stack_id` with live engine voices.
+
+        Call this from main.py after the engine finishes enumerating voices,
+        e.g. for sapi5 after SapiEngine.list_voices() returns.
+        """
+        for combo, sid in self._voice_combos:
+            if sid == stack_id:
+                self._fill_voice_combo(combo, voices, current_voice_id or self._current_voice_id)
+                break
+
+    def _fill_voice_combo(
+        self, combo: QComboBox, voices: list[dict], current_voice_id: str = ""
+    ) -> None:
+        combo.blockSignals(True)
+        combo.clear()
+        select_idx = 0
+        for i, v in enumerate(voices):
+            combo.addItem(v.get("label", v["id"]), v["id"])
+            if v["id"] == current_voice_id:
+                select_idx = i
+        if current_voice_id:
+            combo.setCurrentIndex(select_idx)
+        combo.blockSignals(False)
+
     # ── Wiring ────────────────────────────────────────────────────────────────
 
     def _wire_voices_and_sliders(self) -> None:
@@ -419,8 +451,11 @@ class MainWindow(QMainWindow):
             first_model = stack.models[0]
             for v in first_model.voices:
                 voice_combo.addItem(v.get("label", v["id"]), v["id"])
-        elif stack.id == "sapi5":
-            voice_combo.addItem("(populated from OS at runtime)", "")
+        elif stack.id in self._live_voices and self._live_voices[stack.id]:
+            # OS-enumerated voices supplied by the engine at startup
+            self._fill_voice_combo(voice_combo, self._live_voices[stack.id])
+        elif stack.id in ("sapi5", "speech_platform"):
+            voice_combo.addItem("(loading voices…)", "")
         else:
             voices = get_voices(stack.id)
             for v in voices:

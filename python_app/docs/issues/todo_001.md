@@ -1,88 +1,81 @@
-# TODO #001: AlienVox python_app — Remaining Work
+# TODO #001: AlienVox — Main Window & UI
 
 **Status:** Open  
-**Created:** 2026-07-18  
 **Updated:** 2026-07-19  
-**Component:** `python_app/`
+**Scope:** `src/main_window.py`, `src/about.py`, `src/tray.py`, `src/preferences.py`
 
-> Replaces the old `gemini_poc`-scoped TODO. All gemini_poc items are closed.
-
----
-
-## Current State (Stage 2 partially complete)
-
-- PySide6 system tray with idle/speaking/error icon states.
-- Right-click context menu: Speak Selection, Stop, Voice ▸, Settings…, About, Quit.
-- Balabolka-style main window: engine tabs, sliders, text canvas, playback toolbar.
-- About dialog (X button fixed, About toolbar button added).
-- Four-layer YAML config (built-in defaults → stacks.yaml → user.yaml).
-- Telemetry: JSONL file sink + stderr `ALIENVOX_TELEMETRY` line (4 events).
-- pynput global hotkey listener.
-- Text capture: WM_COPY tier-1 → Ctrl+C clipboard fallback.
-- **SAPI5 engine: dedicated STA worker thread (matches Rust audio_win.rs).**
-  - Single `alienvox-sapi` daemon thread owns ISpVoice for app lifetime.
-  - Both Classic SAPI5 + OneCore hives enumerated → 11 voices visible.
-  - Completion via `SpeakCompleteEvent` Win32 handle (not WaitUntilDone).
-  - Pitch via SAPI native XML `<pitch absmiddle="N"/>` + `SPF_IS_XML` flag.
-- 39 passing tests (SAPI engine fully covered).
+Reference design: `gemini_poc/frontend/index.html` (Rust/Tauri — full HTML/CSS/JS)
 
 ---
 
-## 🔴 Immediate / In-Progress
+## Done
 
-### Logging & Tracing (requested 2026-07-19)
-
-- [x] `src/logger.py` — structured `[LEVEL]  timestamp  component  message` logger
-- [x] Per-session log file: `%LOCALAPPDATA%/com.alientech.alienvox/logs/session-<id>_AlienVox.log`
-- [x] Startup banner prints session ID + log file path to stdout
-- [x] `sapi_win.py` bare `print()` calls replaced with `_log.trace/info/warn/error`
-- [x] Logger initialized from `tel.session_id` so logs and telemetry share the same session
-
-### Startup TTS Announcement
-
-- [x] `_speak_startup()` plays "AlienVox is ready. The dedicated audio engine is running."
-- [x] Fires 0.6s after startup (daemon thread) so UI is visible first
-- [x] SAPI5 stack only; picks first available voice if none configured
-
-### Voice Dropdown "(populated from OS at runtime)"
-
-- [x] Root cause: `user.yaml` had `engine: ml` overriding the `sapi5` default
-- [x] Reset `user.yaml` to `engine: sapi5`
-- [x] `wait_until_done` no-op default added to `TtsEngine` base class
+- [x] Balabolka-style main window: engine tabs, sliders, text canvas, playback toolbar
+- [x] Toolbar: ▶ / ⏸ / ⏹ painted as `QIcon` via `QPainter` (exact Rust colors)
+- [x] Engine tabs: one tab per stack from `stacks.yaml`
+- [x] Voice bar: model dropdown + voice dropdown + TTL + status + Install button
+- [x] Audio sliders: Rate / Pitch / Volume; greyed out when `applies: false`
+- [x] Text editor: `QPlainTextEdit`, Consolas 11pt, char count in status bar
+- [x] Opens on startup; double-click tray toggles show/hide; appears in taskbar
+- [x] About dialog: logo + version + scrollable sections — matches Rust design
+- [x] About [X] button fixed (explicit window flags)
+- [x] About button added to toolbar (right-aligned, logo icon)
 
 ---
 
-## Stage 2 — Windows APIs
+## Open
 
-- [x] Real text capture: WM_COPY tier-1 → Ctrl+C clipboard fallback (`capture.py`)
-- [x] SAPI5 engine: dedicated STA worker thread, full speak/stop/pause/resume/voice-list
-- [x] Both SAPI5 + OneCore voice hives enumerated and deduplicated
-- [x] Completion via SpeakCompleteEvent (Win32 HANDLE) — not WaitUntilDone(-1)
-- [ ] Windows autostart (Registry `HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run`)
-- [ ] Global hotkey fully tested on Windows (pynput)
+### Voice Dropdown Not Populated (SAPI5 tab)
 
-## Stage 3 — ML Inference (in-process, no subprocess)
+`_build_voice_bar` adds placeholder `"(populated from OS at runtime)"` for `sapi5`
+but `MainWindow` never receives the live voice list from the engine.
 
-- [ ] Kokoro-82M: in-process inference via `kokoro` package
-- [ ] Piper: in-process ONNX inference via `piper-tts`
-- [ ] Dia: in-process via `dia` package
-- [ ] VibeVoice: in-process via `transformers` + `torch`
-- [ ] ML model install flow (download from HuggingFace Hub with progress)
-- [ ] TTL-based model cache (keep model hot for N seconds after last use)
-- [ ] `_load_engine()` dispatch for ML stack working end-to-end
-- [ ] Voice dropdown populated from stacks.yaml for ML stack
+- [ ] Accept `live_voices: list[dict] | None` in `MainWindow.__init__`
+- [ ] Call `_populate_sapi_voices(voices)` during init if `live_voices` is provided
+- [ ] Also expose `update_voices(stack_id, voices)` so `main.py` can refresh after engine loads
+- [ ] Set current index to match `cfg.get("voice", "")` after populating
 
-## Stage 4 — Main Window Polish
+### Speech Platform Tab Missing
 
-- [/] Balabolka-style main window: engine tabs, sliders, text canvas, playback toolbar
-- [ ] All controls wired to config + telemetry
-- [ ] Preferences / Settings panel
-- [x] Fix the OS close [X] button in AboutDialog
-- [x] Add About button to toolbar
+The Rust UI has a **SAPI 4** placeholder tab + **SAPI 5** + **Speech Platform** + **ML/AI**.
+Python `stacks.yaml` only has `sapi5` and `ml`. See `todo_002.md` for the engine work.
 
-## Stage 5 — Packaging
+- [ ] Add `speech_platform` tab to main window once `stacks.yaml` has the entry
+- [ ] Show greyed out / "Not installed" when Speech Platform runtime is absent
 
-- [ ] PyInstaller single-file `.exe` build
-- [ ] Windows NSIS per-user installer
-- [ ] Icon baked into exe
-- [ ] Auto-update mechanism (TBD)
+### Piper Extra Controls Strip
+
+When Piper model is active, show `noise_scale`, `noise_w`, `sentence_silence` sliders
+below the main slider strip (see `stacks.yaml` `ml/piper/controls` for min/max/default).
+Mirrors Rust `#model-controls-piper` section.
+
+- [ ] Collapsible strip below main sliders, visible only when active model == piper
+- [ ] Values saved to `user.yaml` via debounced slider → `save_user_override`
+
+### Model Availability LEDs
+
+- [ ] Prepend `🟢` / `⚪` to each model name in model dropdown
+- [ ] Read `ModelInfo.available` from `registry.available_stacks()` at startup
+- [ ] Update when Install completes
+
+### Install Model Dialog
+
+- [ ] "Install Model" button → `QDialog` with model name, download size, `QProgressBar`, Cancel
+- [ ] Download in `threading.Thread`; emit progress via Qt signal
+
+### Other Polish
+
+- [ ] Export WAV (`🎵` button): `QFileDialog` → `engine.speak_to_wav()`
+- [ ] Open text file (`📂`): `QFileDialog` → set editor content
+- [ ] Save text file (`💾`): `QFileDialog` → write editor content
+- [ ] Cursor position in status bar: `Line: N, Col: N`
+- [ ] Window geometry persistence: save/restore `window_x/y/w/h` in `user.yaml`
+- [ ] Preferences / hotkey rebinding (Global tab or modal)
+- [ ] "Start with Windows" toggle → Registry `HKCU\...\Run`
+- [ ] Delete dead code `src/preferences.py`
+
+### Known UX Bugs
+
+- [ ] `_speak_lock.release()` when already released → `RuntimeError`; wrap in `try/except`
+- [ ] Empty-text hotkey fires silently; show tray balloon "No text selected"
+- [ ] SAPI init failure leaves placeholder in voice dropdown; show error message instead

@@ -38,11 +38,17 @@ _SPF_IS_XML           = 8   # tell SAPI to parse the string as SAPI XML
 # SpFileStream open mode
 _SSFMCreateForWrite = 3
 
-# Registry categories — Classic SAPI5 desktop voices + OneCore modern voices.
-_VOICE_CATEGORIES = [
+# Registry category sets per stack — mirrors Rust audio_win.rs enumerate_engine().
+_CATEGORIES_SAPI5 = [
     r"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices",
     r"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech_OneCore\Voices",
 ]
+_CATEGORIES_SPEECH_PLATFORM = [
+    r"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech Server\v11.0\Voices",
+]
+
+# Default (used when constructing without an explicit stack)
+_VOICE_CATEGORIES = _CATEGORIES_SAPI5
 
 # Sentinel to shut down the worker thread cleanly.
 _STOP_WORKER = object()
@@ -55,7 +61,8 @@ class _SapiWorker:
     all COM calls happen exclusively on the worker thread.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, categories: list[str] | None = None) -> None:
+        self._categories = categories or _VOICE_CATEGORIES
         self._q: queue.Queue = queue.Queue()
         self._sapi = None          # set by worker thread only
         self._ready = threading.Event()
@@ -229,7 +236,7 @@ class _SapiWorker:
 
     def _find_token(self, voice_id: str):
         """Search both hives for the token matching voice_id."""
-        for cat_id in _VOICE_CATEGORIES:
+        for cat_id in self._categories:
             try:
                 cat = win32com.client.Dispatch("SAPI.SpObjectTokenCategory")
                 cat.SetId(cat_id, False)
@@ -241,7 +248,7 @@ class _SapiWorker:
             except Exception:
                 continue
         # Fallback: first voice in any hive
-        for cat_id in _VOICE_CATEGORIES:
+        for cat_id in self._categories:
             try:
                 cat = win32com.client.Dispatch("SAPI.SpObjectTokenCategory")
                 cat.SetId(cat_id, False)
@@ -255,7 +262,7 @@ class _SapiWorker:
     def _enum_all_voices(self) -> list[Voice]:
         seen: set[str] = set()
         result: list[Voice] = []
-        for cat_id in _VOICE_CATEGORIES:
+        for cat_id in self._categories:
             try:
                 cat = win32com.client.Dispatch("SAPI.SpObjectTokenCategory")
                 cat.SetId(cat_id, False)
@@ -306,8 +313,8 @@ def _build_sapi_xml(text: str, params: SpeakParams) -> str:
 class SapiEngine(TtsEngine):
     """SAPI5 + OneCore TTS engine backed by a single dedicated STA worker thread."""
 
-    def __init__(self) -> None:
-        self._worker = _SapiWorker()
+    def __init__(self, categories: list[str] | None = None) -> None:
+        self._worker = _SapiWorker(categories=categories)
         self._done_event = threading.Event()
 
     def list_voices(self) -> list[Voice]:
@@ -369,3 +376,9 @@ class SapiEngine(TtsEngine):
     @staticmethod
     def _build_ssml(text: str, params: SpeakParams) -> str:
         return _build_sapi_xml(text, params)
+
+
+class SpeechPlatformEngine(SapiEngine):
+    """SapiEngine restricted to the Microsoft Speech Server v11 hive."""
+    def __init__(self) -> None:
+        super().__init__(categories=_CATEGORIES_SPEECH_PLATFORM)

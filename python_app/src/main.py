@@ -23,19 +23,25 @@ _log = _logger.get_logger("main")
 
 def _load_engine(engine_id: str):
     """Return a live TtsEngine for the active stack, or None."""
-    if engine_id == "sapi5" and sys.platform == "win32":
-        try:
-            from .engines.sapi_win import SapiEngine
-            return SapiEngine()
-        except Exception:
-            return None
-    # ML engines — Piper is Stage 3 priority
+    if sys.platform == "win32":
+        if engine_id == "sapi5":
+            try:
+                from .engines.sapi_win import SapiEngine
+                return SapiEngine()
+            except Exception as exc:
+                _log.error("SapiEngine init failed: %s", exc)
+                return None
+        if engine_id == "speech_platform":
+            try:
+                from .engines.sapi_win import SpeechPlatformEngine
+                return SpeechPlatformEngine()
+            except Exception as exc:
+                _log.warn("SpeechPlatformEngine init failed (runtime not installed?): %s", exc)
+                return None
+    # ML engines — Stage 3, not yet implemented
     if engine_id == "ml":
-        try:
-            from .engines.piper_win import PiperEngine
-            return PiperEngine()
-        except Exception:
-            return None
+        _log.warn("ML engine requested but not yet implemented — no engine loaded")
+        return None
     return None
 
 
@@ -203,13 +209,15 @@ def main() -> int:
     def _ensure_main_window() -> MainWindow:
         nonlocal _main_window
         if _main_window is None:
-            # Try to load voices eagerly; fall back to lazy load on first open
-            live_voices: list[dict] | None = None
-            if active_stack == "sapi5" and engine:
+            # Eagerly enumerate voices so the dropdown is populated on first show
+            win_live_voices: dict[str, list[dict]] = {}
+            if engine:
                 try:
-                    live_voices = [{"id": v.id, "label": v.name} for v in engine.list_voices()]
-                except Exception:
-                    pass
+                    vlist = [{"id": v.id, "label": v.name} for v in engine.list_voices()]
+                    win_live_voices[active_stack] = vlist
+                    _log.info("window: loaded %d voices for stack=%s", len(vlist), active_stack)
+                except Exception as exc:
+                    _log.warn("window: voice enumeration failed: %s", exc)
 
             _main_window = MainWindow(
                 stacks=stacks,
@@ -219,6 +227,8 @@ def main() -> int:
                 on_voice_changed=on_voice_changed,
                 on_config_saved=on_config_saved,
                 on_about=open_about,
+                live_voices=win_live_voices,
+                current_voice_id=cfg.get("voice", ""),
             )
         return _main_window
 
