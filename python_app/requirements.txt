@@ -29,6 +29,9 @@ transformers>=4.30.0
 safetensors>=0.4.0
 accelerate>=0.20.0
 
+# ── Performance testing (optional — used by test_perf.py) ─────────────────────
+psutil>=5.9.0; extra == "perf"
+
 # ── TTS engines ───────────────────────────────────────────────────────────────
 kokoro>=0.9.0
 piper-tts>=1.2.0
