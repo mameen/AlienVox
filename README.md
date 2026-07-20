@@ -4,7 +4,7 @@
 
 **Speak Selection.** Highlight any text on your desktop, press a global hotkey, and hear it spoken aloud — instantly.
 
-![AlienVox Tray Icon](python_app/src/resources/icons/icon_256x256.png)
+![AlienVox Banner](docs/img/banner.png)
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![PySide6](https://img.shields.io/badge/Qt6-PySide6-41CD52.svg)](https://doc.qt.io/qtforpython-6/)
