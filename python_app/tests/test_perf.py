@@ -322,7 +322,7 @@ def _load_ml_engine(stack_id: str, model_info: Any) -> Any | None:
             return KokoroEngine()
         elif model_id == "piper":
             from src.engines.piper_win import PiperEngine
-            return PiperEngine(model_id)
+            return PiperEngine()
         elif model_id == "chatterbox":
             from src.engines.chatterbox_engine import ChatterboxEngine
             return ChatterboxEngine()

@@ -71,6 +71,7 @@ def _load_engine(engine_id: str, model_id: str = "") -> "TtsEngine | None":
         model = model_id or "kokoro"
         _ML_ENGINES = {
             "kokoro":     ("kokoro_engine",     "KokoroEngine"),
+            "piper":      ("piper_win",         "PiperEngine"),
             "chatterbox": ("chatterbox_engine", "ChatterboxEngine"),
             "dia":        ("dia_engine",        "DiaEngine"),
             "f5tts":      ("f5tts_engine",      "F5TTSEngine"),

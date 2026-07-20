@@ -7,8 +7,8 @@ Checks, in order:
   3. Model weights exist on disk for each entry in stacks.yaml.
   4. Hardware summary (CPU, RAM, GPU/VRAM) — informational, explains why
      perf numbers look the way they do (e.g. CPU-only inference).
-  5. Known engine-level limitations (e.g. Piper's synthesize() stub) are
-     surfaced as warnings rather than silently producing empty audio.
+  5. Known engine-level limitations, if any, are surfaced as warnings
+     rather than silently producing empty audio.
 
 Usage:
     python -m src.health          (invoked by `python run.py health`)
@@ -184,23 +184,12 @@ def _check_hardware() -> list[CheckResult]:
 
 
 # ── Known engine limitations ──────────────────────────────────────────────────
+# Currently empty — kept as an extension point for surfacing engine-level
+# limitations (like Piper's now-fixed synthesize() stub) as warnings instead
+# of letting them silently produce empty/failed audio.
 
 def _check_known_limitations() -> list[CheckResult]:
-    results: list[CheckResult] = []
-    try:
-        from .engines.piper_win import PiperEngine
-        import inspect
-        src = inspect.getsource(PiperEngine._synthesize)
-        if 'return b""' in src or "Placeholder" in src:
-            results.append(CheckResult(
-                "piper synthesis", True,
-                "PiperEngine._synthesize() is still a stub — Piper will produce "
-                "silent/failed output even with weights present",
-                is_warning=True,
-            ))
-    except Exception:
-        pass  # best-effort — don't fail health check over this probe
-    return results
+    return []
 
 
 # ── Report rendering ──────────────────────────────────────────────────────────
