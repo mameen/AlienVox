@@ -7,11 +7,37 @@ import subprocess
 import sys
 from pathlib import Path
 
-from dotenv import load_dotenv
-import yaml
-
 ROOT = Path(__file__).resolve().parent
 VENV_DIR = ROOT / ".venv"
+
+
+def _ensure_bootstrap_deps() -> None:
+    """Install setup.py's own dependencies (pyyaml, python-dotenv) if missing.
+
+    setup.py's job is to install requirements.txt into a venv — but it needs
+    yaml/dotenv itself just to run. Bootstrap them into whatever interpreter
+    is currently running this script, so `python setup.py` works cold with
+    no manual `pip install` beforehand.
+    """
+    missing = []
+    try:
+        import yaml  # noqa: F401
+    except ImportError:
+        missing.append("pyyaml")
+    try:
+        import dotenv  # noqa: F401
+    except ImportError:
+        missing.append("python-dotenv")
+
+    if missing:
+        print(f"Bootstrapping setup.py dependencies: {', '.join(missing)}...")
+        subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", *missing], check=True)
+
+
+_ensure_bootstrap_deps()
+
+from dotenv import load_dotenv  # noqa: E402
+import yaml  # noqa: E402
 
 # Load .env so HF_TOKEN is available for gated repos
 _load_dotenv = load_dotenv(ROOT / ".env", override=False)
