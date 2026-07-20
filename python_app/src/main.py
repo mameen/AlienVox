@@ -260,15 +260,15 @@ def main() -> int:
         )
 
     def _on_tray_voice_select(stack_id: str, model_id: str, voice_id: str) -> None:
+        # Always persist engine + model + voice together so restart restores all three
+        save_user_override({"engine": stack_id, "model": model_id, "voice": voice_id})
         if stack_id != active_stack:
-            on_stack_changed(stack_id, voice_id)
-            # Persist engine + model when switching stacks
-            save_user_override({"engine": stack_id})
+            cfg["engine"] = stack_id
             if model_id:
-                save_user_override({"model": model_id})
+                cfg["model"] = model_id
+            on_stack_changed(stack_id, voice_id)
         elif model_id and model_id != cfg.get("model"):
-            # Same stack but different ML model
-            save_user_override({"model": model_id, "voice": voice_id})
+            cfg["model"] = model_id
             on_voice_changed(voice_id)
         else:
             on_voice_changed(voice_id)
