@@ -42,12 +42,12 @@ def _dev_sink(session_id: str) -> Path:
 class Telemetry:
     def __init__(self, sink: Path | None = None) -> None:
         self._session_id = f"session-{_now_ms()}"
-        # Two sinks: repo-local for dev, LOCALAPPDATA for production/installed.
-        self._sinks: list[Path] = [_dev_sink(self._session_id)]
         if sink is not None:
-            self._sinks.append(sink)
+            # Explicit override (tests, custom callers) — this is the only sink.
+            self._sinks: list[Path] = [sink]
         else:
-            self._sinks.append(_appdata_sink(self._session_id))
+            # Default: repo-local for dev, LOCALAPPDATA for production/installed.
+            self._sinks = [_dev_sink(self._session_id), _appdata_sink(self._session_id)]
 
     @property
     def session_id(self) -> str:

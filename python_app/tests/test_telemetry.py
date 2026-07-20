@@ -15,7 +15,7 @@ def tel(tmp_path) -> Telemetry:
 
 
 def _read_events(tel: Telemetry) -> list[dict]:
-    sink: Path = tel._sink  # type: ignore[attr-defined]
+    sink: Path = tel._sinks[0]  # type: ignore[attr-defined]
     if not sink.exists():
         return []
     return [json.loads(line) for line in sink.read_text().splitlines() if line.strip()]
@@ -28,7 +28,12 @@ def test_session_id_is_stable_within_instance(tel):
 
 
 def test_two_instances_have_different_session_ids(tmp_path):
+    # session_id is session-<unix_ms> (mirrors the Rust implementation's
+    # convention), so instances created within the same millisecond can
+    # collide by design — space them out to assert real uniqueness.
+    import time
     t1 = Telemetry(sink=tmp_path / "a.jsonl")
+    time.sleep(0.002)
     t2 = Telemetry(sink=tmp_path / "b.jsonl")
     assert t1.session_id != t2.session_id
 

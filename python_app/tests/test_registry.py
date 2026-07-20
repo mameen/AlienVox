@@ -42,13 +42,15 @@ def test_sapi5_available_on_windows(stacks_yaml, models_root):
 
 # ── ML stack without weights ──────────────────────────────────────────────────
 
-def test_ml_models_unavailable_when_no_weights(stacks_yaml, models_root):
-    # models_root fixture has no subdirs — weights missing
+def test_piper_unavailable_when_no_weights(stacks_yaml, models_root):
+    # models_root fixture has no subdirs — weights missing.
+    # piper has no auto_download, so it must be unavailable without local weights.
+    # (auto_download models like kokoro remain available — see
+    # test_auto_download_models_always_available below.)
     stacks = available_stacks(stacks_yaml, models_root)
     ml = next(s for s in stacks if s.id == "ml")
-    assert ml.available is False
-    for m in ml.models:
-        assert m.available is False
+    piper = next(m for m in ml.models if m.id == "piper")
+    assert piper.available is False
 
 
 # ── ML stack with weights present ─────────────────────────────────────────────
@@ -72,7 +74,7 @@ def test_models_carry_voice_list(stacks_yaml, models_root_with_weights):
 
 
 @pytest.mark.parametrize("model_id", _ALL_ML_MODEL_IDS)
-def test_all_ml_models_present_in_catalog(stacks_yaml, models_root):
+def test_all_ml_models_present_in_catalog(stacks_yaml, models_root, model_id):
     stacks = available_stacks(stacks_yaml, models_root)
     ml = next(s for s in stacks if s.id == "ml")
     model_ids = [m.id for m in ml.models]
