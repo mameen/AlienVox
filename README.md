@@ -9,6 +9,7 @@ Simple, standalone TTS apps — high quality, zero friction. Start with **Speak 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![PySide6](https://img.shields.io/badge/Qt6-PySide6-41CD52.svg)](https://doc.qt.io/qtforpython-6/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Third-Party Notices](https://img.shields.io/badge/3P-notices-lightgrey.svg)](3P.md)
 
 </div>
 
@@ -123,3 +124,23 @@ This repository previously contained a **Rust + Tauri** prototype (`gemini_poc/`
 That implementation was **deprecated** because Rust cannot natively import Python ML checkpoints (PyTorch, ONNX Runtime) at runtime without spawning a hidden Python subprocess — which violates the standalone-app requirement. The Python + PySide6 stack eliminates this boundary entirely: UI and ML inference run in the same process, with full access to `pywin32`, `transformers`, `torch`, and all SOTA TTS libraries.
 
 The Rust prototype's architecture patterns (bridge pattern, engine registry, telemetry contract) remain valid and are documented in the ADRs. The Python implementation carries those lessons forward.
+
+---
+
+## Appendix: Third-Party Notices
+
+All external libraries, ML models, and OS APIs used by AlienVox are documented in **[3P.md](3P.md)**.
+
+### Summary by type
+
+| Type | Components |
+|---|---|
+| **OS Platform APIs** | Windows SAPI 5, Windows Speech Platform, Win32 Clipboard, WM_COPY |
+| **ML Models** | Kokoro-82M (Apache 2.0), Piper voices (MIT/CC0), Chatterbox 0.5B (MIT), Dia 1.6B (Apache 2.0), F5-TTS (MIT), OuteTTS 0.5B (MIT) |
+| **UI Framework** | PySide6 / Qt6 — LGPL v3 |
+| **Runtime Libraries** | pywin32 (MIT), pynput (LGPL v3), PyYAML (MIT), numpy (BSD), sounddevice (MIT), soundfile (BSD), lameenc (LGPL v2+) |
+| **ML / Inference** | PyTorch (BSD), transformers (Apache 2.0), safetensors (Apache 2.0), accelerate (Apache 2.0), huggingface_hub (Apache 2.0), onnxruntime (MIT) |
+| **TTS Engine Packages** | kokoro (Apache 2.0), piper-tts (MIT), dia (Apache 2.0), f5-tts (MIT), outetts (MIT) |
+| **Dev / Test only** | pytest (MIT), pytest-cov (MIT), ruff (MIT), pyinstaller (GPL + exception) |
+
+AlienVox makes **no external API calls** at runtime. All inference is local and in-process. No API keys are required.
