@@ -166,8 +166,12 @@ def _check_hardware() -> list[CheckResult]:
     cuda_names: set[str] = set()
     try:
         import torch
-        if torch.cuda.is_available():
-            for i in range(torch.cuda.device_count()):
+        # torch.cuda.is_available() can return True with zero visible devices
+        # (e.g. CUDA_VISIBLE_DEVICES="" still reports the driver as usable) —
+        # device_count() is the real signal for "is there a GPU to use."
+        device_count = torch.cuda.device_count() if torch.cuda.is_available() else 0
+        if device_count > 0:
+            for i in range(device_count):
                 props = torch.cuda.get_device_properties(i)
                 cuda_names.add(props.name)
                 results.append(CheckResult(
@@ -176,7 +180,7 @@ def _check_hardware() -> list[CheckResult]:
                 ))
         else:
             results.append(CheckResult(
-                "GPU (CUDA)", True, "No CUDA GPU detected — ML engines will run on CPU",
+                "GPU (CUDA)", True, "No CUDA GPU visible to torch — ML engines will run on CPU",
                 is_warning=True,
             ))
     except Exception as exc:

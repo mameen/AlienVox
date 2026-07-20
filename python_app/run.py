@@ -2,19 +2,31 @@
 """AlienVox task runner.
 
 Usage:
-    python run.py app        -- start the application
+    python run.py app        -- start the application (CPU-only by default)
+    python run.py app --gpu  -- use CUDA; fails fast if no GPU is available
+                                 (--cuda is an alias for --gpu; respects
+                                 CUDA_VISIBLE_DEVICES from .env if set there)
+    python run.py app --cpu  -- explicit CPU-only (same as the default; for clarity)
     python run.py health     -- check imports, version pins, model weights are ready
+    python run.py health --cpu / --gpu  -- same device override, for health reporting
     python run.py download   -- download missing ML model weights to .models/
     python run.py download --force  -- re-download weights even if already present
     python run.py build      -- syntax-check all src/ files
     python run.py lint       -- run ruff on src/ and tests/
     python run.py test       -- run pytest (with coverage floor)
     python run.py cov        -- run pytest + open HTML coverage report
-    python run.py perf       -- run instrumentation benchmarks
+    python run.py perf       -- run instrumentation benchmarks (CPU-only by default)
+    python run.py perf --cpu / --gpu  -- same device override, for perf comparisons
     python run.py all        -- lint -> build -> test -> cov -> perf
+
+CPU-only is the safe default for app/health/perf — pass --gpu/--cuda to opt
+into CUDA. .env (python-dotenv) is always loaded first, so a
+CUDA_VISIBLE_DEVICES set there (e.g. to pick a specific card) takes effect
+whenever --gpu is used.
 """
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import time
@@ -24,6 +36,12 @@ ROOT = Path(__file__).parent
 SRC = ROOT / "src"
 TESTS = ROOT / "tests"
 VENV_DIR = ROOT / ".venv"
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv(ROOT / ".env", override=True)
+except ImportError:
+    pass  # python-dotenv not installed yet (e.g. before first `python setup.py`)
 
 
 def _venv_python() -> str:
@@ -35,9 +53,60 @@ def _venv_python() -> str:
     return str(exe) if exe.exists() else sys.executable
 
 
-def _run(*args: str, cwd: Path = ROOT) -> int:
-    result = subprocess.run(args, cwd=cwd)
+def _run(*args: str, cwd: Path = ROOT, env: dict[str, str] | None = None) -> int:
+    full_env = {**os.environ, **env} if env else None
+    result = subprocess.run(args, cwd=cwd, env=full_env)
     return result.returncode
+
+
+# ── Device override (--cpu / --gpu / --cuda) ────────────────────────────────
+# CPU-only is the default — applies uniformly to every ML engine via
+# CUDA_VISIBLE_DEVICES, no per-engine code changes needed, since they already
+# call torch.cuda.is_available() internally and that respects this env var.
+# --gpu/--cuda opts into CUDA, respecting a CUDA_VISIBLE_DEVICES set in .env
+# (e.g. to pick a specific card) since .env is loaded before this runs.
+
+def _parse_device_flag() -> str:
+    """Return 'cpu' (default) or 'gpu' from --cpu / --gpu / --cuda in sys.argv."""
+    args = set(sys.argv[2:])
+    if "--gpu" in args or "--cuda" in args:
+        return "gpu"
+    return "cpu"  # default, whether or not --cpu was passed explicitly
+
+
+def _cuda_available(env: dict[str, str] | None = None) -> bool:
+    # torch.cuda.is_available() can return True with zero visible devices
+    # (e.g. under a forced CUDA_VISIBLE_DEVICES="") — device_count() is the
+    # real signal for "is there a GPU to use."
+    full_env = {**os.environ, **env} if env else None
+    result = subprocess.run(
+        [_venv_python(), "-c",
+         "import torch, sys; "
+         "sys.exit(0 if torch.cuda.is_available() and torch.cuda.device_count() > 0 else 1)"],
+        cwd=ROOT, env=full_env,
+    )
+    return result.returncode == 0
+
+
+def _resolve_device() -> tuple[dict[str, str], int | None]:
+    """Parse --cpu/--gpu, validate, and return (env_overrides, early_exit_code).
+
+    If early_exit_code is not None, the caller should return it immediately
+    (used when --gpu/--cuda was requested but no CUDA GPU is present).
+    """
+    mode = _parse_device_flag()
+    if mode == "cpu":
+        print("Device: CPU (default — pass --gpu/--cuda to use CUDA)")
+        return {"CUDA_VISIBLE_DEVICES": ""}, None
+
+    # --gpu/--cuda: leave CUDA_VISIBLE_DEVICES alone so a value set in .env
+    # (already loaded into os.environ above) takes effect.
+    if not _cuda_available():
+        print("ERROR: --gpu/--cuda requested but no CUDA GPU is available.")
+        print("Run `python run.py health --gpu` for hardware details.")
+        return {}, 1
+    print("Device: GPU (CUDA)")
+    return {}, None
 
 
 def _header(title: str) -> None:
@@ -51,14 +120,20 @@ def _header(title: str) -> None:
 # ── Subcommands ───────────────────────────────────────────────────────────────
 
 def cmd_app() -> int:
+    env, early_exit = _resolve_device()
+    if early_exit is not None:
+        return early_exit
     _header("Starting AlienVox")
     # Run as a package module so relative imports work correctly.
-    return _run(_venv_python(), "-m", "src.main", cwd=ROOT)
+    return _run(_venv_python(), "-m", "src.main", cwd=ROOT, env=env)
 
 
 def cmd_health() -> int:
+    env, early_exit = _resolve_device()
+    if early_exit is not None:
+        return early_exit
     _header("Health — imports, version pins, model weights")
-    return _run(_venv_python(), "-m", "src.health", cwd=ROOT)
+    return _run(_venv_python(), "-m", "src.health", cwd=ROOT, env=env)
 
 
 def cmd_download() -> int:
@@ -120,6 +195,9 @@ def cmd_cov() -> int:
 
 
 def cmd_perf() -> int:
+    env, early_exit = _resolve_device()
+    if early_exit is not None:
+        return early_exit
     _header("Perf — instrumentation benchmarks")
 
     # ── Unit benchmarks via pytest (config/registry/telemetry) ─────────────
@@ -128,12 +206,14 @@ def cmd_perf() -> int:
         str(TESTS / "test_perf.py"),
         "-v", "--no-header", "--tb=short",
         "--no-cov",
+        env=env,
     )
 
     # ── Real-speech benchmark (standalone — SAPI COM requires STA threading) ─
     _header("Perf — welcome phrase benchmark")
     rc_perf = _run(
         _venv_python(), "-m", "tests.test_perf", "_benchmark",
+        env=env,
     )
     return rc or rc_perf or 0
 
