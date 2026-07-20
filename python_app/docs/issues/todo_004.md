@@ -126,6 +126,38 @@ def enhance(text: str, strategy: str = "heuristic") -> str:
 
 ---
 
+## Cost Comparison
+
+Estimates for a typical paste: **500 characters / ~100 words** of messy text.
+
+| Dimension | Strategy A — Heuristic | Strategy B — LLM (Qwen 0.5B) | Strategy B — LLM (Phi-3-mini 3.8B) |
+|-----------|----------------------|------------------------------|--------------------------------------|
+| **Execution time** | < 1 ms | 300 – 800 ms (GPU) / 2 – 5 s (CPU) | 1 – 3 s (GPU) / 8 – 20 s (CPU) |
+| **First-call overhead** | 0 (no load) | ~3 s model load (cached after) | ~8 s model load (cached after) |
+| **Tokens consumed** | 0 | ~150 in + ~150 out ≈ 300 tok | ~150 in + ~150 out ≈ 300 tok |
+| **VRAM** | 0 | ~600 MB | ~3.5 GB |
+| **RAM (CPU fallback)** | 0 | ~800 MB | ~5 GB |
+| **Network** | None | None (on-device) | None (on-device) |
+| **Dependencies added** | 0 | `llama-cpp-python` (~50 MB wheel) + GGUF model file | same |
+| **Model download size** | 0 | ~400 MB (one-time) | ~2.3 GB (one-time) |
+| **Lines of code** | ~60 (rules + tests) | ~40 (loader + call) + prompt file | same |
+| **Test complexity** | Low — deterministic, one test per rule | High — output is probabilistic; hard to assert exact strings |
+| **Failure modes** | None (pure string ops) | Model OOM, slow CPU, hallucinated output, prompt injection risk |
+| **Correctness** | Predictable — rules do exactly what they say | Variable — may over-rewrite, change meaning, or miss subtle issues |
+| **Latency user perceives** | Invisible (batched with speak()) | Noticeable pause before speech starts (especially CPU) |
+| **Maintainability** | High — rules are readable prose in code | Medium — behaviour changes when prompt or model changes |
+
+### Recommendation
+
+Ship **Strategy A only** for v1. It covers the core problem (whitespace/punctuation) with zero
+cost and zero risk. Strategy B becomes worthwhile only if user testing shows heuristics miss
+cases that genuinely matter — at which point ADR-012 selects the model.
+
+The toggle UI and `enhance()` entry point are already designed to swap strategies without
+touching `main.py` or the engine layer.
+
+---
+
 ## Telemetry
 
 When `auto_enhance` is on, emit both original and enhanced char counts:
