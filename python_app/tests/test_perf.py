@@ -575,8 +575,11 @@ class TestWelcomePhraseBenchmark:
 
     @pytest.fixture(autouse=True)
     def _check_audio(self):
-        """Skip all tests in this class if no audio hardware."""
-        import sounddevice as sd
+        """Skip all tests in this class if no audio hardware or deps missing."""
+        try:
+            import sounddevice as sd  # noqa: F401
+        except ImportError:
+            pytest.skip("sounddevice not installed — skip real-speech benchmark")
         devices = sd.query_devices()
         has_output = any(d.get('max_output_channels', 0) > 0 for d in devices)
         if not has_output:
