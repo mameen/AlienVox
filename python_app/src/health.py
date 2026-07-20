@@ -162,9 +162,11 @@ def _check_hardware() -> list[CheckResult]:
     except ImportError:
         results.append(CheckResult("RAM", True, "psutil not installed — install it for RAM info", is_warning=True))
 
-    # GPU / VRAM — CUDA devices (usable for torch inference) ...
+    # GPU / VRAM — CUDA devices actually visible to torch right now ...
     cuda_names: set[str] = set()
+    cuda_hidden_by_policy = False  # True if torch sees zero devices but a CUDA_VISIBLE_DEVICES override is set
     try:
+        import os as _os
         import torch
         # torch.cuda.is_available() can return True with zero visible devices
         # (e.g. CUDA_VISIBLE_DEVICES="" still reports the driver as usable) —
@@ -179,15 +181,20 @@ def _check_hardware() -> list[CheckResult]:
                     f"{props.name} — {props.total_memory / (1024**3):.1f} GB VRAM (CUDA, usable for inference)",
                 ))
         else:
-            results.append(CheckResult(
-                "GPU (CUDA)", True, "No CUDA GPU visible to torch — ML engines will run on CPU",
-                is_warning=True,
-            ))
+            cvd = _os.environ.get("CUDA_VISIBLE_DEVICES")
+            cuda_hidden_by_policy = cvd is not None
+            detail = (
+                f"No CUDA GPU visible — hidden by CUDA_VISIBLE_DEVICES={cvd!r} "
+                "(run.py defaults to CPU-only; pass --gpu/--cuda to use a real GPU)"
+                if cuda_hidden_by_policy else
+                "No CUDA GPU visible to torch — ML engines will run on CPU"
+            )
+            results.append(CheckResult("GPU (CUDA)", True, detail, is_warning=True))
     except Exception as exc:
         results.append(CheckResult("GPU (CUDA)", True, f"could not query CUDA: {exc}", is_warning=True))
 
     # ... plus every display adapter Windows knows about (e.g. an AMD iGPU),
-    # for visibility even though only CUDA devices are usable for inference.
+    # for visibility even though only CUDA devices above are usable for inference.
     if _platform.system() == "Windows":
         try:
             import subprocess
@@ -199,10 +206,16 @@ def _check_hardware() -> list[CheckResult]:
             all_gpus = [line.strip() for line in proc.stdout.splitlines() if line.strip()]
             other_gpus = [g for g in all_gpus if g not in cuda_names]
             for g in other_gpus:
-                results.append(CheckResult(
-                    "GPU (other)", True, f"{g} — detected, not usable for CUDA inference",
-                    is_warning=False,
-                ))
+                # An NVIDIA card in this list (but not in cuda_names) means it's
+                # CUDA-capable but currently hidden by policy, not incapable.
+                is_nvidia = "nvidia" in g.lower()
+                if is_nvidia and cuda_hidden_by_policy:
+                    detail = f"{g} — CUDA-capable, hidden by CPU-only mode (use --gpu to enable)"
+                elif is_nvidia:
+                    detail = f"{g} — CUDA-capable but not currently visible to torch"
+                else:
+                    detail = f"{g} — detected, not CUDA-capable"
+                results.append(CheckResult("GPU (other)", True, detail))
         except Exception:
             pass  # best-effort — WMI/PowerShell may be unavailable
 

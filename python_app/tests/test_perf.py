@@ -554,14 +554,16 @@ def generate_html(json_js_path: str) -> str:
 const THRESHOLDS = {json.dumps(THRESHOLDS, indent=2)};
 const WELCOME_PHRASE = {json.dumps(WELCOME_PHRASE)};
 
-d3.run(function() {{
+(function() {{
+  try {{
     document.getElementById('info').innerHTML =
         '<b>Generated:</b> ' + data.timestamp + ' | ' +
         '<b>Platform:</b> ' + data.platform.os + ' ' + data.platform.release + ' | ' +
         '<b>Python:</b> ' + data.platform.python + ' | ' +
         '<b>Runs:</b> ' + data.results.length;
 
-    // ── Bar chart: latency & completion time ──
+    // ── Bar chart: synthesis time vs audio duration (both in ms) ──
+    const chartable = data.results.filter(d => !d.skipped);
     const container = document.getElementById('chart-container');
     const margin = {{top: 20, right: 30, bottom: 80, left: 60}};
     const width = container.clientWidth - margin.left - margin.right;
@@ -575,17 +577,21 @@ d3.run(function() {{
         .attr('transform', `translate(${{margin.left}},${{margin.top}})`);
 
     const x0 = d3.scaleBand()
-        .domain(data.results.map(d => d.stack_id + (d.model_id ? '/' + d.model_id : '')))
+        .domain(chartable.map(d => d.stack_id + (d.model_id ? '/' + d.model_id : '') + '/' + d.voice_id))
         .rangeRound([0, width])
         .paddingInner(0.1);
 
     const x1 = d3.scaleBand()
-        .domain(['latency_ms', 'completion_ms'])
+        .domain(['synthesis_ms', 'audio_duration_ms'])
         .range([0, x0.bandwidth()])
         .padding(0.05);
 
+    const seriesValue = (d, key) => key === 'audio_duration_ms'
+        ? Math.max(0, d.audio_duration_s) * 1000
+        : Math.max(0, d.synthesis_ms);
+
     const y = d3.scaleLinear()
-        .domain([0, d3.max(data.results, d => Math.max(d.latency_ms, d.completion_ms)) * 1.1 || 100])
+        .domain([0, d3.max(chartable, d => Math.max(seriesValue(d, 'synthesis_ms'), seriesValue(d, 'audio_duration_ms'))) * 1.1 || 100])
         .nice()
         .range([height, 0]);
 
@@ -599,41 +605,44 @@ d3.run(function() {{
     svg.append('g').call(d3.axisLeft(y));
 
     const color = d3.scaleOrdinal()
-        .domain(['latency_ms', 'completion_ms'])
+        .domain(['synthesis_ms', 'audio_duration_ms'])
         .range(['#00d4ff', '#7b68ee']);
 
-    data.results.forEach(d => {{
-        const key = d.stack_id + (d.model_id ? '/' + d.model_id : '');
-        svg.append('rect')
-            .attr('x', x0(key) + x1('latency_ms'))
-            .attr('y', y(d.latency_ms))
-            .attr('width', x1.bandwidth())
-            .attr('height', height - y(d.latency_ms))
-            .attr('fill', color('latency_ms'))
-            .attr('rx', 2);
-
-        svg.append('rect')
-            .attr('x', x0(key) + x1('completion_ms'))
-            .attr('y', y(d.completion_ms))
-            .attr('width', x1.bandwidth())
-            .attr('height', height - y(d.completion_ms))
-            .attr('fill', color('completion_ms'))
-            .attr('rx', 2);
+    chartable.forEach(d => {{
+        const key = d.stack_id + (d.model_id ? '/' + d.model_id : '') + '/' + d.voice_id;
+        ['synthesis_ms', 'audio_duration_ms'].forEach(series => {{
+            const v = seriesValue(d, series);
+            svg.append('rect')
+                .attr('x', x0(key) + x1(series))
+                .attr('y', y(v))
+                .attr('width', x1.bandwidth())
+                .attr('height', height - y(v))
+                .attr('fill', color(series))
+                .attr('rx', 2);
+        }});
     }});
 
     // ── Legend ──
     const legend = d3.select('#chart-container').append('div').attr('class', 'legend');
-    ['latency_ms', 'completion_ms'].forEach(metric => {{
+    const legendLabels = {{ synthesis_ms: 'Synthesis Time', audio_duration_ms: 'Audio Duration' }};
+    ['synthesis_ms', 'audio_duration_ms'].forEach(metric => {{
         const item = legend.append('div').attr('class', 'legend-item');
         item.append('div').attr('class', 'legend-dot')
             .style('background', color(metric));
-        item.append('span').text(metric.replace('_', ' ').replace(/\\b\\w/g, c => c.toUpperCase()));
+        item.append('span').text(legendLabels[metric]);
     }});
 
     // ── Table rows ──
     const tbody = document.getElementById('results-body');
     data.results.forEach(d => {{
         const tr = tbody.insertRow();
+        if (d.skipped) {{
+            const td = tr.insertCell();
+            td.colSpan = 9;
+            td.className = 'status-na';
+            td.textContent = `${{d.stack_id}}${{d.model_id ? '/' + d.model_id : ''}}/${{d.voice_id}} — skipped: ${{d.skip_reason}}`;
+            return;
+        }}
         const cols = [
             {{ key: 'stack_id',          fmt: v => v }},
             {{ key: 'model_id',          fmt: v => v ?? '-' }},
@@ -655,9 +664,11 @@ d3.run(function() {{
             td.textContent = fmt(val);
         }});
     }});
-}}).catch(err => {{
+  }} catch (err) {{
     document.getElementById('info').innerHTML = '<b>Error rendering:</b> ' + err.message;
-}});
+    console.error(err);
+  }}
+}})();
 </script>
 </body>
 </html>"""
