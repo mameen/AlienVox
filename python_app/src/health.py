@@ -5,7 +5,9 @@ Checks, in order:
   2. numpy/protobuf land on versions that satisfy every ML engine's pins
      (see requirements.txt comments for why these are capped/floored).
   3. Model weights exist on disk for each entry in stacks.yaml.
-  4. Known engine-level limitations (e.g. Piper's synthesize() stub) are
+  4. Hardware summary (CPU, RAM, GPU/VRAM) — informational, explains why
+     perf numbers look the way they do (e.g. CPU-only inference).
+  5. Known engine-level limitations (e.g. Piper's synthesize() stub) are
      surfaced as warnings rather than silently producing empty audio.
 
 Usage:
@@ -124,6 +126,63 @@ def _check_model_weights(stacks_yaml: Path, models_root: Path) -> list[CheckResu
     return results
 
 
+# ── Hardware ─────────────────────────────────────────────────────────────────
+# Informational only — doesn't affect READY/NOT READY, but perf numbers are
+# meaningless without knowing what they were measured on.
+
+def _check_hardware() -> list[CheckResult]:
+    import os
+    import platform as _platform
+    results: list[CheckResult] = []
+
+    cpu_name = _platform.processor() or _platform.uname().processor or "unknown"
+
+    # CPU
+    try:
+        import psutil  # type: ignore
+        physical = psutil.cpu_count(logical=False) or 0
+        logical = psutil.cpu_count(logical=True) or 0
+        results.append(CheckResult(
+            "CPU", True, f"{cpu_name} — {physical} physical / {logical} logical cores",
+        ))
+    except ImportError:
+        results.append(CheckResult(
+            "CPU", True,
+            f"{cpu_name} — {os.cpu_count() or 0} logical cores (psutil not installed for physical count)",
+        ))
+
+    # RAM
+    try:
+        import psutil  # type: ignore
+        vm = psutil.virtual_memory()
+        results.append(CheckResult(
+            "RAM", True,
+            f"{vm.total / (1024**3):.1f} GB total, {vm.available / (1024**3):.1f} GB available",
+        ))
+    except ImportError:
+        results.append(CheckResult("RAM", True, "psutil not installed — install it for RAM info", is_warning=True))
+
+    # GPU / VRAM
+    try:
+        import torch
+        if torch.cuda.is_available():
+            for i in range(torch.cuda.device_count()):
+                props = torch.cuda.get_device_properties(i)
+                results.append(CheckResult(
+                    f"GPU {i}", True,
+                    f"{props.name} — {props.total_memory / (1024**3):.1f} GB VRAM (CUDA)",
+                ))
+        else:
+            results.append(CheckResult(
+                "GPU", True, "No CUDA GPU detected — ML engines will run on CPU",
+                is_warning=True,
+            ))
+    except Exception as exc:
+        results.append(CheckResult("GPU", True, f"could not query GPU: {exc}", is_warning=True))
+
+    return results
+
+
 # ── Known engine limitations ──────────────────────────────────────────────────
 
 def _check_known_limitations() -> list[CheckResult]:
@@ -182,11 +241,14 @@ def run() -> int:
     weight_results = _check_model_weights(stacks_yaml, _models_root())
     _print_section("Model weights (.models/)", weight_results)
 
+    hardware_results = _check_hardware()
+    _print_section("Hardware", hardware_results)
+
     limitation_results = _check_known_limitations()
     if limitation_results:
         _print_section("Known limitations", limitation_results)
 
-    all_results = import_results + version_results + weight_results + limitation_results
+    all_results = import_results + version_results + weight_results + hardware_results + limitation_results
     failures = [r for r in all_results if not r.ok and not r.is_warning]
     warnings = [r for r in all_results if r.is_warning]
 
