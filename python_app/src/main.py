@@ -4,11 +4,13 @@ from __future__ import annotations
 import sys
 import threading
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from .engines.base import TtsEngine
 
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
 from . import logger as _logger
@@ -80,6 +82,9 @@ def main() -> int:
     app.setApplicationName("AlienVox")
     app.setOrganizationName("AlienTech.Software")
     app.setQuitOnLastWindowClosed(False)
+    _app_icon_path = Path(__file__).parent / "resources" / "icons" / "icon_256x256.png"
+    if _app_icon_path.exists():
+        app.setWindowIcon(QIcon(str(_app_icon_path)))
 
     tel = Telemetry()
     log_path = _logger.init(tel.session_id)

@@ -15,10 +15,8 @@ from pathlib import Path
 from ..config import load_stacks_catalog, models_root
 
 
-def _speech_platform_installed() -> bool:
-    """Return True if Microsoft Speech Platform v11 voices are present."""
-    if sys.platform != "win32":
-        return False
+def _detect_speech_platform_via_registry() -> bool:
+    """One-shot registry probe — only called when the cache file is absent."""
     try:
         import winreg
         key = winreg.OpenKey(
@@ -29,6 +27,42 @@ def _speech_platform_installed() -> bool:
         return True
     except OSError:
         return False
+
+
+def _platform_cache_path() -> Path:
+    """platform.yaml lives next to stacks.yaml so it travels with the app."""
+    from ..config import stacks_yaml_path
+    return stacks_yaml_path().parent / "platform.yaml"
+
+
+def _speech_platform_installed() -> bool:
+    """Return True if Microsoft Speech Platform v11 voices are present.
+
+    Result is cached in platform.yaml next to stacks.yaml.  Delete that file
+    to force re-detection (e.g. after installing the Speech Platform runtime).
+    """
+    if sys.platform != "win32":
+        return False
+
+    import yaml
+
+    cache = _platform_cache_path()
+    if cache.exists():
+        try:
+            with cache.open(encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+            return bool(data.get("speech_platform_installed", False))
+        except Exception:
+            pass  # corrupt cache → fall through to re-detect
+
+    result = _detect_speech_platform_via_registry()
+    try:
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        with cache.open("w", encoding="utf-8") as f:
+            yaml.dump({"speech_platform_installed": result}, f)
+    except Exception:
+        pass  # cache write failure is non-fatal
+    return result
 
 
 @dataclass
