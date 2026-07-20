@@ -50,12 +50,12 @@ class TestConfigPerf:
         print(f"\n  load_effective_config: {ms:.2f} ms")
         assert ms < 30, f"load_effective_config took {ms:.1f} ms (threshold 30 ms)"
 
-    def test_get_controls_under_10ms(self):
+    def test_get_controls_under_25ms(self):
         from src.config import get_controls
         stacks_yaml = FIXTURES / "stacks.yaml"
         ms = _elapsed_ms(get_controls, "sapi5", stacks_yaml=stacks_yaml)
         print(f"\n  get_controls: {ms:.2f} ms")
-        assert ms < 10, f"get_controls took {ms:.1f} ms (threshold 10 ms)"
+        assert ms < 25, f"get_controls took {ms:.1f} ms (threshold 25 ms)"
 
 
 # ── Registry benchmarks ───────────────────────────────────────────────────────

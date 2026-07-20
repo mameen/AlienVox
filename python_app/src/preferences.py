@@ -22,7 +22,6 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
-    QDoubleSpinBox,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
@@ -38,7 +37,6 @@ from PySide6.QtWidgets import (
 from .config import (
     get_controls,
     get_voices,
-    list_models,
     load_effective_config,
     save_user_override,
 )

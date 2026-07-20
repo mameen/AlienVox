@@ -4,9 +4,14 @@ from __future__ import annotations
 import sys
 import threading
 import time
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .engines.base import TtsEngine
 
 from PySide6.QtWidgets import QApplication
 
+from . import logger as _logger
 from .about import AboutDialog
 from .config import get_voices, load_effective_config, save_user_override
 from .engines.base import SpeakParams
@@ -17,17 +22,56 @@ from .telemetry import Telemetry
 from .tray import AlienVoxTray
 from .version import version as get_version
 
+_log = _logger.get_logger("main")
 
-def _load_engine(engine_id: str):
+
+def _load_engine(engine_id: str, model_id: str = "") -> "TtsEngine | None":
     """Return a live TtsEngine for the active stack, or None."""
-    if engine_id == "sapi5" and sys.platform == "win32":
-        try:
-            from .engines.sapi_win import SapiEngine
-            return SapiEngine()
-        except Exception:
-            return None
-    # ML engines wired in Stage 3
+    if sys.platform == "win32":
+        if engine_id == "sapi5":
+            try:
+                from .engines.sapi_win import SapiEngine
+                return SapiEngine()
+            except Exception as exc:
+                _log.error("SapiEngine init failed: %s", exc)
+                return None
+        if engine_id == "speech_platform":
+            try:
+                from .engines.sapi_win import SpeechPlatformEngine
+                return SpeechPlatformEngine()
+            except Exception as exc:
+                _log.warn("SpeechPlatformEngine init failed (runtime not installed?): %s", exc)
+                return None
+    if engine_id == "ml":
+        model = model_id or "kokoro"
+        if model == "kokoro":
+            try:
+                from .engines.kokoro_engine import KokoroEngine
+                eng = KokoroEngine()
+                _log.info("KokoroEngine loaded")
+                return eng
+            except Exception as exc:
+                _log.error("KokoroEngine init failed: %s", exc)
+                return None
+        _log.warn("ML model=%s not yet implemented", model)
+        return None
     return None
+
+
+def _speak_startup(engine, voice_id: str) -> None:
+    """Play a spoken startup announcement to confirm the audio pipeline is alive."""
+    import time as _time
+    _time.sleep(0.6)  # let the UI finish painting first
+    try:
+        from .engines.base import SpeakParams
+        engine.speak(
+            "AlienVox is ready. The dedicated audio engine is running.",
+            voice_id,
+            SpeakParams(),
+        )
+        _log.info("startup announcement spoken")
+    except Exception as exc:
+        _log.warn("startup announcement failed: %s", exc)
 
 
 def main() -> int:
@@ -37,6 +81,17 @@ def main() -> int:
     app.setQuitOnLastWindowClosed(False)
 
     tel = Telemetry()
+    log_path = _logger.init(tel.session_id)
+
+    # ── Startup banner (printed to stdout so `run.py app` shows it) ───────────
+    version = get_version()
+    print("")
+    print(f"  AlienVox  v{version}")
+    print(f"  Session : {tel.session_id}")
+    print(f"  Log     : {log_path}")
+    print("")
+
+    _log.info("AlienVox v%s starting — session %s", version, tel.session_id)
     tel.emit("app.start")
 
     cfg = load_effective_config()
@@ -44,7 +99,12 @@ def main() -> int:
 
     active_stack = cfg.get("engine", "sapi5")
     active_model = cfg.get("model", "")
-    engine = _load_engine(active_stack)
+    _log.info("active stack=%s model=%s", active_stack, active_model or "(none)")
+    engine = _load_engine(active_stack, active_model)
+    if engine:
+        _log.info("engine loaded: %s", type(engine).__name__)
+    else:
+        _log.warn("no engine loaded for stack=%s", active_stack)
 
     _main_window: MainWindow | None = None
     _about_dialog: AboutDialog | None = None
@@ -137,10 +197,54 @@ def main() -> int:
     # ── Persistence callbacks ───────────────────────────────────────────────
 
     def on_voice_changed(vid: str) -> None:
+        cfg["voice"] = vid  # update in-memory so next speak() picks it up immediately
         save_user_override({"voice": vid})
         if engine and active_stack == "sapi5":
             voices = [{"id": v.id, "label": v.name} for v in engine.list_voices()]
             tray.populate_voices(voices, vid, lambda v: on_voice_changed(v))
+        elif engine and active_stack == "ml":
+            # Refresh ML voices from engine (PiperEngine reads from stacks.yaml)
+            ml_voices = engine.list_voices() if hasattr(engine, 'list_voices') else []
+            if ml_voices:
+                tray.populate_voices(
+                    [{"id": v.id, "label": v.name} for v in ml_voices],
+                    vid,
+                    lambda v: on_voice_changed(v),
+                )
+
+    def on_stack_changed(new_stack_id: str, voice_id: str = "") -> None:
+        """Called when the user switches engine tabs in the main window."""
+        nonlocal engine, active_stack, active_model
+        if new_stack_id == active_stack:
+            return
+        _log.info("stack switch: %s → %s", active_stack, new_stack_id)
+
+        # Stop current engine before swapping
+        if engine:
+            try:
+                engine.stop()
+            except Exception:
+                pass
+
+        active_stack = new_stack_id
+        # For ml stack, preserve model; for sapi stacks model is empty
+        if new_stack_id == "ml":
+            active_model = cfg.get("model", "") or "kokoro"
+        else:
+            active_model = ""
+
+        cfg["engine"] = new_stack_id
+        save_user_override({"engine": new_stack_id})
+
+        engine = _load_engine(active_stack, active_model)
+        if engine:
+            _log.info("engine swapped: %s", type(engine).__name__)
+        else:
+            _log.warn("no engine for stack=%s", active_stack)
+
+        if voice_id:
+            cfg["voice"] = voice_id
+            save_user_override({"voice": voice_id})
 
     def on_config_saved(patch: dict[str, Any]) -> None:
         save_user_override(patch)
@@ -153,11 +257,43 @@ def main() -> int:
     def _ensure_main_window() -> MainWindow:
         nonlocal _main_window
         if _main_window is None:
-            # Try to load voices eagerly; fall back to lazy load on first open
-            live_voices: list[dict] | None = None
-            if active_stack == "sapi5" and engine:
+            # Populate voices for every available Windows SAPI stack so all tabs show
+            # real voices, not just the active one.
+            win_live_voices: dict[str, list[dict]] = {}
+
+            # Active engine voices
+            if engine:
                 try:
-                    live_voices = [{"id": v.id, "label": v.name} for v in engine.list_voices()]
+                    vlist = [{"id": v.id, "label": v.name} for v in engine.list_voices()]
+                    win_live_voices[active_stack] = vlist
+                    _log.info("window: loaded %d voices for stack=%s", len(vlist), active_stack)
+                except Exception as exc:
+                    _log.warn("window: voice enumeration failed: %s", exc)
+
+            # Always enumerate non-active SAPI stacks so their tabs aren't blank.
+            if sys.platform == "win32":
+                _sapi_stacks = {"sapi5", "speech_platform"} - {active_stack}
+                for sid in _sapi_stacks:
+                    try:
+                        if sid == "sapi5":
+                            from .engines.sapi_win import SapiEngine
+                            _aux = SapiEngine()
+                        else:
+                            from .engines.sapi_win import SpeechPlatformEngine
+                            _aux = SpeechPlatformEngine()
+                        vlist = [{"id": v.id, "label": v.name} for v in _aux.list_voices()]
+                        if vlist:
+                            win_live_voices[sid] = vlist
+                            _log.info("window: loaded %d voices for stack=%s (non-active)", len(vlist), sid)
+                    except Exception as exc:
+                        _log.warn("window: voice enum failed for stack=%s: %s", sid, exc)
+
+            # ML voices from engine or stacks.yaml
+            if active_stack == "ml" and not win_live_voices.get("ml"):
+                try:
+                    yaml_voices = get_voices("ml", active_model or "kokoro")
+                    if yaml_voices:
+                        win_live_voices["ml"] = yaml_voices
                 except Exception:
                     pass
 
@@ -168,6 +304,10 @@ def main() -> int:
                 on_stop=_do_stop,
                 on_voice_changed=on_voice_changed,
                 on_config_saved=on_config_saved,
+                on_about=open_about,
+                on_stack_changed=on_stack_changed,
+                live_voices=win_live_voices,
+                current_voice_id=cfg.get("voice", ""),
             )
         return _main_window
 
@@ -199,14 +339,20 @@ def main() -> int:
             engine.stop()
         app.quit()
 
-    voices = get_voices(active_stack, active_model) if active_model else []
-    # For sapi5, populate from live engine at runtime
+    voices: list[dict] = []
     if active_stack == "sapi5" and engine:
         try:
             live_voices = engine.list_voices()
             voices = [{"id": v.id, "label": v.name} for v in live_voices]
         except Exception:
             pass
+    elif active_stack == "ml" and engine:
+        try:
+            voices = [{"id": v.id, "label": v.name} for v in engine.list_voices()]
+        except Exception:
+            voices = get_voices(active_stack, active_model or "kokoro")
+    elif active_model:
+        voices = get_voices(active_stack, active_model)
 
     tray = AlienVoxTray(
         on_speak=speak_async,
@@ -228,6 +374,21 @@ def main() -> int:
 
     tray.show()
     open_settings()  # show main window on startup
+
+    # Spoken startup announcement — confirms audio pipeline is alive.
+    if engine and active_stack in ("sapi5", "ml"):
+        voice_id = cfg.get("voice", "")
+        if not voice_id:
+            try:
+                all_voices = engine.list_voices()
+                voice_id = all_voices[0].id if all_voices else ""
+            except Exception:
+                voice_id = ""
+        threading.Thread(
+            target=_speak_startup,
+            args=(engine, voice_id),
+            daemon=True,
+        ).start()
 
     hotkey_listener = start_listener(
         cfg.get("hotkey", "<ctrl>+<esc>"),

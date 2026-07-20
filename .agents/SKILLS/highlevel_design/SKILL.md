@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Cross-platform environment (Windows 11 / macOS 14+)
 metadata:
   author: AlienTech.Software
-  version: "2.0"
+  version: "2.1"
 ---
 
 # Cross-Platform Architecture & Development Guidelines
@@ -145,6 +145,97 @@ the engine and the frontend.
 - **Persistence is trivial**: writing `user.yaml` is the only mutation site.
 - **Diffing is straightforward**: `git diff` on the config folder shows exactly what changed between runs.
 - **Testing is decoupled**: engine and renderer tests take a YAML fixture instead of mocking IPC.
+
+---
+
+## 7. Python App — UI Architecture Pattern
+
+### 7.1 Current Pattern: MVP (Model-View-Presenter)
+
+The Python app (`python_app/`) uses **MVP with callbacks**, not MVC or MVVM. The distinction matters because it explains which bugs are natural and which require discipline to avoid.
+
+```mermaid
+flowchart TD
+    subgraph Model
+        E1["engines/base.py\nTtsEngine (abstract)"]
+        E2["engines/sapi_win.py\nSapiEngine · SpeechPlatformEngine"]
+        E3["engines/kokoro_engine.py\nKokoroEngine"]
+        C["config.py\nload_effective_config · save_user_override"]
+        Y["stacks.yaml\nvoice / model / control catalog"]
+    end
+
+    subgraph Presenter["Presenter — main.py"]
+        P["Owns all mutable state\nengine · active_stack · active_model · cfg\n\nspeak() · stop()\non_voice_changed() · on_stack_changed()\non_config_saved()"]
+    end
+
+    subgraph Views
+        MW["main_window.py\nMainWindow\n(pure Qt UI — no state, no engine refs)"]
+        TR["tray.py\nAlienVoxTray\n(pure Qt UI — no state, no engine refs)"]
+    end
+
+    Model -->|"read / write"| Presenter
+    MW -->|"callbacks (user action → Presenter)"| Presenter
+    TR -->|"callbacks (user action → Presenter)"| Presenter
+    Presenter -->|"method calls (push updates)"| MW
+    Presenter -->|"method calls (push updates)"| TR
+```
+
+**Key invariant**: Views hold **no mutable application state** and have **no direct references to engine objects**. Every user action fires a callback into the Presenter. The Presenter mutates state and pushes updates back to the View via explicit method calls (`update_voices()`, `set_speaking()`, etc.).
+
+### 7.2 Why Not MVVM?
+
+MVVM would place observable properties (`active_stack`, `engine`, `voices`) on a **ViewModel** object. The View would bind to those properties and update automatically when they change — no explicit push calls needed. The tab-switch bug (2026-07-20: switching engine tabs didn't swap the engine) is the canonical symptom of MVP without full state routing: the View fired an event, but the Presenter had no registered handler for it yet.
+
+In MVVM that bug is structurally impossible: `active_stack` is an observable on the ViewModel; the View binds to it; changing it automatically triggers the engine-swap side-effect.
+
+**Adopting MVVM in PySide6** requires:
+- A `AppViewModel` class with `Signal`-backed properties (`active_stack_changed = Signal(str)`, etc.)
+- Views connect to those signals rather than receiving injected callbacks
+- The Presenter role dissolves into the ViewModel
+
+This is the correct long-term direction. Until then, every new user action (tab switch, model change, hotkey rebind) **must have an explicit callback registered** in `main.py` — document the gap in `todo_001.md` when one is missing.
+
+### 7.3 Callback Contract
+
+Every View → Presenter boundary must be declared in `MainWindow.__init__` as a named `Callable` parameter. No implicit event routing, no direct method calls from View into `main.py`. The full contract as of 2026-07-20:
+
+| Callback | Fired when | Presenter action |
+| :--- | :--- | :--- |
+| `on_speak(text)` | Play button / hotkey | `speak_async(text)` |
+| `on_stop()` | Stop button | `engine.stop()` |
+| `on_voice_changed(voice_id)` | Voice dropdown changes | update `cfg["voice"]`, save |
+| `on_stack_changed(stack_id, voice_id)` | Engine tab switches | swap `engine`, update `cfg["engine"]`, save |
+| `on_config_saved(patch)` | Slider released | `save_user_override(patch)` |
+| `on_about()` | About button | open `AboutDialog` |
+
+Any new UI control that changes application state **must** add a row to this table and a corresponding parameter to `MainWindow.__init__`.
+
+### 7.4 Migration Path Toward MVVM
+
+When the callback table exceeds ~10 entries or state synchronisation bugs recur, migrate incrementally:
+
+1. Extract `AppState` dataclass: `active_stack`, `active_model`, `voice_id`, `engine`, `cfg`.
+2. Wrap it in `AppViewModel(QObject)` with `Signal` properties.
+3. Replace injected callbacks with signal connections in `MainWindow.__init__`.
+4. `main.py` becomes a thin bootstrap: instantiate `AppViewModel`, connect signals, start Qt event loop.
+
+```mermaid
+flowchart LR
+    subgraph MVVM["Target: MVVM"]
+        VM["AppViewModel\n(QObject)\nactive_stack: Signal\nvoices: Signal\nengine: Signal"]
+        V1["MainWindow\n(binds to VM signals)"]
+        V2["AlienVoxTray\n(binds to VM signals)"]
+        M["Model\nengines · config · stacks.yaml"]
+    end
+
+    VM -->|"Signal emit"| V1
+    VM -->|"Signal emit"| V2
+    V1 -->|"slot call"| VM
+    V2 -->|"slot call"| VM
+    VM -->|"read / write"| M
+```
+
+Record this migration as `python_app/docs/adr/adr-003-mvvm-migration.md` when the decision is made.
 
 ---
 

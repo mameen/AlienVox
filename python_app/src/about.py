@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QDesktopServices, QFont, QPixmap
 from PySide6.QtWidgets import (
     QDialog,
@@ -12,16 +12,13 @@ from PySide6.QtWidgets import (
     QLabel,
     QPushButton,
     QScrollArea,
-    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
-from PySide6.QtCore import QUrl
-
-_ICONS = Path(__file__).parent / "resources" / "icons"
-
 
 from .version import version as get_version
+
+_ICONS = Path(__file__).parent / "resources" / "icons"
 
 
 class AboutDialog(QDialog):
@@ -30,7 +27,9 @@ class AboutDialog(QDialog):
         self.setWindowTitle("About AlienVox")
         self.setFixedSize(580, 520)
         self.setWindowFlags(
-            self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint
+            Qt.WindowType.Dialog |
+            Qt.WindowType.WindowTitleHint |
+            Qt.WindowType.WindowCloseButtonHint
         )
 
         root = QVBoxLayout(self)

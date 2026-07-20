@@ -14,12 +14,11 @@ import time
 if sys.platform != "win32":
     raise ImportError("capture is Windows-only")
 
-import win32api       # type: ignore
-import win32clipboard # type: ignore
-import win32con       # type: ignore
-import win32gui       # type: ignore
-import win32process   # type: ignore
-
+import win32api  # type: ignore
+import win32clipboard  # type: ignore
+import win32con  # type: ignore
+import win32gui  # type: ignore
+import win32process  # type: ignore
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
@@ -98,29 +97,29 @@ def _clipboard_copy(wait_ms: int) -> str:
 # ── Clipboard helpers ─────────────────────────────────────────────────────────
 
 def _read_clipboard() -> str:
-    try:
-        win32clipboard.OpenClipboard()
-        if win32clipboard.IsClipboardFormatAvailable(win32con.CF_UNICODETEXT):
-            return win32clipboard.GetClipboardData(win32con.CF_UNICODETEXT) or ""
-        return ""
-    except Exception:
-        return ""
-    finally:
+    for _ in range(5):
         try:
-            win32clipboard.CloseClipboard()
+            win32clipboard.OpenClipboard()
+            try:
+                if win32clipboard.IsClipboardFormatAvailable(win32con.CF_UNICODETEXT):
+                    return win32clipboard.GetClipboardData(win32con.CF_UNICODETEXT) or ""
+                return ""
+            finally:
+                win32clipboard.CloseClipboard()
         except Exception:
-            pass
+            time.sleep(0.01)
+    return ""
 
 
 def _write_clipboard(text: str) -> None:
-    try:
-        win32clipboard.OpenClipboard()
-        win32clipboard.EmptyClipboard()
-        win32clipboard.SetClipboardData(win32con.CF_UNICODETEXT, text)
-    except Exception:
-        pass
-    finally:
+    for _ in range(5):
         try:
-            win32clipboard.CloseClipboard()
+            win32clipboard.OpenClipboard()
+            try:
+                win32clipboard.EmptyClipboard()
+                win32clipboard.SetClipboardData(win32con.CF_UNICODETEXT, text)
+                return
+            finally:
+                win32clipboard.CloseClipboard()
         except Exception:
-            pass
+            time.sleep(0.01)

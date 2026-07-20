@@ -7,17 +7,21 @@ Opened from the tray "Settings…" item (or double-click in the future).
 """
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 from typing import Any, Callable
 
-from PySide6.QtCore import Qt, QUrl, Signal, QSize, QTimer
-from PySide6.QtGui import QAction, QColor, QDesktopServices, QFont, QIcon, QPainter, QPixmap, QPolygon
-from PySide6.QtCore import QPoint
+from PySide6.QtCore import QPoint, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import (
+    QColor,
+    QFont,
+    QIcon,
+    QPainter,
+    QPixmap,
+    QPolygon,
+)
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
-    QGroupBox,
     QHBoxLayout,
     QLabel,
     QMainWindow,
@@ -26,7 +30,6 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QSlider,
     QStatusBar,
-    QTabBar,
     QTabWidget,
     QToolBar,
     QToolButton,
@@ -34,7 +37,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .config import get_controls, get_voices, list_models, load_effective_config, save_user_override
+from .config import get_controls, get_voices, load_effective_config
 from .engines.registry import StackInfo
 
 _ACCENT = "#0078d4"
@@ -148,6 +151,10 @@ class MainWindow(QMainWindow):
         on_stop: Callable | None = None,
         on_voice_changed: Callable[[str], None] | None = None,
         on_config_saved: Callable[[dict[str, Any]], None] | None = None,
+        on_about: Callable | None = None,
+        on_stack_changed: Callable[[str], None] | None = None,
+        live_voices: dict[str, list[dict]] | None = None,
+        current_voice_id: str = "",
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -163,6 +170,11 @@ class MainWindow(QMainWindow):
         self._on_stop_cb = on_stop
         self._on_voice_changed_cb = on_voice_changed
         self._on_config_saved_cb = on_config_saved
+        self._on_about_cb = on_about
+        self._on_stack_changed_cb = on_stack_changed
+        # live_voices: {stack_id -> [{id, label}, ...]} from running engine
+        self._live_voices: dict[str, list[dict]] = live_voices or {}
+        self._current_voice_id = current_voice_id
 
         # Collectors for post-build wiring
         self._voice_combos: list[tuple[QComboBox, str]] = []
@@ -245,6 +257,13 @@ class MainWindow(QMainWindow):
         self._btn_play  = _icon_btn(_make_play_icon(),  "Play (speak text)", self._on_play)
         self._btn_pause = _icon_btn(_make_pause_icon(), "Pause",             self._on_pause)
         self._btn_stop  = _icon_btn(_make_stop_icon(),  "Stop",              self._on_stop)
+
+        # Spacer to push About to the right
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        tb.addWidget(spacer)
+        _sep()
+        _icon_btn(_make_about_icon(), "About AlienVox", self._on_about)
         self.addToolBar(tb)
 
     # ── Central widget ────────────────────────────────────────────────────────
@@ -290,6 +309,33 @@ class MainWindow(QMainWindow):
         sb.addWidget(self._status_lbl)
         sb.addPermanentWidget(self._chars_lbl)
         self.setStatusBar(sb)
+
+    # ── Public voice API ─────────────────────────────────────────────────────
+
+    def update_voices(self, stack_id: str, voices: list[dict], current_voice_id: str = "") -> None:
+        """Populate the voice dropdown for `stack_id` with live engine voices.
+
+        Call this from main.py after the engine finishes enumerating voices,
+        e.g. for sapi5 after SapiEngine.list_voices() returns.
+        """
+        for combo, sid in self._voice_combos:
+            if sid == stack_id:
+                self._fill_voice_combo(combo, voices, current_voice_id or self._current_voice_id)
+                break
+
+    def _fill_voice_combo(
+        self, combo: QComboBox, voices: list[dict], current_voice_id: str = ""
+    ) -> None:
+        combo.blockSignals(True)
+        combo.clear()
+        select_idx = 0
+        for i, v in enumerate(voices):
+            combo.addItem(v.get("label", v["id"]), v["id"])
+            if v["id"] == current_voice_id:
+                select_idx = i
+        if current_voice_id:
+            combo.setCurrentIndex(select_idx)
+        combo.blockSignals(False)
 
     # ── Wiring ────────────────────────────────────────────────────────────────
 
@@ -410,8 +456,11 @@ class MainWindow(QMainWindow):
             first_model = stack.models[0]
             for v in first_model.voices:
                 voice_combo.addItem(v.get("label", v["id"]), v["id"])
-        elif stack.id == "sapi5":
-            voice_combo.addItem("(populated from OS at runtime)", "")
+        elif stack.id in self._live_voices and self._live_voices[stack.id]:
+            # OS-enumerated voices supplied by the engine at startup
+            self._fill_voice_combo(voice_combo, self._live_voices[stack.id])
+        elif stack.id in ("sapi5", "speech_platform"):
+            voice_combo.addItem("(loading voices…)", "")
         else:
             voices = get_voices(stack.id)
             for v in voices:
@@ -521,11 +570,30 @@ class MainWindow(QMainWindow):
             self._on_stop_cb()
         self._set_status("Stopped")
 
+    def _on_about(self) -> None:
+        if self._on_about_cb:
+            self._on_about_cb()
+        else:
+            from .about import AboutDialog
+            dlg = AboutDialog(parent=self)
+            dlg.exec()
+
     def _on_tab_changed(self, idx: int) -> None:
         tab = self._tabs.widget(idx)
-        if tab:
-            stack_id = tab.property("stack_id") or ""
-            self._set_status(f"Engine: {stack_id or '—'}")
+        if not tab:
+            return
+        stack_id = tab.property("stack_id") or ""
+        self._set_status(f"Engine: {stack_id or '—'}")
+
+        # Notify main.py so it can swap the active engine
+        if self._on_stack_changed_cb and stack_id:
+            # Also pass the currently selected voice for this tab
+            voice_id = ""
+            for combo, sid in self._voice_combos:
+                if sid == stack_id:
+                    voice_id = combo.currentData() or ""
+                    break
+            self._on_stack_changed_cb(stack_id, voice_id)
 
     def _on_model_changed(self, stack: StackInfo, model_id: str, voice_combo: QComboBox) -> None:
         model = next((m for m in stack.models if m.id == model_id), None)
@@ -635,6 +703,31 @@ def _make_stop_icon(size: int = 16) -> QIcon:
     p.setPen(Qt.PenStyle.NoPen)
     m = size // 4
     p.drawRect(m, m, size - m * 2, size - m * 2)
+    p.end()
+    return QIcon(pix)
+
+
+def _make_about_icon(size: int = 16) -> QIcon:
+    """App logo scaled to toolbar size — used for the About button."""
+    icons_dir = Path(__file__).parent / "resources" / "icons"
+    logo = icons_dir / "icon_16x16.png"
+    if logo.exists():
+        pix = QPixmap(str(logo))
+        if not pix.isNull():
+            return QIcon(pix)
+    # Fallback: draw a blue circle with a white "i"
+    pix = _make_icon(size)
+    p = QPainter(pix)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    p.setBrush(QColor("#0078d4"))
+    p.setPen(Qt.PenStyle.NoPen)
+    p.drawEllipse(1, 1, size - 2, size - 2)
+    p.setPen(QColor("#ffffff"))
+    f = p.font()
+    f.setBold(True)
+    f.setPixelSize(size - 4)
+    p.setFont(f)
+    p.drawText(pix.rect(), Qt.AlignmentFlag.AlignCenter, "i")
     p.end()
     return QIcon(pix)
 

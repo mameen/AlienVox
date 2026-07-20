@@ -1,7 +1,6 @@
 """Application version — loaded from version.yaml (single source of truth)."""
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 from typing import Any
 

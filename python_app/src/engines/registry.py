@@ -15,6 +15,22 @@ from pathlib import Path
 from ..config import load_stacks_catalog, models_root
 
 
+def _speech_platform_installed() -> bool:
+    """Return True if Microsoft Speech Platform v11 voices are present."""
+    if sys.platform != "win32":
+        return False
+    try:
+        import winreg
+        key = winreg.OpenKey(
+            winreg.HKEY_LOCAL_MACHINE,
+            r"SOFTWARE\Microsoft\Speech Server\v11.0\Voices\Tokens",
+        )
+        winreg.CloseKey(key)
+        return True
+    except OSError:
+        return False
+
+
 @dataclass
 class ModelInfo:
     id: str
@@ -57,12 +73,27 @@ def available_stacks(
             ))
             continue
 
-        # ML / other stacks: check each model's weights
+        if sid == "speech_platform":
+            # Microsoft Speech Platform (Speech Server v11) — present only when
+            # the runtime + language packs are installed. Detect via registry.
+            available = sys.platform == "win32" and _speech_platform_installed()
+            result.append(StackInfo(
+                id=sid,
+                name=s.get("name", sid),
+                available=available,
+                platform_reason="" if sys.platform == "win32" else "Windows only",
+                models=[],
+            ))
+            continue
+
+        # ML / other stacks: check each model's weights.
+        # Models with auto_download=true are always available (weights fetched on demand).
         model_infos: list[ModelInfo] = []
         for m in s.get("models", []):
             mid = m.get("id", "")
             weights = m.get("weights_subpath", "")
-            weights_ok = bool(weights) and (mr / weights).exists()
+            auto_dl = m.get("auto_download", False)
+            weights_ok = auto_dl or (bool(weights) and (mr / weights).exists())
             model_infos.append(ModelInfo(
                 id=mid,
                 name=m.get("name", mid),
