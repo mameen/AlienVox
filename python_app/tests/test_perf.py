@@ -233,7 +233,8 @@ def welcome_phrase_benchmark() -> list[PerfResult]:
     from src.engines.registry import available_stacks
 
     stacks_yaml = FIXTURES / "stacks.yaml"
-    models_root = ROOT  # dev mode: .models/ next to stacks.yaml
+    from src.config import models_root as _config_models_root
+    models_root = _config_models_root()  # same resolution every engine actually uses
 
     # Load stack catalog
     catalog = load_stacks_catalog(stacks_yaml)
