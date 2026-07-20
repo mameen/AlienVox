@@ -260,8 +260,11 @@ def main() -> int:
         )
 
     def _on_tray_voice_select(stack_id: str, model_id: str, voice_id: str) -> None:
-        # Always persist engine + model + voice together so restart restores all three
-        save_user_override({"engine": stack_id, "model": model_id, "voice": voice_id})
+        # Persist engine + voice always; model only when it's actually set (ML models pass real id; SAPI passes "")
+        patch = {"engine": stack_id, "voice": voice_id}
+        if model_id:
+            patch["model"] = model_id
+        save_user_override(patch)
         if stack_id != active_stack:
             cfg["engine"] = stack_id
             if model_id:
