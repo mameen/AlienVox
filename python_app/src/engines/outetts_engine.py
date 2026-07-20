@@ -14,6 +14,7 @@ import numpy as np
 
 from .. import logger as _logger_mod
 from ..audio_player import play_audio, stop_playback
+from ..device import cuda_available
 from .base import SpeakParams, TtsEngine, Voice
 
 _log = _logger_mod.get_logger("outetts")
@@ -48,8 +49,7 @@ class OuteTTSEngine(TtsEngine):
         with OuteTTSEngine._interface_lock:
             if OuteTTSEngine._interface is None:
                 import outetts
-                import torch
-                backend = outetts.Backend.CUDA if torch.cuda.is_available() else outetts.Backend.CPU
+                backend = outetts.Backend.CUDA if cuda_available() else outetts.Backend.CPU
                 _log.info("loading OuteTTS from %s (backend=%s)", _HF_REPO, backend)
                 OuteTTSEngine._interface = outetts.Interface(
                     model_path=_HF_REPO,

@@ -13,6 +13,8 @@ from src.engines.chatterbox_engine import (
     ChatterboxEngine,
 )
 
+from .conftest import requires_gpu
+
 # ── Voice roster ──────────────────────────────────────────────────────────────
 
 def test_valid_voice_ids_non_empty():
@@ -165,3 +167,25 @@ def test_stop_mid_generation_skips_playback():
         engine.wait_until_done(timeout_ms=5_000)
 
     assert len(played) == 0, "play_audio must not be called after stop()"
+
+
+# ── Device selection (hardware-conditional) ───────────────────────────────────
+
+@requires_gpu
+def test_get_model_selects_cuda_device_when_gpu_available(monkeypatch):
+    """On a real CUDA machine, _get_model() must request device='cuda', not 'cpu'."""
+    ChatterboxEngine._model = None
+    captured = {}
+
+    def fake_from_pretrained(device):
+        captured["device"] = device
+        return MagicMock()
+
+    mock_module = MagicMock()
+    mock_module.ChatterboxTTS.from_pretrained.side_effect = fake_from_pretrained
+    with patch.dict("sys.modules", {"chatterbox.tts": mock_module}):
+        engine = ChatterboxEngine()
+        engine._get_model()
+
+    assert captured["device"] == "cuda"
+    ChatterboxEngine._model = None  # reset singleton for other tests

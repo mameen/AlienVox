@@ -14,6 +14,7 @@ import numpy as np
 
 from .. import logger as _logger_mod
 from ..audio_player import play_audio, stop_playback
+from ..device import select_device
 from .base import SpeakParams, TtsEngine, Voice
 
 _log = _logger_mod.get_logger("chatterbox")
@@ -44,9 +45,8 @@ class ChatterboxEngine(TtsEngine):
     def _get_model(self):
         with ChatterboxEngine._model_lock:
             if ChatterboxEngine._model is None:
-                import torch
                 from chatterbox.tts import ChatterboxTTS
-                device = "cuda" if torch.cuda.is_available() else "cpu"
+                device = select_device()
                 _log.info("loading Chatterbox from %s on device=%s", _HF_REPO, device)
                 ChatterboxEngine._model = ChatterboxTTS.from_pretrained(device=device)
                 _log.info("Chatterbox model ready")

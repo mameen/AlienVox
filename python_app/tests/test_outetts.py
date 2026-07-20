@@ -13,6 +13,8 @@ from src.engines.outetts_engine import (
     OuteTTSEngine,
 )
 
+from .conftest import requires_gpu
+
 # ── Voice roster ──────────────────────────────────────────────────────────────
 
 def test_valid_voice_ids_non_empty():
@@ -148,3 +150,28 @@ def test_wait_until_done_returns_false_on_timeout():
     engine = OuteTTSEngine()
     engine._done.clear()
     assert engine.wait_until_done(timeout_ms=50) is False
+
+
+# ── Device selection (hardware-conditional) ───────────────────────────────────
+
+@requires_gpu
+def test_get_interface_selects_cuda_backend_when_gpu_available():
+    """On a real CUDA machine, _get_interface() must request Backend.CUDA."""
+    OuteTTSEngine._interface = None
+    captured = {}
+
+    mock_outetts = MagicMock()
+    mock_outetts.Backend.CUDA = "CUDA"
+    mock_outetts.Backend.CPU = "CPU"
+
+    def fake_interface(model_path, backend):
+        captured["backend"] = backend
+        return MagicMock()
+
+    mock_outetts.Interface.side_effect = fake_interface
+    with patch.dict("sys.modules", {"outetts": mock_outetts}):
+        engine = OuteTTSEngine()
+        engine._get_interface()
+
+    assert captured["backend"] == "CUDA"
+    OuteTTSEngine._interface = None  # reset singleton for other tests

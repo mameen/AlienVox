@@ -5,7 +5,34 @@ from pathlib import Path
 
 import pytest
 
+# Load .env (HUGGINGFACE_TOKEN, CUDA_VISIBLE_DEVICES, ...) before any test
+# imports torch, so GPU-conditional tests below see the same device
+# selection the app and run.py do.
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parent.parent / ".env", override=True)
+except ImportError:
+    pass
+
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
+
+
+def _cuda_available() -> bool:
+    """True if torch can see at least one CUDA device.
+
+    Duplicated from src/device.py rather than imported, so this file has no
+    hard dependency on the app package importing cleanly just to collect tests.
+    """
+    try:
+        import torch
+        return torch.cuda.is_available() and torch.cuda.device_count() > 0
+    except Exception:
+        return False
+
+
+requires_gpu = pytest.mark.skipif(
+    not _cuda_available(), reason="no CUDA GPU available"
+)
 
 # All ML model weight subdirs declared in stacks.yaml
 _ALL_ML_MODELS = [

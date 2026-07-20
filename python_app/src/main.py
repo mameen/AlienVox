@@ -10,6 +10,15 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from .engines.base import TtsEngine
 
+# Load .env (HUGGINGFACE_TOKEN, CUDA_VISIBLE_DEVICES, ...) before anything
+# that might import torch. Loaded here directly (not just by run.py) so
+# `python -m src.main` works standalone too, e.g. under a debugger.
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parent.parent / ".env", override=True)
+except ImportError:
+    pass
+
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
