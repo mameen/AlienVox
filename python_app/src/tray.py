@@ -108,17 +108,16 @@ class AlienVoxTray:
             stack_label = grp.get("label", stack_id)
 
             if "models" in grp:
-                # ML-style: Stack ▸ Models ▸ Voice (all models grouped under one root)
+                # ML-style: Stack ▸ Models ▸ [model] ▸ Voice (4 levels)
                 has_any = True
                 models_menu = self._voice_menu.addMenu(f"{stack_label} · Models")
                 for model in grp["models"]:
                     voices = model.get("voices", [])
                     if not voices:
                         continue
+                    model_submenu = models_menu.addMenu(model.get("label", model["id"]))
                     for v in voices:
-                        act = models_menu.addAction(
-                            f"{model.get('label', model['id'])} — {v.get('label', v['id'])}"
-                        )
+                        act = model_submenu.addAction(v.get("label", v["id"]))
                         act.setCheckable(True)
                         act.setChecked(v["id"] == current_voice_id)
                         _sid = stack_id
