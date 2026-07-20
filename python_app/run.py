@@ -20,6 +20,16 @@ from pathlib import Path
 ROOT = Path(__file__).parent
 SRC = ROOT / "src"
 TESTS = ROOT / "tests"
+VENV_DIR = ROOT / ".venv"
+
+
+def _venv_python() -> str:
+    """Return venv python executable if it exists, else sys.executable."""
+    if sys.platform.startswith("win"):
+        exe = VENV_DIR / "Scripts" / "python.exe"
+    else:
+        exe = VENV_DIR / "bin" / "python"
+    return str(exe) if exe.exists() else sys.executable
 
 
 def _run(*args: str, cwd: Path = ROOT) -> int:
@@ -39,7 +49,7 @@ def _header(title: str) -> None:
 def cmd_app() -> int:
     _header("Starting AlienVox")
     # Run as a package module so relative imports work correctly.
-    return _run(sys.executable, "-m", "src.main", cwd=ROOT)
+    return _run(_venv_python(), "-m", "src.main", cwd=ROOT)
 
 
 def cmd_build() -> int:
@@ -66,7 +76,7 @@ def cmd_build() -> int:
 
 def cmd_lint() -> int:
     _header("Lint — ruff")
-    rc = _run(sys.executable, "-m", "ruff", "check", str(SRC), str(TESTS))
+    rc = _run(_venv_python(), "-m", "ruff", "check", str(SRC), str(TESTS))
     if rc != 0:
         print("\n  Hint: run `python -m ruff check --fix src/ tests/` to auto-fix.")
     return rc
@@ -74,13 +84,13 @@ def cmd_lint() -> int:
 
 def cmd_test() -> int:
     _header("Test — pytest")
-    return _run(sys.executable, "-m", "pytest", str(TESTS), "-v")
+    return _run(_venv_python(), "-m", "pytest", str(TESTS), "-v")
 
 
 def cmd_cov() -> int:
     _header("Coverage — pytest + HTML report")
     rc = _run(
-        sys.executable, "-m", "pytest", str(TESTS),
+        _venv_python(), "-m", "pytest", str(TESTS),
         "--cov=src",
         "--cov-report=html",
         "--cov-report=term-missing",
@@ -96,13 +106,21 @@ def cmd_cov() -> int:
 
 def cmd_perf() -> int:
     _header("Perf — instrumentation benchmarks")
-    return _run(
-        sys.executable, "-m", "pytest",
+
+    # ── Unit benchmarks via pytest (config/registry/telemetry) ─────────────
+    rc = _run(
+        _venv_python(), "-m", "pytest",
         str(TESTS / "test_perf.py"),
         "-v", "--no-header", "--tb=short",
-        # disable coverage for perf run — we want raw timing
         "--no-cov",
     )
+
+    # ── Real-speech benchmark (standalone — SAPI COM requires STA threading) ─
+    _header("Perf — welcome phrase benchmark")
+    rc_perf = _run(
+        _venv_python(), "-m", "tests.test_perf", "_benchmark",
+    )
+    return rc or rc_perf or 0
 
 
 def cmd_all() -> int:

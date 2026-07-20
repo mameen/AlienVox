@@ -26,6 +26,7 @@ stacks:
       - id: kokoro
         name: Kokoro-82M
         weights_subpath: ml/kokoro
+        auto_download: true    # KPipeline auto-fetches from HuggingFace Hub on first use
         voices:
           - { id: af_heart,  label: "American F · Heart" }
           - { id: bm_george, label: "British M · George" }
@@ -38,6 +39,7 @@ stacks:
       - id: piper
         name: Piper
         weights_subpath: ml/piper
+        auto_download: true    # piper-tts fetches voices from HuggingFace on first use
         voices:
           - { id: en_US-lessac-medium, label: "Lessac US M · Medium" }
           - { id: en_US-amy-medium,    label: "Amy US F · Medium" }

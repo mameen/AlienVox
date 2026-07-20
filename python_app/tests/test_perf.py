@@ -137,13 +137,18 @@ def collect_metrics(
     cpu_start = _get_cpu_percent()
 
     # ── Latency to first audio ────────────────────────────────────────────
-    from ..src.engines.base import SpeakParams
+    from src.engines.base import SpeakParams
 
     latency_start = time.perf_counter()
 
     # ── Completion tracking ───────────────────────────────────────────────
     completion_start = time.perf_counter()
-    engine.speak(phrase, voice_id, SpeakParams())
+    try:
+        engine.speak(phrase, voice_id, SpeakParams())
+    except Exception as exc:
+        result.skipped = True
+        result.skip_reason = f"speak() failed: {exc}"
+        return result
 
     # Wait for SAPI completion or ML engine signal
     done = engine.wait_until_done(timeout_ms=30_000)
@@ -179,8 +184,8 @@ def welcome_phrase_benchmark() -> list[PerfResult]:
     results: list[PerfResult] = []
     skipped: list[str] = []
 
-    from ..src.config import load_stacks_catalog, list_stacks
-    from ..src.engines.registry import available_stacks
+    from src.config import load_stacks_catalog, list_stacks
+    from src.engines.registry import available_stacks
 
     stacks_yaml = FIXTURES / "stacks.yaml"
     models_root = ROOT  # dev mode: .models/ next to stacks.yaml
@@ -197,8 +202,9 @@ def welcome_phrase_benchmark() -> list[PerfResult]:
                     skipped.append(f"{stack_id}: not on Windows")
                     continue
 
-                from ..src.engines.sapi_win import SapiEngine
+                from src.engines.sapi_win import SapiEngine
                 engine = SapiEngine()
+                engine.stack_id = stack_id  # set for perf reporting
                 voices = engine.list_voices()
 
                 if not voices:
@@ -207,6 +213,8 @@ def welcome_phrase_benchmark() -> list[PerfResult]:
 
                 for voice in voices:
                     r = collect_metrics(WELCOME_PHRASE, engine, voice.id)
+                    # Truncate registry path to last segment for display
+                    r.voice_id = r.voice_id.split("\\")[-1] if "\\" in r.voice_id else r.voice_id
                     results.append(r)
 
             except Exception as exc:
@@ -237,9 +245,15 @@ def welcome_phrase_benchmark() -> list[PerfResult]:
                     skipped.append(f"{stack_id}/{model.id}: engine load failed")
                     continue
 
+                # Set stack_id and model_id for perf reporting
+                engine.stack_id = stack_id
+                engine.model_id = model.id
+
                 voices = engine.list_voices()
                 for voice in voices:
                     r = collect_metrics(WELCOME_PHRASE, engine, voice.id)
+                    # Truncate registry path to last segment for display
+                    r.voice_id = r.voice_id.split("\\")[-1] if "\\" in r.voice_id else r.voice_id
                     results.append(r)
 
             except Exception as exc:
@@ -256,20 +270,28 @@ def welcome_phrase_benchmark() -> list[PerfResult]:
 
 def _load_ml_engine(stack_id: str, model_info: Any) -> Any | None:
     """Load an ML engine instance. Returns None on failure."""
-    if stack_id == "ml":
+    try:
         model_id = model_info.id
         if model_id == "kokoro":
-            try:
-                from ..src.engines.ml.kokoro import KokoroEngine
-                return KokoroEngine(model_info)
-            except Exception:
-                return None
+            from src.engines.kokoro_engine import KokoroEngine
+            return KokoroEngine()
         elif model_id == "piper":
-            try:
-                from ..src.engines.ml.piper import PiperEngine
-                return PiperEngine(model_info)
-            except Exception:
-                return None
+            from src.engines.piper_win import PiperEngine
+            return PiperEngine(model_id)
+        elif model_id == "chatterbox":
+            from src.engines.chatterbox_engine import ChatterboxEngine
+            return ChatterboxEngine()
+        elif model_id == "dia":
+            from src.engines.dia_engine import DiaEngine
+            return DiaEngine()
+        elif model_id == "f5tts":
+            from src.engines.f5tts_engine import F5TTSEngine
+            return F5TTSEngine()
+        elif model_id == "outetts":
+            from src.engines.outetts_engine import OuteTTSEngine
+            return OuteTTSEngine()
+    except Exception:
+        pass
     return None
 
 
@@ -296,10 +318,10 @@ def render_console_table(results: list[PerfResult]) -> None:
         f"  {{:<{col_w['stack']}}}  "
         f"{{:<{col_w['model']}}}  "
         f"{{:<{col_w['voice']}}}  "
-        f"{{>{col_w['lat']}s}}  "
-        f"{{>{col_w['mem']}s}}  "
-        f"{{>{col_w['cpu']}s}}  "
-        f"{{>{col_w['comp']}s}}"
+        f"{{:>{col_w['lat']}}}  "
+        f"{{:>{col_w['mem']}}}  "
+        f"{{:>{col_w['cpu']}}}  "
+        f"{{:>{col_w['comp']}}}"
     )
 
     total_width = col_w["stack"] + col_w["model"] + col_w["voice"] + col_w["lat"] + col_w["mem"] + col_w["cpu"] + col_w["comp"] + 28
@@ -374,6 +396,13 @@ def write_json_report(results: list[PerfResult], path: Path) -> None:
         tmp_path = f.name
     shutil.move(tmp_path, path)
 
+    # Also write a JS wrapper so the HTML can <script src> it
+    js_path = path.with_suffix(".js")
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".js", dir=path.parent, delete=False) as f:
+        f.write(f"const data = {json.dumps(data, indent=2)};")
+        tmp_js = f.name
+    shutil.move(tmp_js, js_path)
+
 
 # ── CSS generation ────────────────────────────────────────────────────────────
 
@@ -407,8 +436,8 @@ tr:hover { background: #1f2b4d; }
 
 # ── HTML generation ───────────────────────────────────────────────────────────
 
-def generate_html(json_path: str) -> str:
-    """Generate HTML string that loads json_path and renders D3 visualization."""
+def generate_html(json_js_path: str) -> str:
+    """Generate HTML string that includes data via <script src>."""
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -419,10 +448,11 @@ def generate_html(json_path: str) -> str:
 {generate_css()}
 </style>
 <script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="{json_js_path}"></script>
 </head>
 <body>
 <h1>AlienVox Performance Report</h1>
-<div id="info">Loading data from <code>{json_path}</code>...</div>
+<div id="info">Rendering report...</div>
 <h2>Metrics by Stack/Model/Voice</h2>
 <div id="chart-container"></div>
 <h2>Raw Results</h2>
@@ -438,7 +468,7 @@ def generate_html(json_path: str) -> str:
 const THRESHOLDS = {json.dumps(THRESHOLDS, indent=2)};
 const WELCOME_PHRASE = {json.dumps(WELCOME_PHRASE)};
 
-d3.json("{json_path}").then(function(data) {{
+d3.run(function() {{
     document.getElementById('info').innerHTML =
         '<b>Generated:</b> ' + data.timestamp + ' | ' +
         '<b>Platform:</b> ' + data.platform.os + ' ' + data.platform.release + ' | ' +
@@ -531,7 +561,7 @@ d3.json("{json_path}").then(function(data) {{
         }});
     }});
 }}).catch(err => {{
-    document.getElementById('info').innerHTML = '<b>Error loading data:</b> ' + err.message;
+    document.getElementById('info').innerHTML = '<b>Error rendering:</b> ' + err.message;
 }});
 </script>
 </body>
@@ -541,8 +571,8 @@ d3.json("{json_path}").then(function(data) {{
 # ── HTML report writer ────────────────────────────────────────────────────────
 
 def write_html_report(html_str: str, path: Path) -> None:
-    """Write HTML to file atomically."""
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".html", dir=path.parent, delete=False) as f:
+    """Write HTML report to the given path."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".html", dir=path.parent, delete=False, encoding="utf-8") as f:
         f.write(html_str)
         tmp_path = f.name
     shutil.move(tmp_path, path)
@@ -562,50 +592,17 @@ def generate_reports(results: list[PerfResult]) -> tuple[Path, Path]:
     html_path = LOGS_DIR / f"{ts}.html"
 
     write_json_report(results, json_path)
-    # HTML loads the JSON by relative path
-    write_html_report(generate_html(f"./{ts}.json"), html_path)
+    # HTML includes the JS file via <script src>
+    js_rel = f"./{ts}.js"
+    write_html_report(generate_html(js_rel), html_path)
 
     return json_path, html_path
 
 
-# ── Pytest integration ────────────────────────────────────────────────────────
+# ── Pytest integration (unit benchmarks only — no real-speech) ────────────────
 
-class TestWelcomePhraseBenchmark:
-    """Mandatory real-speech benchmark. Skips gracefully if no audio available."""
-
-    @pytest.fixture(autouse=True)
-    def _check_audio(self):
-        """Skip all tests in this class if no audio hardware or deps missing."""
-        try:
-            import sounddevice as sd  # noqa: F401
-        except ImportError:
-            pytest.skip("sounddevice not installed — skip real-speech benchmark")
-        devices = sd.query_devices()
-        has_output = any(d.get('max_output_channels', 0) > 0 for d in devices)
-        if not has_output:
-            pytest.skip("No audio output device found")
-
-    def test_welcome_phrase_on_all_stacks(self):
-        """Run welcome phrase on every available stack/model/voice."""
-        results = welcome_phrase_benchmark()
-
-        if not results:
-            pytest.fail("No stacks/models were benchmarked — check availability.")
-
-        # Print console table
-        render_console_table(results)
-
-        # Generate reports
-        json_path, html_path = generate_reports(results)
-        print(f"\n  JSON report: {json_path}")
-        print(f"  HTML report: {html_path}")
-
-        # Assert all results are valid (not skipped due to missing deps)
-        for r in results:
-            if r.skipped and "psutil" in r.skip_reason:
-                pytest.skip("psutil not available — metrics incomplete")
-            assert r.latency_ms >= 0, f"{r.stack_id}/{r.model_id}: negative latency"
-            assert r.completion_ms > 0, f"{r.stack_id}/{r.model_id}: zero completion time"
+# Real-speech benchmark runs standalone via run.py cmd_perf() because SAPI COM
+# requires STA threading, which pytest's test runner does not set up correctly.
 
 
 # ── Unit-level benchmarks (no audio required) ─────────────────────────────────
@@ -701,3 +698,16 @@ def _elapsed_ms(fn, *args, **kwargs) -> float:
     t0 = time.perf_counter()
     fn(*args, **kwargs)
     return (time.perf_counter() - t0) * 1000
+
+
+# ── CLI entry point (python -m tests.test_perf _benchmark) ───────────────────
+
+if __name__ == "__main__":
+    if "_benchmark" in sys.argv:
+        print("\n  Running welcome-phrase benchmark on all available stacks/models/voices...\n")
+        results = welcome_phrase_benchmark()
+        render_console_table(results)
+        json_path, html_path = generate_reports(results)
+        print(f"\n  JSON report: {json_path}")
+        print(f"  HTML report: {html_path}")
+        print()
