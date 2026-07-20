@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass
@@ -16,6 +17,9 @@ class SpeakParams:
     rate: int = 0       # -10..10
     pitch: int = 0      # -10..10  (ignored by engines that lack pitch control)
     volume: int = 100   # 0..100
+    # Model-specific controls not common to every engine, e.g. Piper's
+    # noise_scale/noise_w/sentence_silence (see stacks.yaml per-model controls).
+    extra: dict[str, Any] = field(default_factory=dict)
 
 
 class TtsEngine(ABC):

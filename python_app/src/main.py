@@ -27,6 +27,28 @@ from .version import version as get_version
 
 _log = _logger.get_logger("main")
 
+# Model-specific controls (beyond rate/pitch/volume) that get forwarded into
+# SpeakParams.extra when the given model is active. Keys must match both the
+# cfg dict (from load_effective_config) and stacks.yaml's per-model controls.
+_MODEL_EXTRA_CONTROL_KEYS: dict[str, list[str]] = {
+    "piper": ["noise_scale", "noise_w", "sentence_silence"],
+}
+
+
+def build_speak_params(cfg: dict[str, Any], active_model: str) -> SpeakParams:
+    """Build SpeakParams from the effective config, including any
+    model-specific extra controls (e.g. Piper's noise_scale)."""
+    extra: dict[str, Any] = {}
+    for key in _MODEL_EXTRA_CONTROL_KEYS.get(active_model, []):
+        if key in cfg:
+            extra[key] = cfg[key]
+    return SpeakParams(
+        rate=cfg.get("rate", 0),
+        pitch=cfg.get("pitch", 0),
+        volume=cfg.get("volume", 100),
+        extra=extra,
+    )
+
 
 def _load_engine(engine_id: str, model_id: str = "") -> "TtsEngine | None":
     """Return a live TtsEngine for the active stack, or None."""
@@ -164,11 +186,7 @@ def main() -> int:
             )
 
             if engine and text:
-                params = SpeakParams(
-                    rate=cfg.get("rate", 0),
-                    pitch=cfg.get("pitch", 0),
-                    volume=cfg.get("volume", 100),
-                )
+                params = build_speak_params(cfg, active_model)
                 engine.speak(text, cfg.get("voice", ""), params)
 
                 # Emit first_audio telemetry (latency to SAPI submit) — matches Rust pattern
@@ -323,14 +341,9 @@ def main() -> int:
     def on_export(text: str) -> None:
         """Open the ExportDialog from the main-window toolbar."""
         from .export_dialog import ExportDialog
-        from .engines.base import SpeakParams
         if not engine:
             return
-        params = SpeakParams(
-            rate=cfg.get("rate", 0),
-            pitch=cfg.get("pitch", 0),
-            volume=cfg.get("volume", 100),
-        )
+        params = build_speak_params(cfg, active_model)
         w = _ensure_main_window()
         dlg = ExportDialog(
             engine=engine,

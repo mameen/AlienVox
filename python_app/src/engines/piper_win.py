@@ -10,6 +10,19 @@ from dataclasses import dataclass
 from .base import SpeakParams, TtsEngine, Voice
 
 
+def piper_config_from_params(params: SpeakParams) -> dict[str, float]:
+    """Map SpeakParams.extra to Piper's synthesis config, with defaults.
+
+    Isolated from _synthesize() so it can be unit-tested without piper-tts
+    installed or actual weights on disk.
+    """
+    return {
+        "noise_scale": params.extra.get("noise_scale", 0.667),
+        "noise_w": params.extra.get("noise_w", 0.8),
+        "sentence_silence": params.extra.get("sentence_silence", 0.2),
+    }
+
+
 @dataclass
 class PiperVoice:
     """A Piper voice descriptor."""
@@ -63,7 +76,7 @@ class PiperEngine(TtsEngine):
             # Piper produces WAV bytes — play via sounddevice or write to temp file
             audio_bytes = self._synthesize(text, voice, params)
             if audio_bytes:
-                self._play_wav(audio_bytes)
+                self._play_wav(audio_bytes, params.volume)
         except Exception as exc:
             print(f"[Piper] speak() error: {exc}")
 
@@ -74,12 +87,7 @@ class PiperEngine(TtsEngine):
     def _synthesize(self, text: str, voice_id: str, params: SpeakParams) -> bytes | None:
         """Synthesize text to WAV bytes using piper."""
         try:
-            # Piper config — map our controls to piper settings
-            _config = {
-                "noise_scale": params.__dict__.get("noise_scale", 0.667),
-                "noise_w": params.__dict__.get("noise_w", 0.8),
-                "sentence_silence": params.__dict__.get("sentence_silence", 0.2),
-            }
+            _config = piper_config_from_params(params)
 
             # Piper expects voice model path — look up from stacks.yaml weights_subpath
             from ..config import models_root
@@ -99,8 +107,8 @@ class PiperEngine(TtsEngine):
             print(f"[Piper] _synthesize error: {exc}")
             return None
 
-    def _play_wav(self, audio_bytes: bytes) -> None:
-        """Play WAV bytes via sounddevice or system audio."""
+    def _play_wav(self, audio_bytes: bytes, volume: int = 100) -> None:
+        """Play WAV bytes via sounddevice or system audio, scaled by volume (0..100)."""
         try:
             import numpy as np  # type: ignore
             import sounddevice as sd  # type: ignore
@@ -120,6 +128,8 @@ class PiperEngine(TtsEngine):
                 audio_array = np.frombuffer(pcm_data, dtype=np.int16).astype(np.float32) / 32768.0
             else:
                 audio_array = np.frombuffer(pcm_data, dtype=np.int16).reshape(-1, num_channels).astype(np.float32) / 32768.0
+
+            audio_array = audio_array * (volume / 100.0)
 
             sd.play(audio_array, sample_rate)
             sd.wait()  # Block until playback complete
