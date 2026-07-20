@@ -38,10 +38,18 @@ def run(cmd: list[str]) -> int:
     return subprocess.run(cmd, cwd=ROOT).returncode
 
 
-def _download_kokoro(models_root: Path) -> None:
+def _has_content(path: Path) -> bool:
+    """True if path exists and contains at least one file (already downloaded)."""
+    return path.exists() and any(path.rglob("*"))
+
+
+def _download_kokoro(models_root: Path, force: bool = False) -> None:
     """Download Kokoro-82M model via huggingface_hub."""
-    from huggingface_hub import snapshot_download
     dest = models_root / "ml" / "kokoro"
+    if not force and _has_content(dest):
+        print(f"\n  Kokoro-82M already present at {dest} — skipping (use --force to re-download).")
+        return
+    from huggingface_hub import snapshot_download
     dest.mkdir(parents=True, exist_ok=True)
     print(f"\n  Downloading Kokoro-82M (~300 MB) to {dest}...")
     kwargs = {"repo_id": _KOKORO_HF_REPO, "local_dir": str(dest), "tqdm_class": None}
@@ -51,7 +59,7 @@ def _download_kokoro(models_root: Path) -> None:
     print(f"  ✓ Kokoro-82M download complete → {dest}")
 
 
-def _download_piper(models_root: Path, stacks_yaml: Path) -> None:
+def _download_piper(models_root: Path, stacks_yaml: Path, force: bool = False) -> None:
     """Download Piper voices. If stacks.yaml lists voices, download all; otherwise prompt."""
     from huggingface_hub import hf_hub_download
 
@@ -75,7 +83,7 @@ def _download_piper(models_root: Path, stacks_yaml: Path) -> None:
         return
 
     # Check which are already downloaded
-    existing = [v for v in voice_ids if (dest / f"{v}.onnx").exists()]
+    existing = [] if force else [v for v in voice_ids if (dest / f"{v}.onnx").exists()]
     to_download = [v for v in voice_ids if v not in existing]
 
     if existing:
@@ -123,7 +131,7 @@ def _download_piper(models_root: Path, stacks_yaml: Path) -> None:
                 print(f"  ✗ failed to download {ext}: {exc}")
 
 
-def _download_auto(models_root: Path, model_id: str) -> None:
+def _download_auto(models_root: Path, model_id: str, force: bool = False) -> None:
     """Download models that use from_pretrained() — snapshot their HF repos."""
     # Map of model_id -> (HF repo, approximate size)
     downloads = {
@@ -138,6 +146,9 @@ def _download_auto(models_root: Path, model_id: str) -> None:
 
     repo, size = downloads[model_id]
     dest = models_root / "ml" / model_id
+    if not force and _has_content(dest):
+        print(f"\n  {model_id} already present at {dest} — skipping (use --force to re-download).")
+        return
     dest.mkdir(parents=True, exist_ok=True)
     print(f"\n  Downloading {model_id} from {repo} (~{size}) to {dest}...")
     from huggingface_hub import snapshot_download
@@ -149,7 +160,7 @@ def _download_auto(models_root: Path, model_id: str) -> None:
     print(f"  ✓ {model_id} download complete → {dest}")
 
 
-def _check_and_offer_models(models_root: Path, stacks_yaml: Path) -> None:
+def _check_and_offer_models(models_root: Path, stacks_yaml: Path, force: bool = False) -> None:
     """Check which ML models are missing and offer to download them."""
     with open(stacks_yaml, encoding="utf-8") as f:
         catalog = yaml.safe_load(f)
@@ -179,15 +190,18 @@ def _check_and_offer_models(models_root: Path, stacks_yaml: Path) -> None:
 
     choice = input("\n  Download now? [Y/n] ").strip().lower()
     if choice == "n":
-        print("  Skipped. Run `python setup.py --download-models` later.")
+        print("  Skipped. Run `python setup.py download` later.")
         return
 
     print("\n  Starting download...")
-    cmd_download_models(models_root, stacks_yaml)
+    cmd_download_models(models_root, stacks_yaml, force=force)
 
 
-def cmd_download_models(models_root: Path, stacks_yaml: Path) -> None:
-    """Download all ML model weights defined in stacks.yaml."""
+def cmd_download_models(models_root: Path, stacks_yaml: Path, force: bool = False) -> None:
+    """Download all ML model weights defined in stacks.yaml.
+
+    Skips models whose weights_subpath already has content, unless force=True.
+    """
     with open(stacks_yaml, encoding="utf-8") as f:
         catalog = yaml.safe_load(f)
 
@@ -202,26 +216,37 @@ def cmd_download_models(models_root: Path, stacks_yaml: Path) -> None:
             auto_dl = model.get("auto_download", False)
 
             if mid == "kokoro" and auto_dl:
-                _download_kokoro(models_root)
+                _download_kokoro(models_root, force=force)
             elif mid == "piper":
-                _download_piper(models_root, stacks_yaml)
+                _download_piper(models_root, stacks_yaml, force=force)
             elif auto_dl:
-                _download_auto(models_root, mid)
+                _download_auto(models_root, mid, force=force)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="AlienVox python_app bootstrap")
     parser.add_argument(
+        "command",
+        nargs="?",
+        choices=["download"],
+        help="'download' -- only download ML model weights (skip venv/pip install)",
+    )
+    parser.add_argument(
         "--download-models",
         action="store_true",
-        help="Download ML model weights defined in stacks.yaml",
+        help="(deprecated, use 'download' subcommand) Download ML model weights",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Re-download model weights even if already present in .models/",
     )
     args = parser.parse_args()
 
-    if args.download_models:
+    if args.command == "download" or args.download_models:
         models_root = ROOT / ".models"
         models_root.mkdir(exist_ok=True)
-        cmd_download_models(models_root, ROOT / "stacks.yaml")
+        cmd_download_models(models_root, ROOT / "stacks.yaml", force=args.force)
         return 0
 
     print("AlienVox python_app bootstrap")
@@ -252,11 +277,11 @@ def main() -> int:
     # ── Auto-detect missing models and offer download ───────────────────────
     models_root = ROOT / ".models"
     models_root.mkdir(exist_ok=True)
-    _check_and_offer_models(models_root, ROOT / "stacks.yaml")
+    _check_and_offer_models(models_root, ROOT / "stacks.yaml", force=args.force)
 
     print("\nBootstrap complete.")
     print(f"Activate venv:  {VENV_DIR}\\Scripts\\activate")
-    print(f"\nTo download ML models manually:  python setup.py --download-models")
+    print(f"\nTo download ML models later:  python setup.py download")
     print("Run app:        python -m src.main")
     return 0
 

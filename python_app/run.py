@@ -4,6 +4,7 @@
 Usage:
     python run.py app        -- start the application
     python run.py download   -- download missing ML model weights to .models/
+    python run.py download --force  -- re-download weights even if already present
     python run.py build      -- syntax-check all src/ files
     python run.py lint       -- run ruff on src/ and tests/
     python run.py test       -- run pytest (with coverage floor)
@@ -55,7 +56,8 @@ def cmd_app() -> int:
 
 def cmd_download() -> int:
     _header("Download — ML model weights")
-    return _run(_venv_python(), str(ROOT / "setup.py"), "--download-models")
+    extra = sys.argv[2:]  # e.g. --force
+    return _run(_venv_python(), str(ROOT / "setup.py"), "download", *extra)
 
 
 def cmd_build() -> int:
