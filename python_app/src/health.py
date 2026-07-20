@@ -162,23 +162,45 @@ def _check_hardware() -> list[CheckResult]:
     except ImportError:
         results.append(CheckResult("RAM", True, "psutil not installed — install it for RAM info", is_warning=True))
 
-    # GPU / VRAM
+    # GPU / VRAM — CUDA devices (usable for torch inference) ...
+    cuda_names: set[str] = set()
     try:
         import torch
         if torch.cuda.is_available():
             for i in range(torch.cuda.device_count()):
                 props = torch.cuda.get_device_properties(i)
+                cuda_names.add(props.name)
                 results.append(CheckResult(
                     f"GPU {i}", True,
-                    f"{props.name} — {props.total_memory / (1024**3):.1f} GB VRAM (CUDA)",
+                    f"{props.name} — {props.total_memory / (1024**3):.1f} GB VRAM (CUDA, usable for inference)",
                 ))
         else:
             results.append(CheckResult(
-                "GPU", True, "No CUDA GPU detected — ML engines will run on CPU",
+                "GPU (CUDA)", True, "No CUDA GPU detected — ML engines will run on CPU",
                 is_warning=True,
             ))
     except Exception as exc:
-        results.append(CheckResult("GPU", True, f"could not query GPU: {exc}", is_warning=True))
+        results.append(CheckResult("GPU (CUDA)", True, f"could not query CUDA: {exc}", is_warning=True))
+
+    # ... plus every display adapter Windows knows about (e.g. an AMD iGPU),
+    # for visibility even though only CUDA devices are usable for inference.
+    if _platform.system() == "Windows":
+        try:
+            import subprocess
+            proc = subprocess.run(
+                ["powershell", "-NoProfile", "-Command",
+                 "Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name"],
+                capture_output=True, text=True, timeout=10,
+            )
+            all_gpus = [line.strip() for line in proc.stdout.splitlines() if line.strip()]
+            other_gpus = [g for g in all_gpus if g not in cuda_names]
+            for g in other_gpus:
+                results.append(CheckResult(
+                    "GPU (other)", True, f"{g} — detected, not usable for CUDA inference",
+                    is_warning=False,
+                ))
+        except Exception:
+            pass  # best-effort — WMI/PowerShell may be unavailable
 
     return results
 

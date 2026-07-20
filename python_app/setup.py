@@ -249,6 +249,52 @@ def cmd_download_models(models_root: Path, stacks_yaml: Path, force: bool = Fals
                 _download_auto(models_root, mid, force=force)
 
 
+# CUDA wheel index compatible with driver 12.4+ (torch's cu124 build works fine
+# against newer drivers like 12.6 — CUDA is backward compatible at the driver level).
+_TORCH_CUDA_INDEX = "https://download.pytorch.org/whl/cu124"
+
+
+def _detect_nvidia_gpu() -> bool:
+    """True if an NVIDIA GPU + driver is present (nvidia-smi succeeds)."""
+    try:
+        result = subprocess.run(
+            ["nvidia-smi", "-L"], capture_output=True, text=True, timeout=10,
+        )
+        return result.returncode == 0 and "GPU" in result.stdout
+    except Exception:
+        return False
+
+
+def _install_torch_for_hardware(python: str) -> None:
+    """Install torch/torchaudio matching detected hardware.
+
+    Plain `pip install torch` on Windows pulls the CPU-only wheel — an
+    NVIDIA GPU sitting right there goes unused unless torch is installed
+    from PyTorch's CUDA wheel index explicitly. Installing torch here
+    *before* requirements.txt means requirements.txt's `torch>=2.0.0` is
+    already satisfied and pip won't downgrade it to the CPU build.
+    """
+    if not _detect_nvidia_gpu():
+        print("\nNo NVIDIA GPU detected (nvidia-smi not found or failed) — "
+              "torch will install as CPU-only via requirements.txt.")
+        return
+
+    print(f"\nNVIDIA GPU detected — installing CUDA-enabled torch ({_TORCH_CUDA_INDEX})...")
+    # --force-reinstall is required: pip treats an already-installed CPU
+    # build (torch==2.6.0) as satisfying a plain "torch" requirement and
+    # won't swap it for the +cu124 build otherwise. Deliberately NOT using
+    # --no-deps — this runs before requirements.txt, so torch's own runtime
+    # deps (sympy, jinja2, filelock, etc.) need to come from this install.
+    rc = run([
+        python, "-m", "pip", "install",
+        "torch", "torchaudio",
+        "--index-url", _TORCH_CUDA_INDEX,
+        "--force-reinstall",
+    ])
+    if rc != 0:
+        print("WARNING: CUDA torch install failed — falling back to CPU build via requirements.txt.")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="AlienVox python_app bootstrap")
     parser.add_argument(
@@ -289,6 +335,8 @@ def main() -> int:
     python = venv_python()
     print("\nUpgrading pip...")
     run([python, "-m", "pip", "install", "--upgrade", "pip"])
+
+    _install_torch_for_hardware(python)
 
     req = ROOT / "requirements.txt"
     print(f"\nInstalling {req.name}...")
