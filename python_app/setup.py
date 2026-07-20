@@ -300,6 +300,13 @@ def main() -> int:
     print("\nInstalling Dia from source (no stable PyPI release)...")
     run([python, "-m", "pip", "install", "git+https://github.com/nari-labs/dia.git"])
 
+    # Dia's own deps (nari-tts) pull numpy>=2.2.4, and some of its tree pulls
+    # an old protobuf — both silently undo the pins requirements.txt set for
+    # chatterbox-tts and onnx/onnxruntime (piper-tts's backend). Re-assert
+    # them as the last install step so the final venv state is deterministic.
+    print("\nRe-asserting numpy/protobuf pins (Dia's deps can override them)...")
+    run([python, "-m", "pip", "install", "numpy<2.0.0", "protobuf>=4.25.8"])
+
     # ── Auto-detect missing models and offer download ───────────────────────
     models_root = ROOT / ".models"
     models_root.mkdir(exist_ok=True)

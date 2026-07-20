@@ -3,6 +3,7 @@
 
 Usage:
     python run.py app        -- start the application
+    python run.py health     -- check imports, version pins, model weights are ready
     python run.py download   -- download missing ML model weights to .models/
     python run.py download --force  -- re-download weights even if already present
     python run.py build      -- syntax-check all src/ files
@@ -44,6 +45,7 @@ def _header(title: str) -> None:
     print(f"\n┌{bar}┐")
     print(f"│  {title}  │")
     print(f"└{bar}┘")
+    sys.stdout.flush()  # ensure this prints before any subprocess output interleaves
 
 
 # ── Subcommands ───────────────────────────────────────────────────────────────
@@ -52,6 +54,11 @@ def cmd_app() -> int:
     _header("Starting AlienVox")
     # Run as a package module so relative imports work correctly.
     return _run(_venv_python(), "-m", "src.main", cwd=ROOT)
+
+
+def cmd_health() -> int:
+    _header("Health — imports, version pins, model weights")
+    return _run(_venv_python(), "-m", "src.health", cwd=ROOT)
 
 
 def cmd_download() -> int:
@@ -162,6 +169,7 @@ def cmd_all() -> int:
 
 COMMANDS = {
     "app":      cmd_app,
+    "health":   cmd_health,
     "download": cmd_download,
     "build":    cmd_build,
     "lint":  cmd_lint,
@@ -172,6 +180,13 @@ COMMANDS = {
 }
 
 if __name__ == "__main__":
+    # Windows consoles often default to cp1252, which can't encode the
+    # box-drawing/em-dash characters used in _header() and subcommand output.
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
     if len(sys.argv) < 2 or sys.argv[1] not in COMMANDS:
         print(__doc__)
         print(f"Available commands: {', '.join(COMMANDS)}")
