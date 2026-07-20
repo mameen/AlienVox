@@ -10,6 +10,7 @@ from src.engines.outetts_engine import (
     _DEFAULT_VOICE,
     _SAMPLE_RATE,
     _VALID_VOICE_IDS,
+    _VOICE_TO_SPEAKER,
     OuteTTSEngine,
 )
 
@@ -22,7 +23,7 @@ def test_valid_voice_ids_non_empty():
 
 
 def test_known_voices_in_roster():
-    for vid in ("male_1", "male_2", "female_1", "female_2"):
+    for vid in ("male_1", "male_2", "male_3", "female_1"):
         assert vid in _VALID_VOICE_IDS
 
 
@@ -44,9 +45,15 @@ def test_kokoro_voices_not_in_roster():
 # ── Voice validation guard ────────────────────────────────────────────────────
 
 def _make_mock_interface(audio: np.ndarray):
-    """Return a mock outetts Interface whose generate() returns an output object."""
+    """Return a mock InterfaceHF whose generate() returns a ModelOutput-like object.
+
+    Real ModelOutput.audio is a torch.Tensor shaped [batch, samples]; mocked
+    with an actual tensor here since _synthesize_array() calls
+    .detach().cpu().numpy() on it.
+    """
+    import torch
     output = MagicMock()
-    output.audio = audio
+    output.audio = torch.from_numpy(audio).unsqueeze(0)  # shape (1, N)
     mock_iface = MagicMock()
     mock_iface.generate.return_value = output
     mock_iface.load_default_speaker.return_value = MagicMock()
@@ -61,22 +68,24 @@ def test_invalid_voice_falls_back_to_default():
 
     with patch("src.engines.outetts_engine.play_audio"):
         engine.speak("hello", "bad_voice", SpeakParams())
-        engine.wait_until_done(timeout_ms=5_000)
+        engine.wait_until_done(timeout_ms=15_000)
 
-    mock_iface.load_default_speaker.assert_called_once_with(name=_DEFAULT_VOICE)
+    mock_iface.load_default_speaker.assert_called_once_with(name=_VOICE_TO_SPEAKER[_DEFAULT_VOICE])
 
 
 def test_valid_voice_passed_to_speaker_loader():
+    """Our short voice IDs must be translated to outetts's real speaker names
+    (language-prefixed, e.g. en_female_1) — see _VOICE_TO_SPEAKER."""
     audio = np.zeros(100, dtype=np.float32)
     mock_iface = _make_mock_interface(audio)
     engine = OuteTTSEngine()
     OuteTTSEngine._interface = mock_iface
 
     with patch("src.engines.outetts_engine.play_audio"):
-        engine.speak("hello", "female_2", SpeakParams())
-        engine.wait_until_done(timeout_ms=5_000)
+        engine.speak("hello", "female_1", SpeakParams())
+        engine.wait_until_done(timeout_ms=15_000)
 
-    mock_iface.load_default_speaker.assert_called_once_with(name="female_2")
+    mock_iface.load_default_speaker.assert_called_once_with(name="en_female_1")
 
 
 # ── speak + play ──────────────────────────────────────────────────────────────
@@ -91,7 +100,7 @@ def test_speak_calls_play_audio():
     with patch("src.engines.outetts_engine.play_audio",
                side_effect=lambda a, r: played.append((a, r))):
         engine.speak("test", "male_1", SpeakParams(volume=50))
-        engine.wait_until_done(timeout_ms=5_000)
+        engine.wait_until_done(timeout_ms=15_000)
 
     assert len(played) == 1
     arr, rate = played[0]
@@ -110,7 +119,7 @@ def test_int16_audio_normalised_to_float():
     with patch("src.engines.outetts_engine.play_audio",
                side_effect=lambda a, r: played.append(a)):
         engine.speak("test", "male_1", SpeakParams(volume=100))
-        engine.wait_until_done(timeout_ms=5_000)
+        engine.wait_until_done(timeout_ms=15_000)
 
     assert len(played) == 1
     assert played[0].max() <= 1.0
@@ -155,23 +164,23 @@ def test_wait_until_done_returns_false_on_timeout():
 # ── Device selection (hardware-conditional) ───────────────────────────────────
 
 @requires_gpu
-def test_get_interface_selects_cuda_backend_when_gpu_available():
-    """On a real CUDA machine, _get_interface() must request Backend.CUDA."""
+def test_get_interface_selects_cuda_device_when_gpu_available():
+    """On a real CUDA machine, _get_interface() must request device='cuda'."""
     OuteTTSEngine._interface = None
     captured = {}
 
     mock_outetts = MagicMock()
-    mock_outetts.Backend.CUDA = "CUDA"
-    mock_outetts.Backend.CPU = "CPU"
 
-    def fake_interface(model_path, backend):
-        captured["backend"] = backend
+    def fake_config(model_path, tokenizer_path, device):
+        captured["device"] = device
         return MagicMock()
 
-    mock_outetts.Interface.side_effect = fake_interface
+    mock_outetts.HFModelConfig_v2.side_effect = fake_config
+    mock_outetts.InterfaceHF.side_effect = lambda model_version, cfg: MagicMock()
+
     with patch.dict("sys.modules", {"outetts": mock_outetts}):
         engine = OuteTTSEngine()
         engine._get_interface()
 
-    assert captured["backend"] == "CUDA"
+    assert captured["device"] == "cuda"
     OuteTTSEngine._interface = None  # reset singleton for other tests

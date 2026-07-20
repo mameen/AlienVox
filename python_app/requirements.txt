@@ -52,3 +52,9 @@ python-dotenv>=1.0.0
 # without an explicit floor here, pip's resolver can land on an old 3.x that
 # breaks onnxruntime at import time.
 protobuf>=4.25.8
+# resemble-perth (a chatterbox-tts dependency, used to watermark generated
+# audio) still imports pkg_resources, which setuptools>=81 removed entirely.
+# Without this cap, ChatterboxTTS.from_pretrained() crashes with
+# "TypeError: 'NoneType' object is not callable" the moment it tries to
+# construct PerthImplicitWatermarker (silently set to None on ImportError).
+setuptools<81

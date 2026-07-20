@@ -1,7 +1,14 @@
 """Dia 1.6B dialogue TTS engine (nari-labs).
 
-Auto-downloads from HuggingFace Hub on first use (nari-labs/Dia-1.6B).
+Auto-downloads from HuggingFace Hub on first use (nari-labs/Dia-1.6B-0626).
 Models runs in float16 — requires ~3.5 GB VRAM, runs comfortably on a 4090.
+
+Note: nari-labs/Dia-1.6B (no suffix) is the OLD weights/config schema.
+The dia package (installed from git HEAD — no stable PyPI release) moved to
+a new DiaConfig schema in June 2025 (nari-labs/dia#243) that isn't backward
+compatible with the old repo's config.json — loading it raises a pydantic
+ValidationError for missing decoder_config/encoder_config fields. Always use
+the -0626 repo to match whatever git HEAD of the dia package expects.
 
 Voice IDs map to Dia's speaker tokens:
   s1  →  [S1]  (first speaker)
@@ -31,7 +38,7 @@ _VOICES = [
 _DEFAULT_VOICE = "s1"
 _VALID_VOICE_IDS: frozenset[str] = frozenset(v.id for v in _VOICES)
 _SAMPLE_RATE = 44_100
-_HF_REPO = "nari-labs/Dia-1.6B"
+_HF_REPO = "nari-labs/Dia-1.6B-0626"
 _TAG: dict[str, str] = {"s1": "[S1]", "s2": "[S2]"}
 
 

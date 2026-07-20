@@ -5,6 +5,14 @@ Runs real-time on CPU; GPU accelerates inference further.
 Uses built-in speaker presets — no reference audio required.
 
 Install: pip install outetts
+
+Note: outetts>=0.4.0 requires transformers<5 / older protobuf, which
+directly conflicts with chatterbox-tts (pinned to transformers==5.2.0) and
+onnxruntime (needs protobuf>=4.25, used by piper-tts). requirements.txt
+pins outetts>=0.3.0 for this reason, and this engine targets 0.3.x's actual
+API: outetts.InterfaceHF(model_version, cfg) is a *factory function*
+(there is no outetts.Interface/outetts.Backend in this version), and
+generate() takes a single GenerationConfig object, not kwargs.
 """
 from __future__ import annotations
 
@@ -14,7 +22,7 @@ import numpy as np
 
 from .. import logger as _logger_mod
 from ..audio_player import play_audio, stop_playback
-from ..device import cuda_available
+from ..device import select_device
 from .base import SpeakParams, TtsEngine, Voice
 
 _log = _logger_mod.get_logger("outetts")
@@ -22,13 +30,25 @@ _log = _logger_mod.get_logger("outetts")
 _VOICES = [
     Voice(id="male_1",   name="Male 1"),
     Voice(id="male_2",   name="Male 2"),
+    Voice(id="male_3",   name="Male 3"),
     Voice(id="female_1", name="Female 1"),
-    Voice(id="female_2", name="Female 2"),
 ]
 _DEFAULT_VOICE = "male_1"
 _VALID_VOICE_IDS: frozenset[str] = frozenset(v.id for v in _VOICES)
-_SAMPLE_RATE = 24_000
+_SAMPLE_RATE = 44_100  # ModelOutput always resamples to this, regardless of the model's native rate
 _HF_REPO = "OuteAI/OuteTTS-0.3-500M"
+_MODEL_VERSION = "0.3"  # matches outetts.interface.MODEL_CONFIGS key for this repo
+
+# outetts's built-in default speakers are language-prefixed (en_male_1,
+# en_female_1, ...) and only include ONE English female preset — our simple
+# IDs are mapped to the real speaker names here so stacks.yaml/the UI don't
+# need to leak outetts's naming scheme.
+_VOICE_TO_SPEAKER = {
+    "male_1":   "en_male_1",
+    "male_2":   "en_male_2",
+    "male_3":   "en_male_3",
+    "female_1": "en_female_1",
+}
 
 
 class OuteTTSEngine(TtsEngine):
@@ -49,12 +69,12 @@ class OuteTTSEngine(TtsEngine):
         with OuteTTSEngine._interface_lock:
             if OuteTTSEngine._interface is None:
                 import outetts
-                backend = outetts.Backend.CUDA if cuda_available() else outetts.Backend.CPU
-                _log.info("loading OuteTTS from %s (backend=%s)", _HF_REPO, backend)
-                OuteTTSEngine._interface = outetts.Interface(
-                    model_path=_HF_REPO,
-                    backend=backend,
-                )
+                device = select_device()
+                _log.info("loading OuteTTS from %s (device=%s)", _HF_REPO, device)
+                # model_version "0.3" requires an explicit tokenizer_path (no
+                # default lookup) — the repo itself hosts a matching tokenizer.
+                cfg = outetts.HFModelConfig_v2(model_path=_HF_REPO, tokenizer_path=_HF_REPO, device=device)
+                OuteTTSEngine._interface = outetts.InterfaceHF(model_version=_MODEL_VERSION, cfg=cfg)
                 _log.info("OuteTTS model ready")
             return OuteTTSEngine._interface
 
@@ -96,15 +116,21 @@ class OuteTTSEngine(TtsEngine):
             return None
         if voice_id not in _VALID_VOICE_IDS:
             voice_id = _DEFAULT_VOICE
+        import outetts
+
         interface = self._get_interface()
-        speaker = interface.load_default_speaker(name=voice_id)
-        _log.info("OuteTTS generating %d chars (voice=%s)", len(text), voice_id)
-        output = interface.generate(
+        speaker_name = _VOICE_TO_SPEAKER[voice_id]
+        speaker = interface.load_default_speaker(name=speaker_name)
+        _log.info("OuteTTS generating %d chars (voice=%s -> %s)", len(text), voice_id, speaker_name)
+        gen_config = outetts.GenerationConfig(
             text=text, speaker=speaker,
             temperature=0.1, repetition_penalty=1.1, max_length=4096,
         )
-        audio = np.asarray(output.audio, dtype=np.float32)
-        if audio.max() > 1.0:
+        output = interface.generate(config=gen_config)
+        # output.audio is a torch.Tensor shaped [batch, samples], already
+        # resampled to _SAMPLE_RATE by ModelOutput — see class docstring above.
+        audio = output.audio[0].detach().cpu().numpy().astype(np.float32)
+        if np.abs(audio).max() > 1.0:
             audio = audio / 32768.0
         volume_scale = max(0.0, min(1.0, params.volume / 100.0))
         return audio * volume_scale

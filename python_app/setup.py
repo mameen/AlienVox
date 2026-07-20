@@ -46,7 +46,7 @@ _load_dotenv = load_dotenv(ROOT / ".env", override=False)
 _KOKORO_HF_REPO = "hexgrad/Kokoro-82M"
 _PIPER_HF_REPO = "rhasspy/piper-voices"
 _CHATTERBOX_HF_REPO = "ResembleAI/chatterbox"
-_DIA_HF_REPO = "nari-labs/Dia-1.6B"
+_DIA_HF_REPO = "nari-labs/Dia-1.6B-0626"  # dia package (git HEAD) requires the new config schema
 _F5TTS_HF_REPO = "SWivid/F5-TTS"
 _OUTETTS_HF_REPO = "OuteAI/OuteTTS-0.3-500M"
 
@@ -368,4 +368,10 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    # Windows consoles often default to cp1252, which can't encode the
+    # checkmark/arrow characters used throughout this script's progress output.
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
     raise SystemExit(main())

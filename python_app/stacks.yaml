@@ -123,8 +123,8 @@ stacks:
         voices:
           - { id: male_1,   label: "Male 1" }
           - { id: male_2,   label: "Male 2" }
+          - { id: male_3,   label: "Male 3" }
           - { id: female_1, label: "Female 1" }
-          - { id: female_2, label: "Female 2" }
         controls:
           rate:        { applies: false }
           pitch:       { applies: false }

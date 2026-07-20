@@ -129,12 +129,18 @@ def collect_metrics(
     phrase: str,
     engine: Any,
     voice_id: str,
+    listen: bool = True,
 ) -> PerfResult:
     """Run one synthesis cycle and collect timing, audio, and system metrics.
 
     For ML engines that implement synthesize(), measures audio characteristics
     (samples, duration, bytes, sample rate) and synthesis wall-clock time.
-    Falls back to speak()+wait_until_done() for SAPI engines.
+    Falls back to speak()+wait_until_done() for SAPI engines (which always
+    plays audio as part of the speak() call itself).
+
+    If listen=True (default), ML engine audio is played back *after* timing
+    is recorded — so you can actually hear each stack/model/voice for a
+    quality check, without polluting the synthesis_ms measurement.
     """
     result = PerfResult(
         stack_id=getattr(engine, "stack_id", "unknown"),
@@ -184,6 +190,14 @@ def collect_metrics(
                 pass  # numpy not available or array format unexpected
 
         result.completion_ms = result.synthesis_ms
+
+        # ── Playback (after timing, so it doesn't skew synthesis_ms) ────
+        if listen and synth_result is not None:
+            try:
+                from src.audio_player import play_audio
+                play_audio(audio_arr, sr)
+            except Exception as exc:
+                print(f"    (playback failed for {result.stack_id}/{result.model_id}: {exc})")
 
     else:
         # ── Fallback: speak() + wait_until_done() (SAPI) ─────────────────
