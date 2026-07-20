@@ -51,6 +51,18 @@ _VOICE_TO_SPEAKER = {
 }
 
 
+def resolve_speaker_name(voice_id: str) -> str:
+    """Map a (possibly invalid) short voice ID to a real outetts speaker name,
+    falling back to _DEFAULT_VOICE's speaker if unrecognized.
+
+    Pure function — no model access — so this can be unit-tested directly
+    without loading the real OuteTTS model.
+    """
+    if voice_id not in _VALID_VOICE_IDS:
+        voice_id = _DEFAULT_VOICE
+    return _VOICE_TO_SPEAKER[voice_id]
+
+
 class OuteTTSEngine(TtsEngine):
     """OuteTTS 0.5B — single class-level model singleton, daemon synth thread."""
 
@@ -114,12 +126,10 @@ class OuteTTSEngine(TtsEngine):
     def _synthesize_array(self, text: str, voice_id: str, params: SpeakParams):
         if not text.strip():
             return None
-        if voice_id not in _VALID_VOICE_IDS:
-            voice_id = _DEFAULT_VOICE
         import outetts
 
         interface = self._get_interface()
-        speaker_name = _VOICE_TO_SPEAKER[voice_id]
+        speaker_name = resolve_speaker_name(voice_id)
         speaker = interface.load_default_speaker(name=speaker_name)
         _log.info("OuteTTS generating %d chars (voice=%s -> %s)", len(text), voice_id, speaker_name)
         gen_config = outetts.GenerationConfig(

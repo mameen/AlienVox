@@ -1,4 +1,16 @@
-"""Tests for ChatterboxEngine — no network, no audio hardware, no CUDA required."""
+"""Tests for ChatterboxEngine.
+
+Per .agents/SKILLS/highlevel_design/SKILL.md's anti-mocking testing
+philosophy, real-synthesis tests run against the actual downloaded
+Chatterbox model (gated by @requires_weights — real generate() calls take
+~10-25s each, including one-time model load, so these are consolidated
+into as few real calls as practical). Voice-fallback and threading/abort
+tests remain mocked with justification: real generation timing can't be
+paused at a reproducible point mid-stream, and repeatedly reloading a
+multi-GB model just to test our own threading logic isn't a productive
+trade — those tests exercise our orchestration code given a
+generate()-shaped callable, not Chatterbox's actual behavior.
+"""
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -13,7 +25,9 @@ from src.engines.chatterbox_engine import (
     ChatterboxEngine,
 )
 
-from .conftest import requires_gpu
+from .conftest import requires_gpu, requires_weights
+
+requires_chatterbox_weights = requires_weights("ml/chatterbox")
 
 # ── Voice roster ──────────────────────────────────────────────────────────────
 
@@ -36,66 +50,57 @@ def test_kokoro_voices_not_in_roster():
         assert vid not in _VALID_VOICE_IDS
 
 
-# ── Voice validation guard ────────────────────────────────────────────────────
+# ── Real synthesis ─────────────────────────────────────────────────────────────
 
-def _make_mock_model(audio: np.ndarray):
-    """Return a mock ChatterboxTTS whose generate() returns a tensor-like object."""
-    import torch
-    mock = MagicMock()
-    mock.generate.return_value = torch.from_numpy(audio).unsqueeze(0)  # shape (1, N)
-    return mock
-
-
-def test_invalid_voice_falls_back_to_default():
-    audio = np.zeros(100, dtype=np.float32)
-    mock_model = _make_mock_model(audio)
+@requires_chatterbox_weights
+def test_real_synthesis_produces_audio_for_valid_and_invalid_voice():
+    """Real model, real generate() call. Chatterbox only has one voice
+    ("default"), so this also proves an unrecognized voice ID falls back to
+    it rather than erroring — both paths converge on the same real call."""
     engine = ChatterboxEngine()
-    ChatterboxEngine._model = mock_model
 
-    with patch("src.engines.chatterbox_engine.play_audio"):
-        engine.speak("hello", "af_heart", SpeakParams())
-        engine.wait_until_done(timeout_ms=5_000)
+    result_valid = engine.synthesize("Hello, this is a real Chatterbox test.", "default", SpeakParams())
+    assert result_valid is not None
+    audio, sr = result_valid
+    assert sr == _SAMPLE_RATE
+    assert len(audio) > 100
+    assert np.abs(audio).max() <= 1.0
 
-    # generate() must have been called (invalid voice → default used)
-    mock_model.generate.assert_called_once_with("hello")
+    result_invalid_voice = engine.synthesize("Hello again.", "af_heart", SpeakParams())
+    assert result_invalid_voice is not None  # falls back to "default", still produces audio
 
 
-def test_valid_voice_passes_through():
-    audio = np.zeros(100, dtype=np.float32)
-    mock_model = _make_mock_model(audio)
+@requires_chatterbox_weights
+def test_real_speak_calls_play_audio_with_volume_scaling():
+    """play_audio is intercepted (no speakers/audio device needed for CI),
+    but the buffer comes from real Chatterbox synthesis, and volume scaling
+    is verified against a real waveform's actual peak amplitude."""
     engine = ChatterboxEngine()
-    ChatterboxEngine._model = mock_model
-
-    with patch("src.engines.chatterbox_engine.play_audio"):
-        engine.speak("hello", "default", SpeakParams())
-        engine.wait_until_done(timeout_ms=5_000)
-
-    mock_model.generate.assert_called_once()
-
-
-# ── speak ─────────────────────────────────────────────────────────────────────
-
-def test_speak_calls_play_audio():
-    audio = np.ones(2400, dtype=np.float32)
-    mock_model = _make_mock_model(audio)
-    engine = ChatterboxEngine()
-    ChatterboxEngine._model = mock_model
 
     played = []
     with patch("src.engines.chatterbox_engine.play_audio",
                side_effect=lambda a, r: played.append((a, r))):
-        engine.speak("test", "default", SpeakParams(volume=50))
-        engine.wait_until_done(timeout_ms=5_000)
+        engine.speak("consistent volume test phrase", "default", SpeakParams(volume=50))
+        engine.wait_until_done(timeout_ms=60_000)
 
     assert len(played) == 1
     arr, rate = played[0]
     assert rate == _SAMPLE_RATE
-    assert abs(arr[0] - 0.5) < 0.01  # volume 50 → scale 0.5
+    assert len(arr) > 0
+
+    full = engine.synthesize("consistent volume test phrase", "default", SpeakParams(volume=100))
+    assert full is not None
+    full_audio, _ = full
+    full_peak = np.abs(full_audio).max()
+    half_peak = np.abs(arr).max()
+    assert full_peak > 0
+    assert abs(half_peak - full_peak * 0.5) < full_peak * 0.05
 
 
 def test_speak_empty_text_does_nothing():
+    """No mocking needed — empty text must short-circuit before ever
+    touching _get_model(), real or otherwise."""
     engine = ChatterboxEngine()
-    ChatterboxEngine._model = MagicMock()
     with patch("src.engines.chatterbox_engine.play_audio") as mock_play:
         engine.speak("", "default", SpeakParams())
         engine.wait_until_done(timeout_ms=1_000)
@@ -103,10 +108,7 @@ def test_speak_empty_text_does_nothing():
 
 
 def test_speak_whitespace_only_does_nothing():
-    audio = np.zeros(100, dtype=np.float32)
-    mock_model = _make_mock_model(audio)
     engine = ChatterboxEngine()
-    ChatterboxEngine._model = mock_model
     with patch("src.engines.chatterbox_engine.play_audio") as mock_play:
         engine.speak("   ", "default", SpeakParams())
         engine.wait_until_done(timeout_ms=1_000)

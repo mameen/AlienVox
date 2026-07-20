@@ -42,6 +42,20 @@ _HF_REPO = "nari-labs/Dia-1.6B-0626"
 _TAG: dict[str, str] = {"s1": "[S1]", "s2": "[S2]"}
 
 
+def build_tagged_text(text: str, voice_id: str) -> str:
+    """Resolve voice_id to a valid speaker + prepend its Dia speaker tag,
+    unless the text is already pre-tagged (multi-turn dialogue).
+
+    Pure function — no model access — so this can be unit-tested directly
+    without needing the (multi-GB, slow to load) real Dia model.
+    """
+    if voice_id not in _VALID_VOICE_IDS:
+        voice_id = _DEFAULT_VOICE
+    tag = _TAG.get(voice_id, "[S1]")
+    stripped = text.strip()
+    return stripped if ("[S1]" in text or "[S2]" in text) else f"{tag} {stripped}"
+
+
 class DiaEngine(TtsEngine):
     """Dia 1.6B — single class-level model singleton, daemon synth thread."""
 
@@ -101,10 +115,7 @@ class DiaEngine(TtsEngine):
     def _synthesize_array(self, text: str, voice_id: str, params: SpeakParams):
         if not text.strip():
             return None
-        if voice_id not in _VALID_VOICE_IDS:
-            voice_id = _DEFAULT_VOICE
-        tag = _TAG.get(voice_id, "[S1]")
-        tagged = text.strip() if ("[S1]" in text or "[S2]" in text) else f"{tag} {text.strip()}"
+        tagged = build_tagged_text(text, voice_id)
         model = self._get_model()
         _log.info("Dia generating %d chars (speaker=%s)", len(text), voice_id)
         output = model.generate(tagged, verbose=False)

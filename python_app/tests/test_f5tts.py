@@ -1,4 +1,15 @@
-"""Tests for F5TTSEngine — no network, no audio hardware required."""
+"""Tests for F5TTSEngine.
+
+Per .agents/SKILLS/highlevel_design/SKILL.md's anti-mocking testing
+philosophy, real-synthesis tests run against the actual downloaded F5-TTS
+model plus a real reference voice — the "en_female_calm" preset, whose
+.wav/.txt are provisioned from the bundled reference clip that ships with
+the f5-tts pip package itself (see setup.py's _provision_f5tts_reference_voice).
+"en_male_warm" doesn't have a bundled reference and isn't downloaded
+automatically yet, so tests needing an *invalid/missing* reference file
+still use tmp_path-based fakes — that's a real filesystem-missing-file
+condition, not simulated model behavior.
+"""
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -12,6 +23,12 @@ from src.engines.f5tts_engine import (
     _VALID_VOICE_IDS,
     F5TTSEngine,
 )
+
+from .conftest import requires_weights
+
+# f5tts weights + the en_female_calm reference voice must both be present.
+requires_f5tts_weights = requires_weights("ml/f5tts")
+requires_f5tts_reference = requires_weights("ml/f5tts/voices")
 
 # ── Voice roster ──────────────────────────────────────────────────────────────
 
@@ -34,39 +51,14 @@ def test_kokoro_voices_not_in_roster():
         assert vid not in _VALID_VOICE_IDS
 
 
-# ── Voice validation guard ────────────────────────────────────────────────────
-
-def _make_mock_model(audio: np.ndarray, sr: int = _SAMPLE_RATE):
-    mock = MagicMock()
-    mock.infer.return_value = (audio, sr, None)
-    return mock
-
-
-def test_invalid_voice_falls_back_to_default(tmp_path):
-    audio = np.zeros(100, dtype=np.float32)
-    mock_model = _make_mock_model(audio)
-    engine = F5TTSEngine()
-    F5TTSEngine._model = mock_model
-
-    # Provide reference files for the default voice
-    voices_dir = tmp_path / "voices"
-    voices_dir.mkdir()
-    (voices_dir / f"{_DEFAULT_VOICE}.wav").write_bytes(b"fake")
-    (voices_dir / f"{_DEFAULT_VOICE}.txt").write_text("ref text", encoding="utf-8")
-
-    with patch("src.engines.f5tts_engine._ref_wav", return_value=voices_dir / f"{_DEFAULT_VOICE}.wav"), \
-         patch("src.engines.f5tts_engine._ref_txt", return_value=voices_dir / f"{_DEFAULT_VOICE}.txt"), \
-         patch("src.engines.f5tts_engine.play_audio"):
-        engine.speak("hello", "bad_voice", SpeakParams())
-        engine.wait_until_done(timeout_ms=5_000)
-
-    # infer() must have been called (invalid voice fell back to default)
-    mock_model.infer.assert_called_once()
-
+# ── Missing reference file handling (real filesystem condition) ──────────────
 
 def test_missing_reference_file_logs_error_and_skips(tmp_path):
-    """If the .wav reference is missing, synthesis must be skipped (no crash)."""
-    mock_model = _make_mock_model(np.zeros(100, dtype=np.float32))
+    """If the .wav reference is missing, synthesis must be skipped (no
+    crash, no model load). Real filesystem check — not mocked model
+    behavior — model.infer is asserted not-called as a side effect of our
+    own early-return guard, using a MagicMock only to observe non-invocation."""
+    mock_model = MagicMock()
     engine = F5TTSEngine()
     F5TTSEngine._model = mock_model
 
@@ -79,44 +71,74 @@ def test_missing_reference_file_logs_error_and_skips(tmp_path):
 
     mock_play.assert_not_called()
     mock_model.infer.assert_not_called()
-
-
-# ── speak + play ──────────────────────────────────────────────────────────────
-
-def test_speak_calls_play_audio(tmp_path):
-    audio = np.ones(2400, dtype=np.float32)
-    mock_model = _make_mock_model(audio)
-    engine = F5TTSEngine()
-    F5TTSEngine._model = mock_model
-
-    voices_dir = tmp_path / "voices"
-    voices_dir.mkdir()
-    wav_path = voices_dir / f"{_DEFAULT_VOICE}.wav"
-    txt_path = voices_dir / f"{_DEFAULT_VOICE}.txt"
-    wav_path.write_bytes(b"fake")
-    txt_path.write_text("reference text", encoding="utf-8")
-
-    played = []
-    with patch("src.engines.f5tts_engine._ref_wav", return_value=wav_path), \
-         patch("src.engines.f5tts_engine._ref_txt", return_value=txt_path), \
-         patch("src.engines.f5tts_engine.play_audio",
-               side_effect=lambda a, r: played.append((a, r))):
-        engine.speak("test", _DEFAULT_VOICE, SpeakParams(volume=50))
-        engine.wait_until_done(timeout_ms=5_000)
-
-    assert len(played) == 1
-    arr, rate = played[0]
-    assert rate == _SAMPLE_RATE
-    assert abs(arr[0] - 0.5) < 0.01
+    F5TTSEngine._model = None  # reset singleton — don't leak into real-synthesis tests
 
 
 def test_speak_empty_text_does_nothing():
+    """No mocking needed — empty text must short-circuit before ever
+    touching _get_model(), real or otherwise."""
     engine = F5TTSEngine()
-    F5TTSEngine._model = MagicMock()
     with patch("src.engines.f5tts_engine.play_audio") as mock_play:
         engine.speak("", _DEFAULT_VOICE, SpeakParams())
         engine.wait_until_done(timeout_ms=1_000)
     mock_play.assert_not_called()
+
+
+# ── Real synthesis ─────────────────────────────────────────────────────────────
+
+@requires_f5tts_weights
+@requires_f5tts_reference
+def test_real_synthesis_produces_audio():
+    engine = F5TTSEngine()
+    result = engine.synthesize(
+        "Hello, this is a real F5-TTS synthesis test.", "en_female_calm", SpeakParams()
+    )
+    assert result is not None
+    audio, sr = result
+    assert sr == _SAMPLE_RATE or sr > 0  # F5-TTS reports its own native rate
+    assert len(audio) > 100
+    assert audio.dtype == np.float32
+
+
+@requires_f5tts_weights
+@requires_f5tts_reference
+def test_real_synthesis_invalid_voice_falls_back_to_default():
+    engine = F5TTSEngine()
+    result = engine.synthesize("Hello again.", "bad_voice", SpeakParams())
+    assert result is not None  # falls back to en_female_calm, still produces audio
+
+
+@requires_f5tts_weights
+@requires_f5tts_reference
+def test_real_synthesis_volume_scaling():
+    engine = F5TTSEngine()
+    full = engine.synthesize("volume scaling test phrase", "en_female_calm", SpeakParams(volume=100))
+    half = engine.synthesize("volume scaling test phrase", "en_female_calm", SpeakParams(volume=50))
+    assert full is not None and half is not None
+    full_audio, _ = full
+    half_audio, _ = half
+    full_peak = np.abs(full_audio).max()
+    half_peak = np.abs(half_audio).max()
+    assert full_peak > 0
+    assert abs(half_peak - full_peak * 0.5) < full_peak * 0.05
+
+
+@requires_f5tts_weights
+@requires_f5tts_reference
+def test_real_speak_calls_play_audio():
+    """play_audio is intercepted (no speakers/audio device needed for CI),
+    but the buffer comes from real F5-TTS synthesis."""
+    engine = F5TTSEngine()
+    played = []
+    with patch("src.engines.f5tts_engine.play_audio",
+               side_effect=lambda a, r: played.append((a, r))):
+        engine.speak("real playback test", "en_female_calm", SpeakParams())
+        engine.wait_until_done(timeout_ms=60_000)
+
+    assert len(played) == 1
+    arr, rate = played[0]
+    assert len(arr) > 0
+    assert np.abs(arr).max() > 0
 
 
 # ── stop / wait_until_done ───────────────────────────────────────────────────

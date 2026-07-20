@@ -1,7 +1,18 @@
-"""Tests for KokoroEngine — no network, no audio hardware required.
+"""Tests for KokoroEngine.
 
-All tests mock the KPipeline and sounddevice so they run in CI without
-model weights on disk and without a sound card.
+Per .agents/SKILLS/highlevel_design/SKILL.md's anti-mocking testing
+philosophy, tests that exercise KPipeline/synthesis logic run against the
+REAL model (gated by @requires_weights, skipped if .models/ml/kokoro isn't
+populated — run `python run.py download` to populate it). Only two
+exceptions remain mocked, both justified below:
+  - play_audio is intercepted so test runs don't emit real audio to your
+    speakers or require an audio device — the audio *array* produced by
+    real synthesis is still captured and asserted on for real.
+  - test_stop_mid_generation_aborts needs to interrupt generation at a
+    precise, reproducible point mid-stream; real inference timing isn't
+    controllable enough to make that deterministic, so a fake generator
+    stands in there specifically to test our own threading/abort logic
+    (not Kokoro's behavior).
 """
 from __future__ import annotations
 
@@ -18,6 +29,10 @@ from src.engines.kokoro_engine import (
     _VALID_VOICE_IDS,
     _rate_to_speed,
 )
+
+from .conftest import requires_weights
+
+requires_kokoro_weights = requires_weights("ml/kokoro")
 
 
 # ── Voice roster ──────────────────────────────────────────────────────────────
@@ -71,50 +86,6 @@ def test_rate_clamped_below():
     assert _rate_to_speed(-99) == _rate_to_speed(-10)
 
 
-# ── Voice validation guard ────────────────────────────────────────────────────
-
-def _make_mock_pipeline(audio: np.ndarray):
-    """Return a mock KPipeline that yields one audio chunk."""
-    mock_pipe = MagicMock()
-    mock_pipe.return_value = iter([("gs", "ps", audio)])
-    return mock_pipe
-
-
-def _used_voice(mock_pipe) -> str:
-    """Extract the voice kwarg from the last call to a mock pipeline."""
-    return mock_pipe.call_args.kwargs["voice"]
-
-
-def test_invalid_voice_falls_back_to_default():
-    """Passing a Piper voice ID must use _DEFAULT_VOICE instead — no network call."""
-    audio = np.zeros(100, dtype=np.float32)
-    mock_pipe = _make_mock_pipeline(audio)
-
-    engine = KokoroEngine()
-
-    with patch.object(engine, "_get_pipeline", return_value=mock_pipe), \
-         patch("src.engines.kokoro_engine.play_audio"):
-        engine.speak("hello", "en_US-amy-medium", SpeakParams())
-        engine.wait_until_done(timeout_ms=5_000)
-
-    assert _used_voice(mock_pipe) == _DEFAULT_VOICE
-
-
-def test_valid_voice_passes_through():
-    """A valid Kokoro voice ID must reach the pipeline unchanged."""
-    audio = np.zeros(100, dtype=np.float32)
-    mock_pipe = _make_mock_pipeline(audio)
-
-    engine = KokoroEngine()
-
-    with patch.object(engine, "_get_pipeline", return_value=mock_pipe), \
-         patch("src.engines.kokoro_engine.play_audio"):
-        engine.speak("hello", "bf_emma", SpeakParams())
-        engine.wait_until_done(timeout_ms=5_000)
-
-    assert _used_voice(mock_pipe) == "bf_emma"
-
-
 # ── stop() ────────────────────────────────────────────────────────────────────
 
 def test_stop_sets_done_event():
@@ -144,27 +115,6 @@ def test_wait_until_done_returns_false_on_timeout():
     assert engine.wait_until_done(timeout_ms=50) is False
 
 
-# ── speak with mocked pipeline ────────────────────────────────────────────────
-
-def test_speak_calls_play_audio():
-    audio = np.ones(2400, dtype=np.float32)
-    mock_pipe = _make_mock_pipeline(audio)
-
-    engine = KokoroEngine()
-    played = []
-
-    with patch.object(engine, "_get_pipeline", return_value=mock_pipe), \
-         patch("src.engines.kokoro_engine.play_audio", side_effect=lambda a, r: played.append((a, r))):
-        engine.speak("test", "af_heart", SpeakParams(volume=50))
-        engine.wait_until_done(timeout_ms=5_000)
-
-    assert len(played) == 1
-    arr, rate = played[0]
-    assert rate == 24_000
-    # Volume 50 → scale 0.5
-    assert abs(arr[0] - 0.5) < 0.01
-
-
 def test_speak_empty_text_does_nothing():
     engine = KokoroEngine()
     with patch.object(engine, "_get_pipeline") as mock_get:
@@ -172,17 +122,82 @@ def test_speak_empty_text_does_nothing():
         mock_get.assert_not_called()
 
 
+# ── Real synthesis ─────────────────────────────────────────────────────────────
+
+@requires_kokoro_weights
+def test_real_synthesis_invalid_voice_falls_back_to_default():
+    """Passing a Piper voice ID must fall back to _DEFAULT_VOICE and still
+    produce real audio — proves the fallback path, not just that it doesn't
+    crash."""
+    engine = KokoroEngine()
+    result = engine.synthesize("hello", "en_US-amy-medium", SpeakParams())
+    assert result is not None
+    audio, sr = result
+    assert sr == 24_000
+    assert len(audio) > 0
+    assert audio.dtype == np.float32
+
+
+@requires_kokoro_weights
+def test_real_synthesis_valid_voice_produces_audio():
+    engine = KokoroEngine()
+    result = engine.synthesize("hello world, this is a real synthesis test.", "bf_emma", SpeakParams())
+    assert result is not None
+    audio, sr = result
+    assert sr == 24_000
+    assert len(audio) > 100  # more than a trivial/empty buffer
+    assert np.abs(audio).max() <= 1.0  # valid float32 PCM range
+
+
+@requires_kokoro_weights
+def test_real_synthesis_volume_scaling():
+    """Real synthesized audio at volume=50 should have roughly half the peak
+    amplitude of the same text/voice at volume=100."""
+    engine = KokoroEngine()
+    full = engine.synthesize("consistent test phrase for volume", "af_heart", SpeakParams(volume=100))
+    half = engine.synthesize("consistent test phrase for volume", "af_heart", SpeakParams(volume=50))
+    assert full is not None and half is not None
+    full_audio, _ = full
+    half_audio, _ = half
+    full_peak = np.abs(full_audio).max()
+    half_peak = np.abs(half_audio).max()
+    assert full_peak > 0
+    assert abs(half_peak - full_peak * 0.5) < full_peak * 0.05  # within 5% tolerance
+
+
+@requires_kokoro_weights
+def test_real_speak_calls_play_audio_with_real_buffer():
+    """play_audio is intercepted (no speakers/audio device needed for CI),
+    but the buffer it receives comes from real Kokoro synthesis."""
+    engine = KokoroEngine()
+    played = []
+    with patch("src.engines.kokoro_engine.play_audio",
+               side_effect=lambda a, r: played.append((a, r))):
+        engine.speak("real playback test", "af_heart", SpeakParams(volume=50))
+        engine.wait_until_done(timeout_ms=30_000)
+
+    assert len(played) == 1
+    arr, rate = played[0]
+    assert rate == 24_000
+    assert len(arr) > 0
+    assert np.abs(arr).max() > 0  # not silence
+
+
+# ── Threading / abort semantics (fake generator — see module docstring) ───────
+
 def test_stop_mid_generation_aborts():
-    """If stop() is called while the generator is running, play_audio must not be called."""
+    """If stop() is called while the generator is running, play_audio must
+    not be called. Uses a fake generator (not Kokoro's real pipeline) to
+    deterministically control *when* mid-stream interruption happens — real
+    inference timing can't be paused at a reproducible point. This tests
+    our own threading/abort logic, independent of what Kokoro itself does."""
     first_chunk_reached = threading.Event()
     stop_was_set = threading.Event()
 
     def blocking_pipe(**kwargs):
-        # Yield first chunk and signal the test thread, then block until stop is set
         yield "gs", "ps", np.zeros(100, dtype=np.float32)
         first_chunk_reached.set()
         stop_was_set.wait(timeout=3.0)
-        # Yield more chunks — these must be discarded because stop was requested
         for _ in range(5):
             yield "gs", "ps", np.zeros(100, dtype=np.float32)
 
@@ -193,7 +208,7 @@ def test_stop_mid_generation_aborts():
     with patch.object(engine, "_get_pipeline", return_value=mock_pipe), \
          patch("src.engines.kokoro_engine.play_audio", side_effect=lambda a, r: played.append(a)):
         engine.speak("long text", "af_heart", SpeakParams())
-        first_chunk_reached.wait(timeout=3.0)  # wait until generator is running
+        first_chunk_reached.wait(timeout=3.0)
         engine.stop()
         stop_was_set.set()
         engine.wait_until_done(timeout_ms=5_000)

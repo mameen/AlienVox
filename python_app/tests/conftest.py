@@ -44,6 +44,31 @@ _ALL_ML_MODELS = [
     "ml/outetts",
 ]
 
+_REAL_MODELS_ROOT = Path(__file__).resolve().parent.parent / ".models"
+
+
+def _weights_present(model_subpath: str) -> bool:
+    """True if real weight files exist under the real (not fixture) .models/ dir.
+
+    Used to gate real-execution tests per the anti-mocking testing philosophy
+    (.agents/SKILLS/highlevel_design/SKILL.md): tests should exercise actual
+    model inference against real buffers wherever possible, not simulate it
+    with MagicMock stand-ins. These tests skip (rather than fail) when the
+    multi-GB weights aren't present locally, since downloading them just to
+    run CI isn't practical — but on a dev machine with weights already
+    fetched (via `run.py download`), they run for real.
+    """
+    path = _REAL_MODELS_ROOT / model_subpath
+    return path.exists() and any(p.is_file() for p in path.rglob("*"))
+
+
+def requires_weights(model_subpath: str):
+    """Skip marker factory: skip unless real weights exist at .models/<model_subpath>."""
+    return pytest.mark.skipif(
+        not _weights_present(model_subpath),
+        reason=f"real weights not present at .models/{model_subpath} — run `python run.py download`",
+    )
+
 
 @pytest.fixture(scope="session")
 def stacks_yaml() -> Path:

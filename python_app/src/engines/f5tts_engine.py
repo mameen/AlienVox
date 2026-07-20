@@ -21,6 +21,7 @@ import numpy as np
 from .. import logger as _logger_mod
 from ..audio_player import play_audio, stop_playback
 from ..config import models_root
+from ..device import select_device
 from .base import SpeakParams, TtsEngine, Voice
 
 _log = _logger_mod.get_logger("f5tts")
@@ -65,9 +66,10 @@ class F5TTSEngine(TtsEngine):
     def _get_model(self):
         with F5TTSEngine._model_lock:
             if F5TTSEngine._model is None:
-                _log.info("loading F5-TTS model (may download ~1.2 GB)")
+                device = select_device()
+                _log.info("loading F5-TTS model (may download ~1.2 GB, device=%s)", device)
                 from f5_tts.api import F5TTS
-                F5TTSEngine._model = F5TTS(model_type="F5TTS")
+                F5TTSEngine._model = F5TTS(model="F5TTS_v1_Base", device=device)
                 _log.info("F5-TTS model ready")
             return F5TTSEngine._model
 

@@ -1,6 +1,17 @@
-"""Tests for PiperEngine — no network, no audio hardware, no weights on disk
-required. All tests mock the piper.PiperVoice model and sounddevice so they
-run in CI.
+"""Tests for PiperEngine.
+
+Per .agents/SKILLS/highlevel_design/SKILL.md's anti-mocking testing
+philosophy, real-synthesis tests below run against the actual downloaded
+Piper voice model (gated by @requires_weights). A handful of tests still
+use a mocked PiperVoice, each justified individually:
+  - Silence-gap arithmetic (test_synthesize_concatenates_chunks_and_applies_volume,
+    test_synthesize_no_silence_gap_when_sentence_silence_zero) needs exact
+    control over chunk sample counts to assert precise concatenation math —
+    real inference output length isn't controllable enough for that.
+  - test_synthesize_returns_none_on_exception tests our own error-handling
+    path, which requires forcing an exception deterministically.
+  - play_audio is intercepted in the real-synthesis playback test so it
+    doesn't require an audio device / emit real sound in CI.
 
 Covers two real bugs found and fixed:
   1. _synthesize() was a stub that always returned b"" — Piper never
@@ -23,6 +34,11 @@ from src.engines.piper_win import (
     piper_config_from_params,
     rate_to_length_scale,
 )
+
+from .conftest import requires_weights
+
+requires_piper_weights = requires_weights("ml/piper")
+_REAL_VOICE = "en_US-lessac-medium"  # confirmed present under .models/ml/piper
 
 
 # ── piper_config_from_params: defaults ──────────────────────────────────────
@@ -100,9 +116,11 @@ def test_synthesize_returns_none_for_empty_text():
 
 
 def test_synthesize_returns_none_when_voice_not_found():
+    """Real path — no mocking: a voice ID with no matching .onnx file under
+    .models/ml/piper must fail to resolve, regardless of whether weights for
+    other voices are present."""
     engine = PiperEngine()
-    with patch.object(engine, "_get_voice_model", return_value=None):
-        result = engine._synthesize_array("hello", "nonexistent-voice", SpeakParams())
+    result = engine._synthesize_array("hello", "nonexistent-voice-xyz", SpeakParams())
     assert result is None
 
 
@@ -167,24 +185,6 @@ def test_synthesize_stops_early_when_stop_requested():
     assert result is None
 
 
-# ── speak() → _do_speak() end-to-end (mocked) ─────────────────────────────────
-
-def test_speak_calls_play_audio():
-    mock_voice = MagicMock()
-    chunk = _make_chunk(np.ones(100, dtype=np.float32))
-    mock_voice.synthesize.return_value = iter([chunk])
-
-    engine = PiperEngine()
-    played = []
-    with patch.object(engine, "_get_voice_model", return_value=mock_voice), \
-         patch("src.engines.piper_win.play_audio", side_effect=lambda a, r: played.append((a, r))):
-        engine.speak("hello", "en_US-lessac-medium", SpeakParams())
-        engine.wait_until_done(timeout_ms=5_000)
-
-    assert len(played) == 1
-    assert played[0][1] == 22_050
-
-
 def test_speak_empty_text_does_nothing():
     engine = PiperEngine()
     with patch.object(engine, "_get_voice_model") as mock_get:
@@ -197,3 +197,68 @@ def test_stop_sets_done_event():
     engine._done.clear()
     engine.stop()
     assert engine._done.is_set()
+
+
+# ── Real synthesis ─────────────────────────────────────────────────────────────
+
+@requires_piper_weights
+def test_real_synthesis_produces_audio():
+    engine = PiperEngine()
+    result = engine.synthesize(
+        "Hello, this is a real Piper synthesis test.", _REAL_VOICE, SpeakParams()
+    )
+    assert result is not None
+    audio, sr = result
+    assert sr == 22_050
+    assert len(audio) > 100
+    assert np.abs(audio).max() <= 1.0
+
+
+@requires_piper_weights
+def test_real_synthesis_volume_scaling():
+    engine = PiperEngine()
+    full = engine.synthesize("consistent phrase for volume", _REAL_VOICE, SpeakParams(volume=100))
+    half = engine.synthesize("consistent phrase for volume", _REAL_VOICE, SpeakParams(volume=50))
+    assert full is not None and half is not None
+    full_audio, _ = full
+    half_audio, _ = half
+    full_peak = np.abs(full_audio).max()
+    half_peak = np.abs(half_audio).max()
+    assert full_peak > 0
+    assert abs(half_peak - full_peak * 0.5) < full_peak * 0.05
+
+
+@requires_piper_weights
+def test_real_synthesis_honors_noise_scale_override():
+    """A real noise_scale override must actually reach piper's synthesis
+    config and change output — not just be accepted and ignored."""
+    engine = PiperEngine()
+    default_result = engine.synthesize("noise scale test phrase", _REAL_VOICE, SpeakParams())
+    overridden_result = engine.synthesize(
+        "noise scale test phrase", _REAL_VOICE,
+        SpeakParams(extra={"noise_scale": 0.0, "noise_w": 0.0}),
+    )
+    assert default_result is not None and overridden_result is not None
+    default_audio, _ = default_result
+    overridden_audio, _ = overridden_result
+    # Different noise settings should produce a measurably different waveform
+    # (same length is fine — same phrase/voice — but values should differ).
+    assert not np.allclose(default_audio[:1000], overridden_audio[:1000])
+
+
+@requires_piper_weights
+def test_real_speak_calls_play_audio_with_real_buffer():
+    """play_audio is intercepted (no speakers/audio device needed for CI),
+    but the buffer it receives comes from real Piper synthesis."""
+    engine = PiperEngine()
+    played = []
+    with patch("src.engines.piper_win.play_audio",
+               side_effect=lambda a, r: played.append((a, r))):
+        engine.speak("real playback test", _REAL_VOICE, SpeakParams())
+        engine.wait_until_done(timeout_ms=30_000)
+
+    assert len(played) == 1
+    arr, rate = played[0]
+    assert rate == 22_050
+    assert len(arr) > 0
+    assert np.abs(arr).max() > 0

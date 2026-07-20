@@ -185,6 +185,39 @@ def _download_auto(models_root: Path, model_id: str, force: bool = False) -> Non
     )
     print(f"  ✓ {model_id} download complete → {dest}")
 
+    if model_id == "f5tts":
+        _provision_f5tts_reference_voice(dest)
+
+
+def _provision_f5tts_reference_voice(f5tts_dest: Path) -> None:
+    """F5-TTS is zero-shot voice cloning — it needs a reference .wav + .txt
+    per preset voice (see f5tts_engine.py's _VOICES), which snapshot_download()
+    above doesn't provide (those aren't part of the model repo). The pip
+    package itself bundles one usable English reference clip + transcript
+    (infer/examples/basic/basic_ref_en.wav) — copy it in as the "en_female_calm"
+    preset so at least one voice works out of the box. "en_male_warm" still
+    needs its own reference audio sourced separately (not bundled anywhere).
+    """
+    try:
+        import f5_tts
+        bundled_wav = Path(f5_tts.__file__).parent / "infer" / "examples" / "basic" / "basic_ref_en.wav"
+        if not bundled_wav.exists():
+            print("  (f5tts bundled reference audio not found — preset voices need manual setup)")
+            return
+        voices_dir = f5tts_dest / "voices"
+        voices_dir.mkdir(exist_ok=True)
+        dest_wav = voices_dir / "en_female_calm.wav"
+        dest_txt = voices_dir / "en_female_calm.txt"
+        if not dest_wav.exists():
+            import shutil as _shutil
+            _shutil.copy(bundled_wav, dest_wav)
+            dest_txt.write_text(
+                "Some call me nature, others call me mother nature.", encoding="utf-8",
+            )
+            print(f"  ✓ Provisioned en_female_calm reference voice → {dest_wav}")
+    except Exception as exc:
+        print(f"  (could not provision f5tts reference voice: {exc})")
+
 
 def _check_and_offer_models(models_root: Path, stacks_yaml: Path, force: bool = False) -> None:
     """Check which ML models are missing and offer to download them."""

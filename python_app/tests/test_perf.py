@@ -156,43 +156,51 @@ def collect_metrics(
     cpu_start = _get_cpu_percent()
 
     # ── Try synthesize() path (ML engines) ───────────────────────────────
-    has_synthesize = callable(getattr(engine, "synthesize", None))
-    synth_result = None
-    if has_synthesize:
-        t0 = time.perf_counter()
-        try:
-            synth_result = engine.synthesize(phrase, voice_id, params)
-        except Exception as exc:
-            result.skipped = True
-            result.skip_reason = f"synthesize() failed: {exc}"
-            return result
-        synthesis_end = time.perf_counter()
+    # Every TtsEngine subclass inherits a callable synthesize() from the base
+    # class (default: returns None for engines that can't capture raw audio,
+    # e.g. SAPI) — checking callable(engine.synthesize) is therefore ALWAYS
+    # True and can't distinguish "ML engine with real synthesize()" from
+    # "SAPI, whose synthesize() is a no-op." That bug caused SAPI/Speech
+    # Platform to silently skip speak() entirely during every benchmark run
+    # (0.0ms readings, no audio ever produced). Fixed by attempting
+    # synthesize() unconditionally and falling back to speak() when it
+    # returns None, instead of pre-branching on callable().
+    t0 = time.perf_counter()
+    try:
+        synth_result = engine.synthesize(phrase, voice_id, params)
+    except Exception as exc:
+        result.skipped = True
+        result.skip_reason = f"synthesize() failed: {exc}"
+        return result
+    synthesis_end = time.perf_counter()
+
+    if synth_result is not None:
         result.synthesis_ms = (synthesis_end - t0) * 1000
         result.first_chunk_ms = result.synthesis_ms  # synthesize() is a single blocking call
         result.latency_ms = result.synthesis_ms
 
-        if synth_result is not None:
-            # synthesize() returns (array, sample_rate) or just (array, sr) for f5tts
-            if isinstance(synth_result, tuple) and len(synth_result) == 2:
-                audio_arr, sr = synth_result
-            else:
-                audio_arr, sr = synth_result, getattr(engine, "_SAMPLE_RATE", 24000)
+        # synthesize() returns (array, sample_rate) or just the array for
+        # engines whose sample rate is fixed (fall back to _SAMPLE_RATE).
+        if isinstance(synth_result, tuple) and len(synth_result) == 2:
+            audio_arr, sr = synth_result
+        else:
+            audio_arr, sr = synth_result, getattr(engine, "_SAMPLE_RATE", 24000)
 
-            try:
-                import numpy as np
-                arr = np.asarray(audio_arr)
-                n_samples = arr.size if arr.ndim == 1 else arr.shape[-1]
-                result.audio_samples = int(n_samples)
-                result.audio_sample_rate = int(sr)
-                result.audio_duration_s = n_samples / sr if sr > 0 else -1.0
-                result.audio_bytes = int(n_samples * 2)  # int16 = 2 bytes/sample
-            except Exception:
-                pass  # numpy not available or array format unexpected
+        try:
+            import numpy as np
+            arr = np.asarray(audio_arr)
+            n_samples = arr.size if arr.ndim == 1 else arr.shape[-1]
+            result.audio_samples = int(n_samples)
+            result.audio_sample_rate = int(sr)
+            result.audio_duration_s = n_samples / sr if sr > 0 else -1.0
+            result.audio_bytes = int(n_samples * 2)  # int16 = 2 bytes/sample
+        except Exception:
+            pass  # numpy not available or array format unexpected
 
         result.completion_ms = result.synthesis_ms
 
         # ── Playback (after timing, so it doesn't skew synthesis_ms) ────
-        if listen and synth_result is not None:
+        if listen:
             try:
                 from src.audio_player import play_audio
                 play_audio(audio_arr, sr)
@@ -200,7 +208,8 @@ def collect_metrics(
                 print(f"    (playback failed for {result.stack_id}/{result.model_id}: {exc})")
 
     else:
-        # ── Fallback: speak() + wait_until_done() (SAPI) ─────────────────
+        # ── Fallback: speak() + wait_until_done() (SAPI, or any engine
+        # whose synthesize() genuinely couldn't produce audio this time) ──
         t0 = time.perf_counter()
         try:
             engine.speak(phrase, voice_id, params)
