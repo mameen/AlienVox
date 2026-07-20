@@ -43,6 +43,7 @@ stacks:
       - id: kokoro
         name: Kokoro-82M
         weights_subpath: ml/kokoro
+        auto_download: true    # KPipeline auto-fetches from HuggingFace Hub on first use
         voices:
           - { id: af_heart,  label: "American F · Heart" }
           - { id: af_bella,  label: "American F · Bella" }

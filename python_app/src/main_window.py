@@ -7,17 +7,21 @@ Opened from the tray "Settings…" item (or double-click in the future).
 """
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 from typing import Any, Callable
 
-from PySide6.QtCore import Qt, QUrl, Signal, QSize, QTimer
-from PySide6.QtGui import QAction, QColor, QDesktopServices, QFont, QIcon, QPainter, QPixmap, QPolygon
-from PySide6.QtCore import QPoint
+from PySide6.QtCore import QPoint, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import (
+    QColor,
+    QFont,
+    QIcon,
+    QPainter,
+    QPixmap,
+    QPolygon,
+)
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
-    QGroupBox,
     QHBoxLayout,
     QLabel,
     QMainWindow,
@@ -26,7 +30,6 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QSlider,
     QStatusBar,
-    QTabBar,
     QTabWidget,
     QToolBar,
     QToolButton,
@@ -34,7 +37,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .config import get_controls, get_voices, list_models, load_effective_config, save_user_override
+from .config import get_controls, get_voices, load_effective_config
 from .engines.registry import StackInfo
 
 _ACCENT = "#0078d4"
@@ -149,6 +152,7 @@ class MainWindow(QMainWindow):
         on_voice_changed: Callable[[str], None] | None = None,
         on_config_saved: Callable[[dict[str, Any]], None] | None = None,
         on_about: Callable | None = None,
+        on_stack_changed: Callable[[str], None] | None = None,
         live_voices: dict[str, list[dict]] | None = None,
         current_voice_id: str = "",
         parent: QWidget | None = None,
@@ -167,6 +171,7 @@ class MainWindow(QMainWindow):
         self._on_voice_changed_cb = on_voice_changed
         self._on_config_saved_cb = on_config_saved
         self._on_about_cb = on_about
+        self._on_stack_changed_cb = on_stack_changed
         # live_voices: {stack_id -> [{id, label}, ...]} from running engine
         self._live_voices: dict[str, list[dict]] = live_voices or {}
         self._current_voice_id = current_voice_id
@@ -575,9 +580,20 @@ class MainWindow(QMainWindow):
 
     def _on_tab_changed(self, idx: int) -> None:
         tab = self._tabs.widget(idx)
-        if tab:
-            stack_id = tab.property("stack_id") or ""
-            self._set_status(f"Engine: {stack_id or '—'}")
+        if not tab:
+            return
+        stack_id = tab.property("stack_id") or ""
+        self._set_status(f"Engine: {stack_id or '—'}")
+
+        # Notify main.py so it can swap the active engine
+        if self._on_stack_changed_cb and stack_id:
+            # Also pass the currently selected voice for this tab
+            voice_id = ""
+            for combo, sid in self._voice_combos:
+                if sid == stack_id:
+                    voice_id = combo.currentData() or ""
+                    break
+            self._on_stack_changed_cb(stack_id, voice_id)
 
     def _on_model_changed(self, stack: StackInfo, model_id: str, voice_combo: QComboBox) -> None:
         model = next((m for m in stack.models if m.id == model_id), None)
@@ -693,7 +709,6 @@ def _make_stop_icon(size: int = 16) -> QIcon:
 
 def _make_about_icon(size: int = 16) -> QIcon:
     """App logo scaled to toolbar size — used for the About button."""
-    from pathlib import Path
     icons_dir = Path(__file__).parent / "resources" / "icons"
     logo = icons_dir / "icon_16x16.png"
     if logo.exists():

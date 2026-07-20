@@ -21,12 +21,12 @@ from typing import Callable
 if sys.platform != "win32":
     raise ImportError("sapi_win is Windows-only")
 
-import pythoncom          # type: ignore
-import win32com.client    # type: ignore
-import win32event         # type: ignore
+import pythoncom  # type: ignore
+import win32com.client  # type: ignore
+import win32event  # type: ignore
 
-from .base import TtsEngine, Voice, SpeakParams
 from .. import logger as _logger_mod
+from .base import SpeakParams, TtsEngine, Voice
 
 _log = _logger_mod.get_logger("sapi")
 

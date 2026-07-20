@@ -14,12 +14,11 @@ import time
 if sys.platform != "win32":
     raise ImportError("capture is Windows-only")
 
-import win32api       # type: ignore
-import win32clipboard # type: ignore
-import win32con       # type: ignore
-import win32gui       # type: ignore
-import win32process   # type: ignore
-
+import win32api  # type: ignore
+import win32clipboard  # type: ignore
+import win32con  # type: ignore
+import win32gui  # type: ignore
+import win32process  # type: ignore
 
 # ── Public API ────────────────────────────────────────────────────────────────
 

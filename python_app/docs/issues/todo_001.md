@@ -1,7 +1,7 @@
 # TODO #001: AlienVox — Main Window & UI
 
 **Status:** Open  
-**Updated:** 2026-07-19  
+**Updated:** 2026-07-20  
 **Scope:** `src/main_window.py`, `src/about.py`, `src/tray.py`, `src/preferences.py`
 
 Reference design: `gemini_poc/frontend/index.html` (Rust/Tauri — full HTML/CSS/JS)
@@ -79,3 +79,5 @@ Mirrors Rust `#model-controls-piper` section.
 - [ ] `_speak_lock.release()` when already released → `RuntimeError`; wrap in `try/except`
 - [ ] Empty-text hotkey fires silently; show tray balloon "No text selected"
 - [ ] SAPI init failure leaves placeholder in voice dropdown; show error message instead
+- [ ] **Voice selection doesn't apply**: `on_voice_changed` saves to `user.yaml` but doesn't update in-memory `cfg`; next `speak()` still reads stale `cfg.get("voice", "")` → always uses the original voice
+- [ ] **Speech Platform tab shows "(loading voices…)"**: `_ensure_main_window()` only enumerates voices for `active_stack`, so non-active stacks (e.g. `speech_platform` when `sapi5` is active) never get their voice list populated

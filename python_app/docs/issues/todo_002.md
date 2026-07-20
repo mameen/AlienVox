@@ -1,7 +1,7 @@
 # TODO #002: AlienVox — Engine Functionality
 
 **Status:** Open  
-**Updated:** 2026-07-19  
+**Updated:** 2026-07-20  
 **Scope:** `src/engines/`, `src/main.py`, `stacks.yaml`, `src/audio_win.py`
 
 ---
@@ -17,74 +17,20 @@
 - [x] Structured logger: per-session log file + `[LEVEL] ts component msg` to stderr
 - [x] Startup TTS announcement on SAPI5 stack
 - [x] 39 passing SAPI tests
+- [x] `speech_platform` stack added to `stacks.yaml` + registry detection
+- [x] `SpeechPlatformEngine` reuses `SapiEngine` with `Speech Server v11` hive
+- [x] `src/audio_player.py`: shared `play_audio()` / `stop_playback()` via sounddevice
+- [x] `KokoroEngine` (`src/engines/kokoro_engine.py`): auto-downloads from HuggingFace Hub via `KPipeline(repo_id='hexgrad/Kokoro-82M')`, 7 voices, rate→speed mapping
+- [x] ML voices shown in tray + main window dropdown (from `engine.list_voices()`)
+- [x] Startup announcement fires on both SAPI5 and ML stacks
+- [x] `stacks.yaml`: kokoro marked `auto_download: true` → always available without pre-downloaded weights
 
 ---
 
-## 🔴 SAPI5 — Voice Dropdown Not Wired
+## 🟢 Kokoro working — `engine: ml` selects it automatically
 
-`main.py` collects `live_voices` but never passes it to `MainWindow`.
-The SAPI5 tab always shows `"(populated from OS at runtime)"`.
-
-- [ ] Pass `live_voices` to `MainWindow` constructor (or call `update_voices` after creation)
-- [ ] Set selected voice to match `cfg.get("voice", "")` on startup
-- [ ] On voice change: `save_user_override({"voice": vid})` + refresh tray checkmarks
-
----
-
-## 🔴 Speech Platform Stack (Microsoft Speech Server v11)
-
-Rust `audio_win.rs` has a third hive:
-```
-HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech Server\v11.0\Voices
-```
-This is the **Microsoft Speech Platform** runtime — separate from SAPI5 and OneCore.
-It has higher-quality voices (e.g. Microsoft Helen, Hazel, David in Speech Platform quality).
-The Rust UI shows it as a separate tab between SAPI5 and ML/AI.
-
-- [ ] Add `speech_platform` entry to `stacks.yaml`:
-  ```yaml
-  - id: speech_platform
-    name: Speech Platform
-    platform: win32
-    weights_subpath: ""
-    controls:
-      rate:   { min: -10, max: 10,  default: 0,   applies: true }
-      pitch:  { min: -10, max: 10,  default: 0,   applies: true }
-      volume: { min: 0,   max: 100, default: 100, applies: true }
-  ```
-- [ ] Add `speech_platform` handling to `registry.py`:
-  Check `HKLM\SOFTWARE\Microsoft\Speech Server\v11.0\Voices` registry key exists;
-  mark available only if at least one voice token is present.
-- [ ] Add `speech_platform` to `_VOICE_CATEGORIES` in `sapi_win.py` (or a separate hive
-  list per stack). `_load_engine("speech_platform")` can reuse `SapiEngine` with a
-  different category list.
-- [ ] Update `_load_engine()` in `main.py` to handle `speech_platform` stack.
-
----
-
-## 🔴 ML Stack — Shared Audio Playback
-
-All ML engines produce raw PCM/WAV bytes. They need a shared playback layer.
-
-- [ ] Create `src/audio_win.py`:
-  ```python
-  def play_wav_bytes(data: bytes, sample_rate: int, channels: int) -> None
-  def stop_playback() -> None
-  ```
-  Use `sounddevice.play()` (already in `requirements.txt`). Playback interruptible.
-- [ ] Wire `stop_playback()` into `engine.stop()` for all ML engines.
-
----
-
-## 🔴 Kokoro-82M (`src/engines/kokoro_engine.py`)
-
-- [ ] Implement `TtsEngine` using the `kokoro` Python package (already in requirements.txt)
-- [ ] `list_voices()` → returns voices from `stacks.yaml` `ml/kokoro` entry
-- [ ] `speak(text, voice_id, params)` → `kokoro.generate()` → `audio_win.play_wav_bytes()`
-- [ ] `speak_to_wav(text, voice_id, params, path)` → write PCM as WAV via `wave` stdlib
-- [ ] Weight detection: registry checks `models_root / "ml/kokoro"` exists
-- [ ] Wire into `_load_engine()`: `engine_id == "ml" and model_id == "kokoro"`
-- [ ] `wait_until_done()`: wait on playback thread event
+Set `user.yaml` → `engine: ml` (and optionally `model: kokoro`) to use it.
+On first run, weights auto-download from HuggingFace Hub (~300 MB, one-time).
 
 ---
 

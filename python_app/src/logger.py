@@ -23,7 +23,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import IO
 
-
 _lock = threading.Lock()
 _log_file: IO[str] | None = None
 _session_id: str = ""

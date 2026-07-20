@@ -86,12 +86,14 @@ def available_stacks(
             ))
             continue
 
-        # ML / other stacks: check each model's weights
+        # ML / other stacks: check each model's weights.
+        # Models with auto_download=true are always available (weights fetched on demand).
         model_infos: list[ModelInfo] = []
         for m in s.get("models", []):
             mid = m.get("id", "")
             weights = m.get("weights_subpath", "")
-            weights_ok = bool(weights) and (mr / weights).exists()
+            auto_dl = m.get("auto_download", False)
+            weights_ok = auto_dl or (bool(weights) and (mr / weights).exists())
             model_infos.append(ModelInfo(
                 id=mid,
                 name=m.get("name", mid),

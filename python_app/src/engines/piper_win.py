@@ -5,12 +5,9 @@ text-to-speech with ONNX runtime. No external subprocess calls.
 """
 from __future__ import annotations
 
-import sys
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Any
 
-from .base import TtsEngine, Voice, SpeakParams
+from .base import SpeakParams, TtsEngine, Voice
 
 
 @dataclass
@@ -77,11 +74,8 @@ class PiperEngine(TtsEngine):
     def _synthesize(self, text: str, voice_id: str, params: SpeakParams) -> bytes | None:
         """Synthesize text to WAV bytes using piper."""
         try:
-            import piper  # type: ignore
-            import json
-
             # Piper config — map our controls to piper settings
-            config = {
+            _config = {
                 "noise_scale": params.__dict__.get("noise_scale", 0.667),
                 "noise_w": params.__dict__.get("noise_w", 0.8),
                 "sentence_silence": params.__dict__.get("sentence_silence", 0.2),
@@ -108,8 +102,8 @@ class PiperEngine(TtsEngine):
     def _play_wav(self, audio_bytes: bytes) -> None:
         """Play WAV bytes via sounddevice or system audio."""
         try:
-            import sounddevice as sd  # type: ignore
             import numpy as np  # type: ignore
+            import sounddevice as sd  # type: ignore
 
             # Parse WAV header to get sample rate and channels
             if len(audio_bytes) < 44:

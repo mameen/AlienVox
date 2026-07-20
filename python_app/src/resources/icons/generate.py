@@ -6,7 +6,9 @@ Outputs: idle.png, speaking.png, error.png in this directory.
 These are intentionally minimal geometric placeholders; replace with
 real icon assets before shipping.
 """
-import struct, zlib, pathlib
+import pathlib
+import struct
+import zlib
 
 _DIR = pathlib.Path(__file__).parent
 
