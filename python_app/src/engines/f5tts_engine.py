@@ -99,46 +99,45 @@ class F5TTSEngine(TtsEngine):
 
     # ── Internal ──────────────────────────────────────────────────────────────
 
+    def synthesize(self, text: str, voice_id: str, params: SpeakParams):
+        """Return (audio_float32, sample_rate) without playing."""
+        result = self._synthesize_array(text, voice_id or _DEFAULT_VOICE, params)
+        return result if result is not None else None
+
+    def _synthesize_array(self, text: str, voice_id: str, params: SpeakParams):
+        """Returns (audio_float32, sr) or None."""
+        if not text.strip():
+            return None
+        if voice_id not in _VALID_VOICE_IDS:
+            voice_id = _DEFAULT_VOICE
+        ref_wav_path = _ref_wav(voice_id)
+        if not ref_wav_path.exists():
+            _log.error(
+                "F5-TTS reference voice %r not found at %s — "
+                "open the Install dialog to download preset voices",
+                voice_id, ref_wav_path,
+            )
+            return None
+        ref_txt_path = _ref_txt(voice_id)
+        ref_text = ref_txt_path.read_text(encoding="utf-8").strip() if ref_txt_path.exists() else ""
+        model = self._get_model()
+        _log.info("F5-TTS generating %d chars (voice=%s)", len(text), voice_id)
+        wav, sr, _ = model.infer(ref_file=str(ref_wav_path), ref_text=ref_text, gen_text=text, seed=42)
+        audio = np.asarray(wav, dtype=np.float32)
+        if audio.ndim > 1:
+            audio = audio.mean(axis=0)
+        volume_scale = max(0.0, min(1.0, params.volume / 100.0))
+        return (audio * volume_scale, sr or _SAMPLE_RATE)
+
     def _do_speak(self, text: str, voice_id: str, params: SpeakParams) -> None:
         try:
-            if not text.strip():
-                return
-            if voice_id not in _VALID_VOICE_IDS:
-                _log.warn("voice_id=%r not in F5-TTS roster — using default", voice_id)
-                voice_id = _DEFAULT_VOICE
-
-            ref_wav = _ref_wav(voice_id)
-            ref_txt_path = _ref_txt(voice_id)
-            if not ref_wav.exists():
-                _log.error(
-                    "F5-TTS reference voice %r not found at %s — "
-                    "open the Install dialog to download preset voices",
-                    voice_id, ref_wav,
-                )
-                return
-
-            ref_text = ref_txt_path.read_text(encoding="utf-8").strip() if ref_txt_path.exists() else ""
-
-            model = self._get_model()
             if self._stop_requested.is_set():
                 return
-
-            _log.info("F5-TTS generating %d chars (voice=%s)", len(text), voice_id)
-            wav, sr, _ = model.infer(
-                ref_file=str(ref_wav),
-                ref_text=ref_text,
-                gen_text=text,
-                seed=42,
-            )
-
-            if self._stop_requested.is_set():
+            result = self._synthesize_array(text, voice_id or _DEFAULT_VOICE, params)
+            if result is None or self._stop_requested.is_set():
                 return
-
-            audio = np.asarray(wav, dtype=np.float32)
-            if audio.ndim > 1:
-                audio = audio.mean(axis=0)
-            volume_scale = max(0.0, min(1.0, params.volume / 100.0))
-            play_audio(audio * volume_scale, sr or _SAMPLE_RATE)
+            audio, sr = result
+            play_audio(audio, sr)
         except Exception as exc:
             _log.error("F5-TTS synthesis failed: %s", exc)
         finally:

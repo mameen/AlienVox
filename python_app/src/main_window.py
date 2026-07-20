@@ -321,6 +321,7 @@ class MainWindow(QMainWindow):
         on_config_saved: Callable[[dict[str, Any]], None] | None = None,
         on_about: Callable | None = None,
         on_stack_changed: Callable[[str], None] | None = None,
+        on_export: "Callable[[str, str, str], None] | None" = None,
         live_voices: dict[str, list[dict]] | None = None,
         current_voice_id: str = "",
         models_root: Path | None = None,
@@ -345,6 +346,7 @@ class MainWindow(QMainWindow):
         self._on_config_saved_cb = on_config_saved
         self._on_about_cb = on_about
         self._on_stack_changed_cb = on_stack_changed
+        self._on_export_cb = on_export
         self._models_root = models_root
         self._active_stack_id = active_stack_id
         # live_voices: {stack_id -> [{id, label}, ...]} from running engine
@@ -428,7 +430,7 @@ class MainWindow(QMainWindow):
         _text_btn("📂", "Open file (TXT / MD / HTML / DOCX / PDF)", self._on_open)
         _text_btn("💾", "Save document", self._on_save)
         _sep()
-        _text_btn("🎵", "Export to WAV")
+        _text_btn("🎵", "Export to WAV / MP3", self._on_export)
         _sep()
         self._btn_play  = _icon_btn(_make_play_icon(),  "Play (speak text)", self._on_play)
         self._btn_pause = _icon_btn(_make_pause_icon(), "Pause",             self._on_pause)
@@ -747,6 +749,17 @@ class MainWindow(QMainWindow):
         path = self._editor.save_file()
         if path:
             self._set_status(f"Saved {path.name}")
+
+    def _on_export(self) -> None:
+        text = self._editor.to_plain_text().strip()
+        if not text:
+            self._set_status("No text to export")
+            return
+        if self._on_export_cb:
+            # Delegate to main.py which has engine + voice references
+            self._on_export_cb(text)
+        else:
+            self._set_status("Export not available — engine not loaded")
 
     def _on_play(self) -> None:
         text = self._editor.to_plain_text().strip()

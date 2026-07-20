@@ -38,6 +38,17 @@ class TtsEngine(ABC):
         """Wait for speech to complete. Override in engines that support it."""
         return True
 
+    def synthesize(
+        self, text: str, voice_id: str, params: "SpeakParams"
+    ) -> "tuple[object, int] | None":
+        """Return (float32 numpy array, sample_rate) without playing audio.
+
+        ML engines override this to expose raw audio for WAV/MP3 export.
+        Engines that can't capture audio (e.g. SAPI) return None — the caller
+        must use a file-stream path (speak_to_wav) in that case.
+        """
+        return None
+
     def speak_sync(self, text: str, voice_id: str, params: SpeakParams) -> None:
         """Blocking speak. Default: speak() + wait_until_done()."""
         self.speak(text, voice_id, params)

@@ -79,34 +79,30 @@ class KokoroEngine(TtsEngine):
             name="kokoro-speak",
         ).start()
 
+    def synthesize(self, text: str, voice_id: str, params: SpeakParams):
+        """Return (audio_float32, sample_rate) without playing."""
+        result = self._synthesize_array(text, voice_id or _DEFAULT_VOICE, params)
+        return (result, _SAMPLE_RATE) if result is not None else None
+
+    def _synthesize_array(self, text: str, voice_id: str, params: SpeakParams):
+        if voice_id not in _VALID_VOICE_IDS:
+            voice_id = _DEFAULT_VOICE
+        lang_code = _lang_for_voice(voice_id)
+        pipe = self._get_pipeline(lang_code)
+        speed = _rate_to_speed(params.rate)
+        volume = params.volume / 100.0
+        chunks: list[np.ndarray] = []
+        for _gs, _ps, audio in pipe(text=text, voice=voice_id, speed=speed):
+            if audio is not None and len(audio) > 0:
+                chunks.append(np.array(audio, dtype=np.float32) * volume)
+        return np.concatenate(chunks) if chunks else None
+
     def _do_speak(self, text: str, voice_id: str, params: SpeakParams) -> None:
         try:
-            if voice_id not in _VALID_VOICE_IDS:
-                _log.warn("voice_id=%r is not a Kokoro voice — falling back to %s", voice_id, _DEFAULT_VOICE)
-                voice_id = _DEFAULT_VOICE
-            lang_code = _lang_for_voice(voice_id)
-            pipe = self._get_pipeline(lang_code)
-
-            speed = _rate_to_speed(params.rate)
-            volume = params.volume / 100.0
-
-            _log.trace("generating voice=%s speed=%.2f", voice_id, speed)
-
-            chunks: list[np.ndarray] = []
-            for _gs, _ps, audio in pipe(text=text, voice=voice_id, speed=speed):
-                if self._stop_requested.is_set():
-                    _log.trace("stop requested — aborting generation")
-                    return
-                if audio is not None and len(audio) > 0:
-                    arr = np.array(audio, dtype=np.float32) * volume
-                    chunks.append(arr)
-
-            if not chunks or self._stop_requested.is_set():
+            audio_out = self._synthesize_array(text, voice_id, params)
+            if audio_out is None or self._stop_requested.is_set():
                 return
-
-            audio_out = np.concatenate(chunks)
             _log.trace("synthesis complete — %d samples @ %d Hz", len(audio_out), _SAMPLE_RATE)
-
             play_audio(audio_out, _SAMPLE_RATE)
             _log.trace("playback complete")
         except Exception as exc:

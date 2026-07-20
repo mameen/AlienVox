@@ -80,27 +80,31 @@ class ChatterboxEngine(TtsEngine):
 
     # ── Internal ──────────────────────────────────────────────────────────────
 
+    def synthesize(self, text: str, voice_id: str, params: SpeakParams):
+        """Return (audio_float32, sample_rate) without playing."""
+        result = self._synthesize_array(text, voice_id or _DEFAULT_VOICE, params)
+        return (result, _SAMPLE_RATE) if result is not None else None
+
+    def _synthesize_array(self, text: str, voice_id: str, params: SpeakParams):
+        if not text.strip():
+            return None
+        if voice_id not in _VALID_VOICE_IDS:
+            voice_id = _DEFAULT_VOICE
+        model = self._get_model()
+        _log.info("Chatterbox generating %d chars", len(text))
+        wav = model.generate(text)
+        audio = wav.squeeze().cpu().numpy().astype(np.float32)
+        volume_scale = max(0.0, min(1.0, params.volume / 100.0))
+        return audio * volume_scale
+
     def _do_speak(self, text: str, voice_id: str, params: SpeakParams) -> None:
         try:
-            if not text.strip():
-                return
-            if voice_id not in _VALID_VOICE_IDS:
-                _log.warn("voice_id=%r not in Chatterbox roster — using default", voice_id)
-                voice_id = _DEFAULT_VOICE
-
-            model = self._get_model()
             if self._stop_requested.is_set():
                 return
-
-            _log.info("Chatterbox generating %d chars", len(text))
-            wav = model.generate(text)  # returns torch.Tensor shape (1, N)
-
-            if self._stop_requested.is_set():
+            audio = self._synthesize_array(text, voice_id or _DEFAULT_VOICE, params)
+            if audio is None or self._stop_requested.is_set():
                 return
-
-            audio = wav.squeeze().cpu().numpy().astype(np.float32)
-            volume_scale = max(0.0, min(1.0, params.volume / 100.0))
-            play_audio(audio * volume_scale, _SAMPLE_RATE)
+            play_audio(audio, _SAMPLE_RATE)
         except Exception as exc:
             _log.error("Chatterbox synthesis failed: %s", exc)
         finally:

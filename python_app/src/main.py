@@ -310,6 +310,27 @@ def main() -> int:
 
         _refresh_tray_voices()
 
+    def on_export(text: str) -> None:
+        """Open the ExportDialog from the main-window toolbar."""
+        from .export_dialog import ExportDialog
+        from .engines.base import SpeakParams
+        if not engine:
+            return
+        params = SpeakParams(
+            rate=cfg.get("rate", 0),
+            pitch=cfg.get("pitch", 0),
+            volume=cfg.get("volume", 100),
+        )
+        w = _ensure_main_window()
+        dlg = ExportDialog(
+            engine=engine,
+            text=text,
+            voice_id=cfg.get("voice", ""),
+            params=params,
+            parent=w,
+        )
+        dlg.exec()
+
     def on_config_saved(patch: dict[str, Any]) -> None:
         save_user_override(patch)
 
@@ -370,6 +391,7 @@ def main() -> int:
                 on_config_saved=on_config_saved,
                 on_about=open_about,
                 on_stack_changed=on_stack_changed,
+                on_export=on_export,
                 live_voices=win_live_voices,
                 current_voice_id=cfg.get("voice", ""),
                 active_stack_id=active_stack,

@@ -86,37 +86,37 @@ class OuteTTSEngine(TtsEngine):
 
     # ── Internal ──────────────────────────────────────────────────────────────
 
+    def synthesize(self, text: str, voice_id: str, params: SpeakParams):
+        """Return (audio_float32, sample_rate) without playing."""
+        result = self._synthesize_array(text, voice_id or _DEFAULT_VOICE, params)
+        return (result, _SAMPLE_RATE) if result is not None else None
+
+    def _synthesize_array(self, text: str, voice_id: str, params: SpeakParams):
+        if not text.strip():
+            return None
+        if voice_id not in _VALID_VOICE_IDS:
+            voice_id = _DEFAULT_VOICE
+        interface = self._get_interface()
+        speaker = interface.load_default_speaker(name=voice_id)
+        _log.info("OuteTTS generating %d chars (voice=%s)", len(text), voice_id)
+        output = interface.generate(
+            text=text, speaker=speaker,
+            temperature=0.1, repetition_penalty=1.1, max_length=4096,
+        )
+        audio = np.asarray(output.audio, dtype=np.float32)
+        if audio.max() > 1.0:
+            audio = audio / 32768.0
+        volume_scale = max(0.0, min(1.0, params.volume / 100.0))
+        return audio * volume_scale
+
     def _do_speak(self, text: str, voice_id: str, params: SpeakParams) -> None:
         try:
-            if not text.strip():
-                return
-            if voice_id not in _VALID_VOICE_IDS:
-                _log.warn("voice_id=%r not in OuteTTS roster — using default", voice_id)
-                voice_id = _DEFAULT_VOICE
-
-            interface = self._get_interface()
             if self._stop_requested.is_set():
                 return
-
-            speaker = interface.load_default_speaker(name=voice_id)
-            _log.info("OuteTTS generating %d chars (voice=%s)", len(text), voice_id)
-            output = interface.generate(
-                text=text,
-                speaker=speaker,
-                temperature=0.1,
-                repetition_penalty=1.1,
-                max_length=4096,
-            )
-
-            if self._stop_requested.is_set():
+            audio = self._synthesize_array(text, voice_id or _DEFAULT_VOICE, params)
+            if audio is None or self._stop_requested.is_set():
                 return
-
-            # output.audio is a numpy array (float32 or int16)
-            audio = np.asarray(output.audio, dtype=np.float32)
-            if audio.max() > 1.0:
-                audio = audio / 32768.0  # int16 → float32
-            volume_scale = max(0.0, min(1.0, params.volume / 100.0))
-            play_audio(audio * volume_scale, _SAMPLE_RATE)
+            play_audio(audio, _SAMPLE_RATE)
         except Exception as exc:
             _log.error("OuteTTS synthesis failed: %s", exc)
         finally:

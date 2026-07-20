@@ -15,6 +15,9 @@ htmlcov/
 .ruff_cache/
 perf_results*.json
 
+# Intermediate generated audio (written before WAV/MP3 export)
+.generated/
+
 # Per-session log files (structured text + telemetry JSONL)
 # Format: session-<unix_ms>_AlienVox.{log,jsonl}  — mirrors Rust convention
 .logs/
