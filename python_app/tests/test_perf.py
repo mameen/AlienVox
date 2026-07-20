@@ -7,10 +7,14 @@ Usage:
     python run.py perf --real   # runs real-speech benchmark (requires audio)
 
 Metrics collected per stack/model/voice:
-    1. latency_ms      — time from speak() to first audio output
-    2. memory_mb       — RSS delta before/after speak
-    3. cpu_percent     — peak CPU during speak
-    4. completion_ms   — total time from speak() to audio complete
+    1. synthesis_ms      — wall-clock time for full synthesis (ML: synthesize(); SAPI: speak()+done)
+    2. first_chunk_ms    — same as synthesis_ms for blocking engines; -1 for streaming
+    3. audio_duration_s  — length of generated audio in seconds (ML only)
+    4. audio_bytes       — raw PCM size in bytes as int16 (ML only)
+    5. audio_sample_rate — engine output sample rate (ML only)
+    6. memory_mb         — RSS delta before/after synthesis
+    7. cpu_percent       — peak CPU during synthesis
+    8. gpu_mb            — GPU memory used (requires pynvml)
 
 Reports written to .logs/YYYYMMDDHHmmss.{json,html}
 """
@@ -103,10 +107,19 @@ class PerfResult:
     stack_id: str
     model_id: str | None = None
     voice_id: str = ""
-    latency_ms: float = 0.0
+    # Timing
+    first_chunk_ms: float = -1.0   # time until synthesis produces first audio (ML only)
+    synthesis_ms: float = 0.0      # total time for full synthesis (speak() → done)
+    latency_ms: float = 0.0        # speak() call overhead (legacy alias for synthesis_ms)
+    completion_ms: float = 0.0     # speak() → wait_until_done()
+    # Audio characteristics (from synthesize() on ML engines)
+    audio_samples: int = -1        # total samples in output
+    audio_duration_s: float = -1.0 # duration in seconds = audio_samples / sample_rate
+    audio_bytes: int = -1          # raw PCM size (int16) = audio_samples * 2
+    audio_sample_rate: int = -1    # engine sample rate
+    # System
     memory_mb: float = -1.0
     cpu_percent: float = -1.0
-    completion_ms: float = 0.0
     gpu_mb: float = -1.0
     skipped: bool = False
     skip_reason: str = ""
@@ -117,9 +130,11 @@ def collect_metrics(
     engine: Any,
     voice_id: str,
 ) -> PerfResult:
-    """Run one speak cycle and collect all 4 metrics.
+    """Run one synthesis cycle and collect timing, audio, and system metrics.
 
-    Returns a PerfResult with measured values. Does NOT modify global state.
+    For ML engines that implement synthesize(), measures audio characteristics
+    (samples, duration, bytes, sample rate) and synthesis wall-clock time.
+    Falls back to speak()+wait_until_done() for SAPI engines.
     """
     result = PerfResult(
         stack_id=getattr(engine, "stack_id", "unknown"),
@@ -127,38 +142,68 @@ def collect_metrics(
         voice_id=voice_id,
     )
 
-    if not _psutil_available:
-        result.skipped = True
-        result.skip_reason = "psutil not installed"
-        return result
+    from src.engines.base import SpeakParams
+    params = SpeakParams()
 
-    # ── Memory baseline ───────────────────────────────────────────────────
+    # ── Memory + CPU baseline ─────────────────────────────────────────────
     mem_before = _get_memory_mb()
     cpu_start = _get_cpu_percent()
 
-    # ── Latency to first audio ────────────────────────────────────────────
-    from src.engines.base import SpeakParams
+    # ── Try synthesize() path (ML engines) ───────────────────────────────
+    has_synthesize = callable(getattr(engine, "synthesize", None))
+    synth_result = None
+    if has_synthesize:
+        t0 = time.perf_counter()
+        try:
+            synth_result = engine.synthesize(phrase, voice_id, params)
+        except Exception as exc:
+            result.skipped = True
+            result.skip_reason = f"synthesize() failed: {exc}"
+            return result
+        synthesis_end = time.perf_counter()
+        result.synthesis_ms = (synthesis_end - t0) * 1000
+        result.first_chunk_ms = result.synthesis_ms  # synthesize() is a single blocking call
+        result.latency_ms = result.synthesis_ms
 
-    latency_start = time.perf_counter()
+        if synth_result is not None:
+            # synthesize() returns (array, sample_rate) or just (array, sr) for f5tts
+            if isinstance(synth_result, tuple) and len(synth_result) == 2:
+                audio_arr, sr = synth_result
+            else:
+                audio_arr, sr = synth_result, getattr(engine, "_SAMPLE_RATE", 24000)
 
-    # ── Completion tracking ───────────────────────────────────────────────
-    completion_start = time.perf_counter()
-    try:
-        engine.speak(phrase, voice_id, SpeakParams())
-    except Exception as exc:
-        result.skipped = True
-        result.skip_reason = f"speak() failed: {exc}"
-        return result
+            try:
+                import numpy as np
+                arr = np.asarray(audio_arr)
+                n_samples = arr.size if arr.ndim == 1 else arr.shape[-1]
+                result.audio_samples = int(n_samples)
+                result.audio_sample_rate = int(sr)
+                result.audio_duration_s = n_samples / sr if sr > 0 else -1.0
+                result.audio_bytes = int(n_samples * 2)  # int16 = 2 bytes/sample
+            except Exception:
+                pass  # numpy not available or array format unexpected
 
-    # Wait for SAPI completion or ML engine signal
-    done = engine.wait_until_done(timeout_ms=30_000)
-    completion_end = time.perf_counter()
+        result.completion_ms = result.synthesis_ms
 
-    # ── Compute metrics ───────────────────────────────────────────────────
-    result.latency_ms = (time.perf_counter() - latency_start) * 1000
-    result.completion_ms = (completion_end - completion_start) * 1000
-    result.memory_mb = _get_memory_mb() - mem_before
-    result.cpu_percent = max(0, _get_cpu_percent() - cpu_start)
+    else:
+        # ── Fallback: speak() + wait_until_done() (SAPI) ─────────────────
+        t0 = time.perf_counter()
+        try:
+            engine.speak(phrase, voice_id, params)
+        except Exception as exc:
+            result.skipped = True
+            result.skip_reason = f"speak() failed: {exc}"
+            return result
+        engine.wait_until_done(timeout_ms=30_000)
+        completion_end = time.perf_counter()
+        result.latency_ms = (completion_end - t0) * 1000
+        result.synthesis_ms = result.latency_ms
+        result.completion_ms = result.latency_ms
+
+    # ── System metrics ────────────────────────────────────────────────────
+    if _psutil_available:
+        result.memory_mb = _get_memory_mb() - mem_before
+        result.cpu_percent = max(0.0, _get_cpu_percent() - cpu_start)
 
     # ── GPU metric (optional) ─────────────────────────────────────────────
     try:
@@ -309,28 +354,48 @@ def render_console_table(results: list[PerfResult]) -> None:
         "model": max(6, max(len(r.model_id or "-") for r in results)),
         "voice": max(5, max(len(r.voice_id) for r in results)),
     }
-    col_w["lat"] = 10
-    col_w["mem"] = 9
-    col_w["cpu"] = 7
-    col_w["comp"] = 10
+    col_w["synth"] = 12   # synthesis_ms
+    col_w["dur"]   = 9    # audio_duration_s
+    col_w["kb"]    = 8    # audio_bytes → KB
+    col_w["sr"]    = 8    # sample_rate
+    col_w["mem"]   = 9
+    col_w["cpu"]   = 7
 
     header_fmt = (
         f"  {{:<{col_w['stack']}}}  "
         f"{{:<{col_w['model']}}}  "
         f"{{:<{col_w['voice']}}}  "
-        f"{{:>{col_w['lat']}}}  "
+        f"{{:>{col_w['synth']}}}  "
+        f"{{:>{col_w['dur']}}}  "
+        f"{{:>{col_w['kb']}}}  "
+        f"{{:>{col_w['sr']}}}  "
         f"{{:>{col_w['mem']}}}  "
-        f"{{:>{col_w['cpu']}}}  "
-        f"{{:>{col_w['comp']}}}"
+        f"{{:>{col_w['cpu']}}}"
     )
 
-    total_width = col_w["stack"] + col_w["model"] + col_w["voice"] + col_w["lat"] + col_w["mem"] + col_w["cpu"] + col_w["comp"] + 28
+    total_width = sum(col_w.values()) + 2 + 8 * 2
     print(f"\n{'─' * total_width}")
     print(header_fmt.format(
         "STACK", "MODEL", "VOICE",
-        "LATENCY(ms)", "MEM(MB)", "CPU(%)", "TIME(ms)"
+        "SYNTH(ms)", "DUR(s)", "SIZE(KB)", "RATE(Hz)",
+        "MEM(MB)", "CPU(%)",
     ))
     print(f"{'─' * total_width}")
+
+    def _fmt_dur(v: float) -> str:
+        return f"{v:.2f} s" if v >= 0 else "N/A"
+
+    def _fmt_kb(b: int) -> str:
+        return f"{b / 1024:.1f} KB" if b >= 0 else "N/A"
+
+    def _fmt_sr(sr: int) -> str:
+        return str(sr) if sr >= 0 else "N/A"
+
+    def _fmt_mb(v: float) -> str:
+        return f"{v:.1f} MB" if v >= 0 else "N/A"
+
+    def _fmt_cpu(v: float) -> str:
+        return f"{v:.1f} %" if v >= 0 else "N/A"
 
     # Data rows
     for r in results:
@@ -339,36 +404,41 @@ def render_console_table(results: list[PerfResult]) -> None:
             continue
 
         c = _reset_color()
-        lat_c = _status_color(r.latency_ms, "latency_ms")
-        mem_c = _status_color(r.memory_mb, "memory_mb")
-        cpu_c = _status_color(r.cpu_percent, "cpu_percent")
-        comp_c = _status_color(r.completion_ms, "completion_ms")
+        synth_c = _status_color(r.synthesis_ms, "latency_ms")
+        mem_c   = _status_color(r.memory_mb, "memory_mb")
+        cpu_c   = _status_color(r.cpu_percent, "cpu_percent")
 
         print(header_fmt.format(
-            f"{lat_c}{r.stack_id}{c}",
-            f"{mem_c}{r.model_id or '-'}{c}",
-            f"{cpu_c}{r.voice_id[:col_w['voice']-1]}{c}",
-            f"{comp_c}{r.latency_ms:>7.1f} ms{c}",
-            f"  {r.memory_mb:>6.1f} MB",
-            f"  {r.cpu_percent:>5.1f} %",
-            f"  {r.completion_ms:>7.1f} ms",
+            f"{synth_c}{r.stack_id}{c}",
+            r.model_id or "-",
+            r.voice_id[:col_w["voice"]],
+            f"{synth_c}{r.synthesis_ms:>8.1f} ms{c}",
+            _fmt_dur(r.audio_duration_s),
+            _fmt_kb(r.audio_bytes),
+            _fmt_sr(r.audio_sample_rate),
+            f"{mem_c}{_fmt_mb(r.memory_mb)}{c}",
+            f"{cpu_c}{_fmt_cpu(r.cpu_percent)}{c}",
         ))
 
-    # Summary row
+    # Summary row (timing + audio averages for valid ML runs with audio data)
     valid = [r for r in results if not r.skipped]
     if valid:
-        avg_lat = sum(r.latency_ms for r in valid) / len(valid)
-        avg_mem = sum(r.memory_mb for r in valid) / len(valid)
-        avg_cpu = sum(r.cpu_percent for r in valid) / len(valid)
-        avg_comp = sum(r.completion_ms for r in valid) / len(valid)
+        avg_synth = sum(r.synthesis_ms for r in valid) / len(valid)
+        valid_dur = [r for r in valid if r.audio_duration_s >= 0]
+        avg_dur = sum(r.audio_duration_s for r in valid_dur) / len(valid_dur) if valid_dur else -1.0
+        valid_mem = [r for r in valid if r.memory_mb >= 0]
+        avg_mem = sum(r.memory_mb for r in valid_mem) / len(valid_mem) if valid_mem else -1.0
+        valid_cpu = [r for r in valid if r.cpu_percent >= 0]
+        avg_cpu = sum(r.cpu_percent for r in valid_cpu) / len(valid_cpu) if valid_cpu else -1.0
 
         print(f"{'─' * total_width}")
         print(header_fmt.format(
             "AVG", "", "",
-            f"{avg_lat:>7.1f} ms",
-            f"  {avg_mem:>6.1f} MB",
-            f"  {avg_cpu:>5.1f} %",
-            f"  {avg_comp:>7.1f} ms",
+            f"{avg_synth:>8.1f} ms",
+            _fmt_dur(avg_dur),
+            "", "",
+            _fmt_mb(avg_mem),
+            _fmt_cpu(avg_cpu),
         ))
         print(f"{'─' * total_width}")
 
@@ -459,7 +529,8 @@ def generate_html(json_js_path: str) -> str:
 <table id="results-table">
 <thead><tr>
     <th>Stack</th><th>Model</th><th>Voice</th>
-    <th>Latency (ms)</th><th>Memory (MB)</th><th>CPU (%)</th><th>Time (ms)</th>
+    <th>Synth (ms)</th><th>Duration (s)</th><th>Size (KB)</th><th>Sample Rate</th>
+    <th>Memory (MB)</th><th>CPU (%)</th>
 </tr></thead>
 <tbody id="results-body"></tbody>
 </table>
@@ -548,16 +619,25 @@ d3.run(function() {{
     const tbody = document.getElementById('results-body');
     data.results.forEach(d => {{
         const tr = tbody.insertRow();
-        ['stack_id','model_id','voice_id','latency_ms','memory_mb','cpu_percent','completion_ms'].forEach(key => {{
+        const cols = [
+            {{ key: 'stack_id',          fmt: v => v }},
+            {{ key: 'model_id',          fmt: v => v ?? '-' }},
+            {{ key: 'voice_id',          fmt: v => v }},
+            {{ key: 'synthesis_ms',      fmt: v => v >= 0 ? v.toFixed(1) + ' ms' : 'N/A' }},
+            {{ key: 'audio_duration_s',  fmt: v => v >= 0 ? v.toFixed(2) + ' s'  : 'N/A' }},
+            {{ key: 'audio_bytes',       fmt: v => v >= 0 ? (v/1024).toFixed(1) + ' KB' : 'N/A' }},
+            {{ key: 'audio_sample_rate', fmt: v => v >= 0 ? v.toString()          : 'N/A' }},
+            {{ key: 'memory_mb',         fmt: v => v >= 0 ? v.toFixed(1) + ' MB' : 'N/A' }},
+            {{ key: 'cpu_percent',       fmt: v => v >= 0 ? v.toFixed(1) + '%'   : 'N/A' }},
+        ];
+        cols.forEach(({{ key, fmt }}) => {{
             const td = tr.insertCell();
-            let val = d[key];
-            if (val === -1 || val === null) {{ val = 'N/A'; td.className = 'status-na'; }}
-            else if (THRESHOLDS[key] && val >= THRESHOLDS[key].warn) {{ td.className = 'status-warn'; }}
+            const val = d[key];
+            if (val === -1 || val === null || val === undefined) {{ td.className = 'status-na'; }}
             else if (THRESHOLDS[key] && val >= THRESHOLDS[key].error) {{ td.className = 'status-error'; }}
+            else if (THRESHOLDS[key] && val >= THRESHOLDS[key].warn)  {{ td.className = 'status-warn'; }}
             else {{ td.className = 'status-ok'; }}
-            td.textContent = key.includes('ms') ? val.toFixed(1) + ' ms' :
-                             key.includes('mb') ? val.toFixed(1) + ' MB' :
-                             key.includes('percent') ? val.toFixed(1) + '%' : val;
+            td.textContent = fmt(val);
         }});
     }});
 }}).catch(err => {{

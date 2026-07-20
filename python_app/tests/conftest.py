@@ -7,6 +7,16 @@ import pytest
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
+# All ML model weight subdirs declared in stacks.yaml
+_ALL_ML_MODELS = [
+    "ml/kokoro",
+    "ml/piper",
+    "ml/chatterbox",
+    "ml/dia",
+    "ml/f5tts",
+    "ml/outetts",
+]
+
 
 @pytest.fixture(scope="session")
 def stacks_yaml() -> Path:
@@ -25,10 +35,13 @@ def models_root(tmp_path_factory) -> Path:
 
 @pytest.fixture(scope="session")
 def models_root_with_weights(tmp_path_factory) -> Path:
-    """Models root where kokoro and piper weight directories exist (empty dirs simulate installed weights)."""
+    """Models root where ALL ML model weight directories exist.
+
+    Empty dirs simulate installed weights for every model in stacks.yaml.
+    """
     mr = tmp_path_factory.mktemp("models_with_weights")
-    (mr / "ml" / "kokoro").mkdir(parents=True)
-    (mr / "ml" / "piper").mkdir(parents=True)
+    for subpath in _ALL_ML_MODELS:
+        (mr / subpath).mkdir(parents=True)
     return mr
 
 

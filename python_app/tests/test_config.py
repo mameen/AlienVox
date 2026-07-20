@@ -30,10 +30,19 @@ def test_list_stacks_empty_for_missing_file(tmp_path):
     assert list_stacks(tmp_path / "no_stacks.yaml") == []
 
 
+_ALL_ML_MODEL_IDS = ["kokoro", "piper", "chatterbox", "dia", "f5tts", "outetts"]
+
+
 def test_list_models_under_ml(stacks_yaml):
     models = list_models("ml", stacks_yaml)
     assert "kokoro" in models
     assert "piper" in models
+
+
+@pytest.mark.parametrize("model_id", _ALL_ML_MODEL_IDS)
+def test_all_ml_models_in_catalog(stacks_yaml, model_id):
+    assert model_id in list_models("ml", stacks_yaml), \
+        f"Model {model_id!r} missing from fixture stacks.yaml"
 
 
 def test_list_models_empty_for_stack_without_models(stacks_yaml):
@@ -72,6 +81,46 @@ def test_get_voices_piper_has_female(stacks_yaml):
 def test_get_voices_sapi5_empty_in_catalog(stacks_yaml):
     # sapi5 voices come from OS at runtime; catalog has none
     assert get_voices("sapi5", "", stacks_yaml) == []
+
+
+@pytest.mark.parametrize("model_id,expected_voice_ids", [
+    ("kokoro",     ["af_heart", "bm_george"]),
+    ("chatterbox", ["default"]),
+    ("dia",        ["s1", "s2"]),
+    ("f5tts",      ["en_female_calm", "en_male_warm"]),
+    ("outetts",    ["male_1", "female_1"]),
+])
+def test_voices_present_for_all_ml_models(stacks_yaml, model_id, expected_voice_ids):
+    voices = get_voices("ml", model_id, stacks_yaml)
+    ids = [v["id"] for v in voices]
+    for vid in expected_voice_ids:
+        assert vid in ids, f"Voice {vid!r} missing from {model_id!r} in fixture"
+
+
+@pytest.mark.parametrize("model_id", _ALL_ML_MODEL_IDS)
+def test_all_ml_models_have_volume_control(stacks_yaml, model_id):
+    ctrl = get_controls("ml", model_id, stacks_yaml)
+    assert ctrl.get("volume", {}).get("applies") is True, \
+        f"volume control missing or disabled for {model_id!r}"
+
+
+@pytest.mark.parametrize("model_id", ["chatterbox", "dia", "f5tts", "outetts"])
+def test_new_ml_models_pitch_not_applicable(stacks_yaml, model_id):
+    ctrl = get_controls("ml", model_id, stacks_yaml)
+    assert ctrl.get("pitch", {}).get("applies") is not True, \
+        f"pitch should not apply for {model_id!r}"
+
+
+@pytest.mark.parametrize("model_id", _ALL_ML_MODEL_IDS)
+def test_all_ml_model_defs_have_name(stacks_yaml, model_id):
+    defn = get_model_def("ml", model_id, stacks_yaml)
+    assert defn.get("name"), f"Model {model_id!r} has no name in fixture"
+
+
+@pytest.mark.parametrize("model_id", _ALL_ML_MODEL_IDS)
+def test_all_ml_model_defs_have_weights_subpath(stacks_yaml, model_id):
+    defn = get_model_def("ml", model_id, stacks_yaml)
+    assert "weights_subpath" in defn, f"Model {model_id!r} missing weights_subpath"
 
 
 # ── Controls ──────────────────────────────────────────────────────────────────

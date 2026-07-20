@@ -1,10 +1,21 @@
-# Fixture stacks.yaml used by tests — mirrors production structure exactly.
-# Weights are never actually downloaded in tests; availability is checked
-# by whether weights_subpath exists under the models_root fixture.
+# Fixture stacks.yaml used by tests — mirrors production stacks.yaml exactly.
+# Voices are trimmed to 2 per model (enough for coverage; keeps fixture small).
+# Weights are never downloaded in tests; availability is determined by whether
+# weights_subpath exists under the models_root fixture.
 stacks:
 
   - id: sapi5
     name: SAPI 5
+    platform: win32
+    weights_subpath: ""
+    controls:
+      rate:        { min: -10, max: 10,  default: 0,   applies: true }
+      pitch:       { min: -10, max: 10,  default: 0,   applies: true }
+      volume:      { min: 0,   max: 100, default: 100, applies: true }
+      ttl_seconds: { applies: false }
+
+  - id: speech_platform
+    name: Speech Platform
     platform: win32
     weights_subpath: ""
     controls:
@@ -26,7 +37,7 @@ stacks:
       - id: kokoro
         name: Kokoro-82M
         weights_subpath: ml/kokoro
-        auto_download: true    # KPipeline auto-fetches from HuggingFace Hub on first use
+        auto_download: true
         voices:
           - { id: af_heart,  label: "American F · Heart" }
           - { id: bm_george, label: "British M · George" }
@@ -39,7 +50,6 @@ stacks:
       - id: piper
         name: Piper
         weights_subpath: ml/piper
-        auto_download: true    # piper-tts fetches voices from HuggingFace on first use
         voices:
           - { id: en_US-lessac-medium, label: "Lessac US M · Medium" }
           - { id: en_US-amy-medium,    label: "Amy US F · Medium" }
@@ -51,3 +61,54 @@ stacks:
           noise_w:          { min: 0.0, max: 1.0, default: 0.8,   applies: true }
           sentence_silence: { min: 0.0, max: 2.0, default: 0.2,   applies: true }
           ttl_seconds:      { applies: false }
+
+      - id: chatterbox
+        name: Chatterbox 0.5B
+        weights_subpath: ml/chatterbox
+        auto_download: true
+        voices:
+          - { id: default, label: "Default" }
+        controls:
+          rate:        { applies: false }
+          pitch:       { applies: false }
+          volume:      { min: 0,   max: 100, default: 100, applies: true }
+          ttl_seconds: { min: 0,   max: 300, default: 30,  applies: true }
+
+      - id: dia
+        name: Dia 1.6B
+        weights_subpath: ml/dia
+        auto_download: true
+        voices:
+          - { id: s1, label: "[S1] Speaker 1" }
+          - { id: s2, label: "[S2] Speaker 2" }
+        controls:
+          rate:        { applies: false }
+          pitch:       { applies: false }
+          volume:      { min: 0, max: 100, default: 100, applies: true }
+          ttl_seconds: { min: 0, max: 300, default: 30,  applies: true }
+
+      - id: f5tts
+        name: F5-TTS
+        weights_subpath: ml/f5tts
+        auto_download: true
+        voices:
+          - { id: en_female_calm, label: "English F · Calm" }
+          - { id: en_male_warm,   label: "English M · Warm" }
+        controls:
+          rate:        { applies: false }
+          pitch:       { applies: false }
+          volume:      { min: 0, max: 100, default: 100, applies: true }
+          ttl_seconds: { min: 0, max: 300, default: 30,  applies: true }
+
+      - id: outetts
+        name: OuteTTS 0.5B
+        weights_subpath: ml/outetts
+        auto_download: true
+        voices:
+          - { id: male_1,   label: "Male 1" }
+          - { id: female_1, label: "Female 1" }
+        controls:
+          rate:        { applies: false }
+          pitch:       { applies: false }
+          volume:      { min: 0, max: 100, default: 100, applies: true }
+          ttl_seconds: { min: 0, max: 300, default: 30,  applies: true }
