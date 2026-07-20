@@ -8,17 +8,50 @@
 
 ## Problem
 
-Raw text passed to TTS engines is often poorly formatted for spoken output:
+Raw text passed to TTS engines produces unnatural, halting speech due to formatting
+artifacts that have no spoken equivalent:
 
-- Accidental double spaces, trailing newlines, or stray blank lines cause audible pauses
-- Markdown formatting (`**bold**`, `# Heading`, `` `code` ``) is read literally
-- URLs and file paths are read character-by-character
-- Abbreviations (`e.g.`, `etc.`, `vs.`) trigger incorrect sentence breaks
-- Code snippets, JSON, or log lines produce meaningless robotic output
-- Multiple consecutive blank lines cause long uncomfortable silences
-- Bullet point markers (`-`, `*`, `•`) are spoken aloud
+- **Excessive blank lines / whitespace** — multiple newlines become long pauses; mid-sentence
+  double spaces create micro-pauses that break rhythm
+- **Punctuation collisions** — `...` read as three separate dots; `–` and `—` cause engine
+  confusion; `,,,` or `???` produce stuttering
+- **Repeated punctuation** — `!!!` or `???` makes some engines repeat the exclamation phoneme
+- **Mid-word hyphens in non-compound words** — `some-thing` spoken as "some hyphen thing"
+- **Stray symbols** — `|`, `>`, `~`, `^` copied from tables or terminals are read literally
+- **No sentence boundary after paragraphs** — two consecutive sentences with only a newline
+  between them run together without a natural pause
 
-These are common because users paste from editors, browsers, docs, and terminals.
+Markdown rendering and code blocks are a **separate concern** — handled at the editor layer
+(the `_MultiFormatEditor` renders Markdown as HTML and hands the engine clean plain text;
+see below). The enhancer only sees plain text by the time it runs.
+
+---
+
+## Separation of Concerns
+
+```
+User pastes text into editor
+        │
+        ▼
+_MultiFormatEditor  ←── Renders Markdown/HTML visually; to_plain_text()
+        │                strips formatting tags before handing off
+        ▼
+text_enhancer.enhance()  ←── Fixes whitespace & punctuation for fluent speech
+        │
+        ▼
+engine.speak() / synthesize()
+```
+
+**Editor layer** (todo_001, already partially done):
+- Markdown pasted → rendered as HTML in `QTextEdit` (visual, not raw)
+- `to_plain_text()` already calls `QTextEdit.toPlainText()` which strips HTML tags
+- **Gap**: Markdown pasted as plain text (not loaded from `.md` file) is not auto-detected
+  and rendered — the user sees raw `**bold**`. Consider auto-detecting and converting.
+
+**Enhancer layer** (this todo):
+- Receives plain text only
+- Fixes prosody-breaking whitespace and punctuation
+- Does NOT need to know about Markdown at all
 
 ---
 
@@ -26,50 +59,48 @@ These are common because users paste from editors, browsers, docs, and terminals
 
 ### UI
 
-A small **"Auto-enhance"** toggle in the main window toolbar (pill/toggle style, like the screenshot).  
-Default: **off** (opt-in, so power users keep full control).  
+A small **"Auto-enhance"** toggle in the main window toolbar (pill/toggle style).  
+Default: **off** (opt-in — power users keep full control).  
 State persisted in `user.yaml` as `auto_enhance: true/false`.
 
 ### Architecture
 
-A composable `src/text_enhancer.py` module with two enhancement strategies, selectable independently:
+`src/text_enhancer.py` — composable, two strategies:
 
 #### Strategy A — Heuristic (always available, zero latency)
 
-Pure Python text normalization. Fast enough to be invisible. Covers:
+Pure Python, no dependencies. Fast enough to be invisible. Focused on **whitespace and punctuation**:
 
-| Rule | Example in → out |
-|------|-----------------|
-| Collapse 3+ blank lines → 1 | `\n\n\n\n` → `\n\n` |
-| Strip leading/trailing whitespace per paragraph | `"  hello  "` → `"hello"` |
-| Collapse mid-sentence multiple spaces | `"foo  bar"` → `"foo bar"` |
-| Strip Markdown headings `#` prefix | `# Title` → `Title` |
-| Strip Markdown bold/italic (`**`, `*`, `__`, `_`) | `**bold**` → `bold` |
-| Strip inline code backticks | `` `code` `` → `code` |
-| Strip fenced code blocks entirely | ` ```\n...\n``` ` → `[code block]` |
-| Expand common abbreviations | `e.g.` → `for example`, `etc.` → `and so on` |
-| Strip bullet markers | `- item` → `item` |
-| Normalize URL to domain only | `https://github.com/foo/bar` → `github.com` |
-| Strip email angle brackets | `<user@host>` → `user@host` |
+| Rule | Example in → out | Rationale |
+|------|-----------------|-----------|
+| Collapse 3+ consecutive blank lines → 1 | `\n\n\n\n` → `\n\n` | Removes ultra-long silences |
+| Collapse 2+ spaces within a line → 1 | `foo  bar` → `foo bar` | Micro-pause elimination |
+| Strip trailing whitespace per line | `"hello   \n"` → `"hello\n"` | Clean sentence ends |
+| Ensure paragraph ends with `.` if no terminal punct | `"Go now\n\nThen stop"` → `"Go now.\n\nThen stop"` | Natural sentence break |
+| Collapse repeated punctuation | `"Really???  !!!"` → `"Really? !"` | Engine stutter guard |
+| Normalise ellipsis | `"Well..."` → `"Well…"` or `"Well, "` | Single pause beat |
+| En-dash / em-dash → comma-space | `"cats – dogs"` → `"cats, dogs"` | Natural spoken pause |
+| Strip lone non-alphanumeric lines | a line containing only `| --- |` or `~~~` | Table/HR artifacts |
+| Trim leading blank lines at document start | `\n\nHello` → `Hello` | No leading silence |
+| Trim trailing blank lines at document end | `Hello\n\n\n` → `Hello` | No trailing silence |
 
-All rules live in one function `heuristic_enhance(text: str) -> str` — easy to unit-test.
+All rules in one function `heuristic_enhance(text: str) -> str`. No regex soup —
+each rule is named and isolated so tests map 1-to-1.
 
-#### Strategy B — LLM (optional, async, requires local model or API)
+#### Strategy B — LLM (optional, zero-latency is not guaranteed)
 
-A small language model rewrites the text for natural spoken delivery. The prompt is stored in a separate file:
+A small instruction-tuned model rewrites text for natural spoken delivery.
+The system prompt lives in a separate file so it can be tuned without touching Python:
 
 ```
 src/prompts/enhance_for_tts.txt
 ```
 
-This allows the prompt to be tuned without touching Python code.
-
-Candidate models (all on-device, no internet required at inference time):
-- `Qwen2.5-0.5B-Instruct` (GGUF via llama-cpp-python, ~400 MB) — fastest
+Candidate models (all on-device):
+- `Qwen2.5-0.5B-Instruct` GGUF via `llama-cpp-python` (~400 MB) — fastest
 - `Phi-3-mini` (3.8B) — higher quality
-- `Kokoro` itself cannot rewrite text, but any instruction-tuned model can
 
-The LLM path is only activated when `enhance_strategy: llm` in `user.yaml`. Default strategy is `heuristic`.
+LLM path activated when `enhance_strategy: llm` in `user.yaml`. Default: `heuristic`.
 
 ### Text Enhancer API
 
@@ -77,23 +108,27 @@ The LLM path is only activated when `enhance_strategy: llm` in `user.yaml`. Defa
 # src/text_enhancer.py
 
 def heuristic_enhance(text: str) -> str:
-    """Fast rule-based cleanup. Zero dependencies."""
+    """Fast rule-based whitespace/punctuation cleanup. Zero dependencies."""
     ...
 
-async def llm_enhance(text: str, prompt_path: Path | None = None) -> str:
-    """LLM rewrite for natural speech. Loads model on first call."""
-    ...
+def llm_enhance(text: str, prompt_path: Path | None = None) -> str:
+    """LLM rewrite for natural speech. Raises NotImplementedError until ADR-012."""
+    raise NotImplementedError("LLM enhancer pending ADR-012 model selection")
 
-def enhance(text: str, strategy: str = "heuristic", **kwargs) -> str:
+def enhance(text: str, strategy: str = "heuristic") -> str:
     """Entry point. strategy: 'heuristic' | 'llm' | 'none'."""
-    ...
+    if strategy == "none":
+        return text
+    if strategy == "llm":
+        return llm_enhance(text)
+    return heuristic_enhance(text)
 ```
 
 ---
 
 ## Telemetry
 
-When `auto_enhance` is on, emit **both** the original and enhanced char counts:
+When `auto_enhance` is on, emit both original and enhanced char counts:
 
 ```json
 {
@@ -114,7 +149,7 @@ When `auto_enhance` is on, emit **both** the original and enhanced char counts:
 
 | File | Change |
 |------|--------|
-| `src/text_enhancer.py` | New — heuristic + LLM strategies |
+| `src/text_enhancer.py` | New — heuristic + LLM stub |
 | `src/prompts/enhance_for_tts.txt` | New — LLM system prompt |
 | `src/main_window.py` | Add toggle to toolbar; persist to `user.yaml` |
 | `src/main.py` | Call `enhance()` before `engine.speak()` and before export |
@@ -124,19 +159,19 @@ When `auto_enhance` is on, emit **both** the original and enhanced char counts:
 
 ## Open Questions / ADR Candidates
 
-- **ADR-012**: Which local LLM for strategy B? (Qwen 0.5B vs Phi-3-mini vs tinyllama)
-- Should the toggle be global or per-engine? (e.g., Dia already formats with `[S1]` tags — LLM rewrite would break that)
-- Should heuristic rules be user-configurable (checkboxes in Preferences)?
-- Should the enhanced text be shown in the editor so the user can see what changed?
+- **ADR-012**: Which local LLM for strategy B? (Qwen 0.5B vs Phi-3-mini)
+- Should the toggle be per-engine? (Dia uses `[S1]`/`[S2]` tags — heuristic must not touch them)
+- Should heuristic rules be user-configurable checkboxes in Preferences?
+- Should we auto-detect Markdown pasted as plain text and render it? (Editor-layer gap noted above)
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] `heuristic_enhance()` covered by `tests/test_text_enhancer.py` (one test per rule, at minimum)
+- [ ] `heuristic_enhance()` covered by `tests/test_text_enhancer.py` — one test per rule minimum
 - [ ] Toggle visible in toolbar; state survives restart
-- [ ] `enhance()` called in `main.py` before `speak()` when toggle is on
+- [ ] `enhance()` called in `main.py` before `engine.speak()` when toggle is on
 - [ ] `enhance()` called in `audio_exporter.py` before synthesis when toggle is on
 - [ ] Telemetry emits `enhanced_chars` only when `auto_enhance` is on
-- [ ] LLM path is a stub that raises `NotImplementedError` until ADR-012 is resolved
-- [ ] Dia engine receives pre-enhanced text but the heuristic must NOT strip `[S1]`/`[S2]` tags
+- [ ] LLM path raises `NotImplementedError` until ADR-012 is resolved
+- [ ] Heuristic does NOT strip or modify `[S1]`/`[S2]` Dia speaker tags
