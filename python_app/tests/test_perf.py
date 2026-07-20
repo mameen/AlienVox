@@ -783,6 +783,13 @@ def _elapsed_ms(fn, *args, **kwargs) -> float:
 # ── CLI entry point (python -m tests.test_perf _benchmark) ───────────────────
 
 if __name__ == "__main__":
+    # Windows consoles often default to cp1252, which can't encode the
+    # emoji/box-drawing characters used in this benchmark's output.
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
     if "_benchmark" in sys.argv:
         print("\n  Running welcome-phrase benchmark on all available stacks/models/voices...\n")
         results = welcome_phrase_benchmark()
