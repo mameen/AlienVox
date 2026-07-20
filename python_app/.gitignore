@@ -17,3 +17,7 @@ perf_results*.json
 
 # Telemetry test sinks
 *.jsonl
+
+# Runtime detection cache (written next to stacks.yaml on first run)
+# The committed template is platform.yaml.example — copy it to platform.yaml to pre-populate.
+platform.yaml

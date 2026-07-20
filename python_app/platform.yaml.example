@@ -1,0 +1,11 @@
+# AlienVox — platform detection cache
+#
+# This file is auto-generated on first run next to stacks.yaml.
+# Delete it to force re-detection (e.g. after installing the Speech Platform runtime).
+#
+# To pre-populate without running the app, copy this file to platform.yaml
+# and set the values for your machine.
+
+# Set to true if Microsoft Speech Platform v11 runtime + voices are installed.
+# Install from: https://www.microsoft.com/en-us/download/details.aspx?id=27225
+speech_platform_installed: false

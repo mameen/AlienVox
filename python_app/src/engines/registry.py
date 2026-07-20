@@ -35,6 +35,11 @@ def _platform_cache_path() -> Path:
     return stacks_yaml_path().parent / "platform.yaml"
 
 
+def _platform_example_path() -> Path:
+    from ..config import stacks_yaml_path
+    return stacks_yaml_path().parent / "platform.yaml.example"
+
+
 def _speech_platform_installed() -> bool:
     """Return True if Microsoft Speech Platform v11 voices are present.
 
@@ -58,8 +63,21 @@ def _speech_platform_installed() -> bool:
     result = _detect_speech_platform_via_registry()
     try:
         cache.parent.mkdir(parents=True, exist_ok=True)
-        with cache.open("w", encoding="utf-8") as f:
-            yaml.dump({"speech_platform_installed": result}, f)
+        # Seed from the committed example so the file format is self-documenting.
+        example = _platform_example_path()
+        if example.exists():
+            import re
+            text = example.read_text(encoding="utf-8")
+            text = re.sub(
+                r"^(speech_platform_installed:\s*).*$",
+                rf"\g<1>{str(result).lower()}",
+                text,
+                flags=re.MULTILINE,
+            )
+            cache.write_text(text, encoding="utf-8")
+        else:
+            with cache.open("w", encoding="utf-8") as f:
+                yaml.dump({"speech_platform_installed": result}, f)
     except Exception:
         pass  # cache write failure is non-fatal
     return result
