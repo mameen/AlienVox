@@ -164,6 +164,9 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(560, 400)
         # Qt.Window ensures it gets its own taskbar button even when parented
         self.setWindowFlags(Qt.WindowType.Window)
+        _icon_path = Path(__file__).parent / "resources" / "icons" / "icon_256x256.png"
+        if _icon_path.exists():
+            self.setWindowIcon(QIcon(str(_icon_path)))
 
         self._stacks = stacks
         self._tel = telemetry

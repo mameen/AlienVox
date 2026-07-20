@@ -195,23 +195,69 @@ def main() -> int:
         """Async wrapper — spawns daemon thread with optional text argument."""
         threading.Thread(target=speak, args=(text,), daemon=True).start()
 
+    # ── Tray voice menu helpers ─────────────────────────────────────────────
+
+    def _enumerate_voice_groups() -> list[dict]:
+        """Build grouped voice data for the two-level tray Voice menu."""
+        groups: list[dict] = []
+
+        # SAPI stacks (Windows only)
+        if sys.platform == "win32":
+            sapi_defs = [
+                ("sapi5",            "SAPI5",            "SapiEngine"),
+                ("speech_platform",  "Speech Platform",  "SpeechPlatformEngine"),
+            ]
+            for sid, slabel, cls_name in sapi_defs:
+                try:
+                    if sid == active_stack and engine:
+                        voices = [{"id": v.id, "label": v.name} for v in engine.list_voices()]
+                    else:
+                        from .engines.sapi_win import SapiEngine, SpeechPlatformEngine  # noqa: F401
+                        _cls = SapiEngine if cls_name == "SapiEngine" else SpeechPlatformEngine
+                        voices = [{"id": v.id, "label": v.name} for v in _cls().list_voices()]
+                except Exception:
+                    voices = []
+                if voices:
+                    groups.append({"id": sid, "label": slabel, "voices": voices})
+
+        # ML stack — one model sub-menu per installed model
+        ml_models: list[dict] = []
+        ml_model = active_model or "kokoro"
+        if active_stack == "ml" and engine:
+            try:
+                ml_voices = [{"id": v.id, "label": v.name} for v in engine.list_voices()]
+            except Exception:
+                ml_voices = get_voices("ml", ml_model)
+        else:
+            ml_voices = get_voices("ml", ml_model)
+        if ml_voices:
+            ml_models.append({"id": ml_model, "label": ml_model.title(), "voices": ml_voices})
+        if ml_models:
+            groups.append({"id": "ml", "label": "ML / AI", "models": ml_models})
+
+        return groups
+
+    def _refresh_tray_voices() -> None:
+        groups = _enumerate_voice_groups()
+        tray.populate_voice_menu(
+            groups,
+            current_voice_id=cfg.get("voice", ""),
+            on_select=lambda sid, vid: _on_tray_voice_select(sid, vid),
+        )
+
+    def _on_tray_voice_select(stack_id: str, voice_id: str) -> None:
+        if stack_id != active_stack:
+            on_stack_changed(stack_id, voice_id)
+        else:
+            on_voice_changed(voice_id)
+        tel.emit("config.changed", engine=stack_id, detail="voice")
+
     # ── Persistence callbacks ───────────────────────────────────────────────
 
     def on_voice_changed(vid: str) -> None:
         cfg["voice"] = vid  # update in-memory so next speak() picks it up immediately
         save_user_override({"voice": vid})
-        if engine and active_stack == "sapi5":
-            voices = [{"id": v.id, "label": v.name} for v in engine.list_voices()]
-            tray.populate_voices(voices, vid, lambda v: on_voice_changed(v))
-        elif engine and active_stack == "ml":
-            # Refresh ML voices from engine (PiperEngine reads from stacks.yaml)
-            ml_voices = engine.list_voices() if hasattr(engine, 'list_voices') else []
-            if ml_voices:
-                tray.populate_voices(
-                    [{"id": v.id, "label": v.name} for v in ml_voices],
-                    vid,
-                    lambda v: on_voice_changed(v),
-                )
+        _refresh_tray_voices()
 
     def on_stack_changed(new_stack_id: str, voice_id: str = "") -> None:
         """Called when the user switches engine tabs in the main window."""
@@ -246,6 +292,8 @@ def main() -> int:
         if voice_id:
             cfg["voice"] = voice_id
             save_user_override({"voice": voice_id})
+
+        _refresh_tray_voices()
 
     def on_config_saved(patch: dict[str, Any]) -> None:
         save_user_override(patch)
@@ -341,21 +389,6 @@ def main() -> int:
             engine.stop()
         app.quit()
 
-    voices: list[dict] = []
-    if active_stack == "sapi5" and engine:
-        try:
-            live_voices = engine.list_voices()
-            voices = [{"id": v.id, "label": v.name} for v in live_voices]
-        except Exception:
-            pass
-    elif active_stack == "ml" and engine:
-        try:
-            voices = [{"id": v.id, "label": v.name} for v in engine.list_voices()]
-        except Exception:
-            voices = get_voices(active_stack, active_model or "kokoro")
-    elif active_model:
-        voices = get_voices(active_stack, active_model)
-
     tray = AlienVoxTray(
         on_speak=speak_async,
         on_stop=_do_stop,
@@ -365,14 +398,7 @@ def main() -> int:
         on_window_toggle=toggle_window,
     )
 
-    tray.populate_voices(
-        voices,
-        current_voice_id=cfg.get("voice", ""),
-        on_select=lambda vid: (
-            save_user_override({"voice": vid}),
-            tel.emit("config.changed", engine=active_stack, detail="voice"),
-        ),
-    )
+    _refresh_tray_voices()
 
     tray.show()
     open_settings()  # show main window on startup

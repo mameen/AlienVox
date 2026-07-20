@@ -50,8 +50,10 @@ class AlienVoxTray:
         menu.addSeparator()
         menu.addAction("Quit",      on_quit)
 
-        self._act_speak.triggered.connect(on_speak)
-        self._act_stop.triggered.connect(on_stop)
+        # Use lambda to discard the 'checked' bool that triggered() always passes.
+        # Without this, speak(True) reaches len(True) and crashes.
+        self._act_speak.triggered.connect(lambda _: on_speak())
+        self._act_stop.triggered.connect(lambda _: on_stop())
         self._tray.setContextMenu(menu)
         self._tray.activated.connect(self._on_activated)
 
@@ -80,25 +82,67 @@ class AlienVoxTray:
         tip = f"AlienVox — error: {message}" if message else "AlienVox — error"
         self._tray.setToolTip(tip[:127])  # Windows tooltip length limit
 
-    # ── Voice submenu (data-driven) ──────────────────────────────────────────
+    # ── Voice submenu (data-driven, two-level) ───────────────────────────────
 
-    def populate_voices(
+    def populate_voice_menu(
         self,
-        voices: list[dict[str, str]],
+        groups: list[dict],
         current_voice_id: str,
-        on_select: Callable[[str], None],
+        on_select: Callable[[str, str], None],
     ) -> None:
-        """Rebuild Voice ▸ submenu from a list of {id, label} dicts."""
+        """Rebuild the two-level Voice ▸ submenu.
+
+        groups is a list of stack descriptors:
+          {"id": "sapi5",  "label": "SAPI5",   "voices": [{id, label}, ...]}
+          {"id": "ml",     "label": "ML / AI",  "models": [
+              {"id": "kokoro", "label": "Kokoro", "voices": [{id, label}, ...]}
+          ]}
+
+        on_select(stack_id, voice_id) is called when the user picks a voice.
+        """
         self._voice_menu.clear()
-        if not voices:
+        has_any = False
+
+        for grp in groups:
+            stack_id = grp["id"]
+            stack_label = grp.get("label", stack_id)
+
+            if "models" in grp:
+                # ML-style: Stack ▸ Model ▸ Voice
+                for model in grp["models"]:
+                    voices = model.get("voices", [])
+                    if not voices:
+                        continue
+                    has_any = True
+                    model_menu = self._voice_menu.addMenu(
+                        f"{stack_label} · {model.get('label', model['id'])}"
+                    )
+                    for v in voices:
+                        act = model_menu.addAction(v.get("label", v["id"]))
+                        act.setCheckable(True)
+                        act.setChecked(v["id"] == current_voice_id)
+                        vid = v["id"]
+                        act.triggered.connect(
+                            lambda _, _sid=stack_id, _vid=vid: on_select(_sid, _vid)
+                        )
+            else:
+                # SAPI-style: Stack ▸ Voice
+                voices = grp.get("voices", [])
+                if not voices:
+                    continue
+                has_any = True
+                stack_menu = self._voice_menu.addMenu(stack_label)
+                for v in voices:
+                    act = stack_menu.addAction(v.get("label", v["id"]))
+                    act.setCheckable(True)
+                    act.setChecked(v["id"] == current_voice_id)
+                    vid = v["id"]
+                    act.triggered.connect(
+                        lambda _, _sid=stack_id, _vid=vid: on_select(_sid, _vid)
+                    )
+
+        if not has_any:
             self._voice_menu.addAction("(no voices installed)").setEnabled(False)
-            return
-        for v in voices:
-            act = self._voice_menu.addAction(v.get("label", v["id"]))
-            act.setCheckable(True)
-            act.setChecked(v["id"] == current_voice_id)
-            vid = v["id"]
-            act.triggered.connect(lambda checked, _id=vid: on_select(_id))
 
     # ── Internal ─────────────────────────────────────────────────────────────
 
