@@ -2,7 +2,7 @@
 
 # AlienVox
 
-**Speak Selection.** Highlight any text on your desktop, press a global hotkey, and hear it spoken aloud — instantly.
+Simple, standalone TTS apps — high quality, zero friction. Start with **Speak Selection**: highlight any text on your desktop, press a global hotkey, and hear it spoken aloud instantly.
 
 ![AlienVox Banner](docs/img/banner.png)
 
