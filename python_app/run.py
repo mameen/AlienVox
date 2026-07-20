@@ -2,13 +2,14 @@
 """AlienVox task runner.
 
 Usage:
-    python run.py app      -- start the application
-    python run.py build    -- syntax-check all src/ files
-    python run.py lint     -- run ruff on src/ and tests/
-    python run.py test     -- run pytest (with coverage floor)
-    python run.py cov      -- run pytest + open HTML coverage report
-    python run.py perf     -- run instrumentation benchmarks
-    python run.py all      -- lint -> build -> test -> cov -> perf
+    python run.py app        -- start the application
+    python run.py download   -- download missing ML model weights to .models/
+    python run.py build      -- syntax-check all src/ files
+    python run.py lint       -- run ruff on src/ and tests/
+    python run.py test       -- run pytest (with coverage floor)
+    python run.py cov        -- run pytest + open HTML coverage report
+    python run.py perf       -- run instrumentation benchmarks
+    python run.py all        -- lint -> build -> test -> cov -> perf
 """
 from __future__ import annotations
 
@@ -50,6 +51,11 @@ def cmd_app() -> int:
     _header("Starting AlienVox")
     # Run as a package module so relative imports work correctly.
     return _run(_venv_python(), "-m", "src.main", cwd=ROOT)
+
+
+def cmd_download() -> int:
+    _header("Download — ML model weights")
+    return _run(_venv_python(), str(ROOT / "setup.py"), "--download-models")
 
 
 def cmd_build() -> int:
@@ -153,8 +159,9 @@ def cmd_all() -> int:
 # ── Dispatch ──────────────────────────────────────────────────────────────────
 
 COMMANDS = {
-    "app":   cmd_app,
-    "build": cmd_build,
+    "app":      cmd_app,
+    "download": cmd_download,
+    "build":    cmd_build,
     "lint":  cmd_lint,
     "test":  cmd_test,
     "cov":   cmd_cov,
