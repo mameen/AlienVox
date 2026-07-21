@@ -47,3 +47,8 @@ where the full ML stack is exercised by the test suite anyway). For a first-time
 wants "highlight text, press a hotkey, hear it," forcing a multi-GB torch/transformers download
 before they can even try the app is the wrong default. Base-first, ML-opt-in mirrors how the app
 already treats model weights: nothing large happens until you ask for it.
+
+---
+
+AlienVox is a product of [AlienTech.Software](https://alientech.software/), © 2026. Licensed under
+the MIT License — see [LICENSE](../../LICENSE) in the repository root.

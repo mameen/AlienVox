@@ -36,4 +36,6 @@ echo   (Settings tab for a stack, "Install Model") or run:
 echo.
 echo       python run.py download
 echo.
+echo   AlienVox is a product of AlienTech.Software - https://alientech.software/
+echo.
 popd

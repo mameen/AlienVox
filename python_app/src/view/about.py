@@ -246,8 +246,16 @@ class AboutDialog(QDialog):
         layout = QHBoxLayout(w)
         layout.setContentsMargins(24, 8, 24, 8)
 
-        copy_lbl = QLabel("© 2026 AlienTech.Software")
-        copy_lbl.setStyleSheet("color:#888; font-size:10px;")
+        copy_btn = QPushButton("© 2026 AlienTech.Software")
+        copy_btn.setFlat(True)
+        copy_btn.setStyleSheet(
+            "color:#888; font-size:10px; border:none; background:transparent; padding:0;"
+        )
+        copy_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        copy_btn.setToolTip("https://alientech.software/")
+        copy_btn.clicked.connect(
+            lambda: QDesktopServices.openUrl(QUrl("https://alientech.software/"))
+        )
 
         gh_btn = QPushButton("GitHub ↗")
         gh_btn.setFlat(True)
@@ -262,7 +270,7 @@ class AboutDialog(QDialog):
             )
         )
 
-        layout.addWidget(copy_lbl)
+        layout.addWidget(copy_btn)
         layout.addStretch()
         layout.addWidget(gh_btn)
         return w

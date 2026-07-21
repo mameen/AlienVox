@@ -47,4 +47,6 @@ echo.
 echo   Start it:      python run.py app
 echo   Add ML voices: install\install_ml.bat   (optional, large download)
 echo.
+echo   AlienVox is a product of AlienTech.Software - https://alientech.software/
+echo.
 popd
