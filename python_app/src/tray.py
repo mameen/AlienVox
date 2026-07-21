@@ -24,6 +24,8 @@ class AlienVoxTray:
         on_about: Callable[[], None],
         on_quit: Callable[[], None],
         on_window_toggle: Callable[[], None] | None = None,
+        on_save_settings: Callable[[], None] | None = None,
+        on_load_settings: Callable[[], None] | None = None,
     ) -> None:
         self._tray = QSystemTrayIcon()
         self._icons = {
@@ -46,6 +48,10 @@ class AlienVoxTray:
         self._voice_menu = menu.addMenu("Voice ▸")
         menu.addSeparator()
         menu.addAction("Settings…", on_settings)
+        if on_save_settings:
+            menu.addAction("Save Settings…", on_save_settings)
+        if on_load_settings:
+            menu.addAction("Load Settings…", on_load_settings)
         menu.addAction("About",     on_about)
         menu.addSeparator()
         menu.addAction("Quit",      on_quit)

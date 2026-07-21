@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .device import cuda_available
 from .version import version as get_version
 
 _ICONS = Path(__file__).parent / "resources" / "icons"
@@ -78,8 +79,27 @@ class AboutDialog(QDialog):
         name_lbl.setFont(f)
         name_lbl.setStyleSheet("color:#1a1a1a;")
 
+        ver_row = QHBoxLayout()
+        ver_row.setContentsMargins(0, 0, 0, 0)
+        ver_row.setSpacing(6)
         ver_lbl = QLabel(f"v{get_version()} — Python / PySide6")
         ver_lbl.setStyleSheet("color:#666; font-size:11px;")
+        ver_row.addWidget(ver_lbl)
+
+        if cuda_available():
+            gpu_badge = QLabel()
+            gpu_icon_path = _ICONS / "gpu.png"
+            if gpu_icon_path.exists():
+                gpu_badge.setPixmap(QPixmap(str(gpu_icon_path)).scaled(
+                    12, 12, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation,
+                ))
+            gpu_badge.setToolTip("Running on GPU (CUDA)")
+            gpu_text = QLabel("GPU")
+            gpu_text.setStyleSheet("color:#2ea043; font-size:10px; font-weight:600;")
+            ver_row.addWidget(gpu_badge)
+            ver_row.addWidget(gpu_text)
+
+        ver_row.addStretch()
 
         tag_lbl = QLabel(
             'Lightweight tray-first "Speak Selection" utility for Windows & macOS.'
@@ -88,7 +108,7 @@ class AboutDialog(QDialog):
         tag_lbl.setWordWrap(True)
 
         meta.addWidget(name_lbl)
-        meta.addWidget(ver_lbl)
+        meta.addLayout(ver_row)
         meta.addWidget(tag_lbl)
         meta.addStretch()
 

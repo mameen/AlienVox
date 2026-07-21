@@ -24,7 +24,7 @@ from PySide6.QtWidgets import QApplication
 
 from . import logger as _logger
 from .about import AboutDialog
-from .config import get_voices, load_effective_config, save_user_override
+from .config import get_voices, load_effective_config, save_user_override, user_yaml_path
 from .config import models_root as _models_root
 from .engines.base import SpeakParams
 from .engines.registry import available_stacks
@@ -158,15 +158,26 @@ def main() -> int:
     _about_dialog: AboutDialog | None = None
     _speak_lock = threading.Lock()
 
-    def speak(text: str | None = None) -> None:
+    def speak(text: str | None = None, restart: bool = False) -> None:
         """Speak text — from provided string or captured selection.
 
         Called from tray menu (no text → capture selection) or main window
         Play button (text provided → use editor content directly).
+
+        restart=False (hotkey/tray click default): acts as a toggle — if
+        something is already speaking, this call just stops it.
+        restart=True (main window Play button): interrupts any current
+        playback and immediately speaks the new text, rather than requiring
+        a second click to actually hear it.
         """
         if not _speak_lock.acquire(blocking=False):
             _do_stop()
-            return
+            if not restart:
+                return
+            # Wait for the in-flight speak() call to actually release the
+            # lock (bounded, so a stuck engine can't hang the UI forever).
+            if not _speak_lock.acquire(timeout=5.0):
+                return
         try:
             rid = tel.new_request_id()
             start_ms = time.time_ns() // 1_000_000
@@ -235,8 +246,21 @@ def main() -> int:
             _speak_lock.release()
 
     def speak_async(text: str | None = None) -> None:
-        """Async wrapper — spawns daemon thread with optional text argument."""
-        threading.Thread(target=speak, args=(text,), daemon=True).start()
+        """Async wrapper — spawns daemon thread with optional text argument.
+
+        Toggle behavior (hotkey/tray click): a second call while speaking
+        just stops. Used by the tray icon click and global hotkey.
+        """
+        threading.Thread(target=speak, args=(text, False), daemon=True).start()
+
+    def play_async(text: str) -> None:
+        """Async wrapper for the main window's Play button.
+
+        Unlike speak_async, clicking Play while something is already
+        speaking interrupts it and immediately speaks the new text/voice,
+        instead of just stopping.
+        """
+        threading.Thread(target=speak, args=(text, True), daemon=True).start()
 
     # ── Tray voice menu helpers ─────────────────────────────────────────────
 
@@ -386,6 +410,69 @@ def main() -> int:
 
         _refresh_tray_voices()
 
+    def on_save_settings() -> None:
+        """Export the current user.yaml to a file the user picks."""
+        from PySide6.QtWidgets import QFileDialog
+        path, _ = QFileDialog.getSaveFileName(
+            None, "Save Settings", "alienvox-settings.yaml", "YAML Files (*.yaml *.yml)"
+        )
+        if not path:
+            return
+        try:
+            import shutil
+            src = user_yaml_path()
+            if src.exists():
+                shutil.copy(src, path)
+            else:
+                # Nothing saved yet — write current in-memory cfg as a starting point.
+                save_user_override({}, user_file=Path(path))
+            _log.info("settings saved to %s", path)
+            tel.emit("config.changed", detail="settings_saved")
+        except Exception as exc:
+            _log.error("save settings failed: %s", exc)
+            tray.set_error(f"Save settings failed: {exc}")
+
+    def on_load_settings() -> None:
+        """Import settings from a user-picked YAML file, apply them, and
+        persist to user.yaml. Closes the main window if open — it rebuilds
+        from the new config next time it's opened."""
+        from PySide6.QtWidgets import QFileDialog
+        path, _ = QFileDialog.getOpenFileName(
+            None, "Load Settings", "", "YAML Files (*.yaml *.yml)"
+        )
+        if not path:
+            return
+        try:
+            import yaml as _yaml
+            with open(path, encoding="utf-8") as f:
+                loaded = _yaml.safe_load(f) or {}
+        except Exception as exc:
+            _log.error("load settings failed to read %s: %s", path, exc)
+            tray.set_error(f"Load settings failed: {exc}")
+            return
+
+        save_user_override(loaded)
+        cfg.update(loaded)
+
+        nonlocal _main_window
+        if _main_window is not None:
+            _main_window.close()
+            _main_window = None
+
+        new_stack = loaded.get("engine", active_stack)
+        new_model = loaded.get("model", active_model)
+        new_voice = loaded.get("voice", "")
+        if new_stack != active_stack:
+            on_stack_changed(new_stack, new_voice)
+        elif new_model and new_model != active_model:
+            on_model_changed(new_model, new_voice)
+        elif new_voice:
+            on_voice_changed(new_voice)
+
+        _log.info("settings loaded from %s", path)
+        tel.emit("config.changed", detail="settings_loaded")
+        _refresh_tray_voices()
+
     def on_export(text: str) -> None:
         """Open the ExportDialog from the main-window toolbar."""
         from .export_dialog import ExportDialog
@@ -456,7 +543,7 @@ def main() -> int:
             _main_window = MainWindow(
                 stacks=stacks,
                 telemetry=tel,
-                on_speak=speak_async,
+                on_speak=play_async,
                 on_stop=_do_stop,
                 on_voice_changed=on_voice_changed,
                 on_config_saved=on_config_saved,
@@ -464,6 +551,8 @@ def main() -> int:
                 on_stack_changed=on_stack_changed,
                 on_model_changed=on_model_changed,
                 on_export=on_export,
+                on_save_settings=on_save_settings,
+                on_load_settings=on_load_settings,
                 live_voices=win_live_voices,
                 current_voice_id=cfg.get("voice", ""),
                 active_stack_id=active_stack,
@@ -512,6 +601,8 @@ def main() -> int:
         on_about=open_about,
         on_quit=quit_app,
         on_window_toggle=toggle_window,
+        on_save_settings=on_save_settings,
+        on_load_settings=on_load_settings,
     )
 
     _refresh_tray_voices()

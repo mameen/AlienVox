@@ -12,6 +12,7 @@ from typing import Any, Callable
 
 from PySide6.QtCore import QPoint, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import (
+    QAction,
     QColor,
     QFont,
     QIcon,
@@ -26,6 +27,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QMenuBar,
     QMessageBox,
     QPushButton,
     QSizePolicy,
@@ -40,6 +42,7 @@ from PySide6.QtWidgets import (
 )
 
 from .config import get_controls, get_voices, load_effective_config
+from .device import cuda_available
 from .engines.registry import StackInfo
 
 _ACCENT = "#0078d4"
@@ -323,6 +326,8 @@ class MainWindow(QMainWindow):
         on_stack_changed: Callable[[str], None] | None = None,
         on_model_changed: "Callable[[str, str], None] | None" = None,
         on_export: "Callable[[str, str, str], None] | None" = None,
+        on_save_settings: Callable[[], None] | None = None,
+        on_load_settings: Callable[[], None] | None = None,
         live_voices: dict[str, list[dict]] | None = None,
         current_voice_id: str = "",
         models_root: Path | None = None,
@@ -349,6 +354,8 @@ class MainWindow(QMainWindow):
         self._on_stack_changed_cb = on_stack_changed
         self._on_model_changed_cb = on_model_changed
         self._on_export_cb = on_export
+        self._on_save_settings_cb = on_save_settings
+        self._on_load_settings_cb = on_load_settings
         self._models_root = models_root
         self._active_stack_id = active_stack_id
         # live_voices: {stack_id -> [{id, label}, ...]} from running engine
@@ -366,6 +373,7 @@ class MainWindow(QMainWindow):
         self._slider_save_timer.timeout.connect(self._save_pending_sliders)
         self._pending_slider_changes: dict[str, float] = {}
 
+        self._build_menu_bar()
         self._build_toolbar()
         self._build_central()
         self._build_statusbar()
@@ -373,6 +381,32 @@ class MainWindow(QMainWindow):
 
         # Wire up collected widgets
         self._wire_voices_and_sliders()
+
+    # ── Menu bar ─────────────────────────────────────────────────────────────
+
+    def _build_menu_bar(self) -> None:
+        mb = QMenuBar()
+        settings_menu = mb.addMenu("&Settings")
+
+        save_action = QAction("&Save Settings…", self)
+        save_action.setToolTip("Export current settings to a YAML file")
+        save_action.triggered.connect(self._on_save_settings)
+        settings_menu.addAction(save_action)
+
+        load_action = QAction("&Load Settings…", self)
+        load_action.setToolTip("Import settings from a YAML file")
+        load_action.triggered.connect(self._on_load_settings)
+        settings_menu.addAction(load_action)
+
+        self.setMenuBar(mb)
+
+    def _on_save_settings(self) -> None:
+        if self._on_save_settings_cb:
+            self._on_save_settings_cb()
+
+    def _on_load_settings(self) -> None:
+        if self._on_load_settings_cb:
+            self._on_load_settings_cb()
 
     # ── Toolbar ───────────────────────────────────────────────────────────────
 
@@ -438,10 +472,22 @@ class MainWindow(QMainWindow):
         self._btn_pause = _icon_btn(_make_pause_icon(), "Pause",             self._on_pause)
         self._btn_stop  = _icon_btn(_make_stop_icon(),  "Stop",              self._on_stop)
 
-        # Spacer to push About to the right
+        # Spacer to push About (and the GPU indicator) to the right
         spacer = QWidget()
         spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         tb.addWidget(spacer)
+
+        if cuda_available():
+            _sep()
+            gpu_lbl = QLabel()
+            gpu_icon_path = Path(__file__).parent / "resources" / "icons" / "gpu.png"
+            if gpu_icon_path.exists():
+                gpu_lbl.setPixmap(QPixmap(str(gpu_icon_path)).scaled(
+                    16, 16, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation,
+                ))
+            gpu_lbl.setToolTip("Running on GPU (CUDA) — pass --cpu to run.py to force CPU-only")
+            tb.addWidget(gpu_lbl)
+
         _sep()
         _icon_btn(_make_about_icon(), "About AlienVox", self._on_about)
         self.addToolBar(tb)
