@@ -2,30 +2,47 @@
 
 Auto-downloads from HuggingFace Hub on first use (ResembleAI/chatterbox).
 Runs on CUDA when available, falls back to CPU.
-No reference audio required — the default voice is built into model weights.
+
+Like F5-TTS, Chatterbox supports zero-shot voice cloning via a reference
+audio clip (ChatterboxTTS.generate()'s audio_prompt_path parameter) — not
+just its one built-in default voice. "default" uses no reference (the
+model's own built-in voice); "female_calm"/"male_warm" pass a reference
+clip, reusing the same bundled f5-tts package clips provisioned into
+.models/ml/chatterbox/voices/ by setup.py (see
+_provision_chatterbox_reference_voices) — no transcript needed here
+(unlike F5-TTS), since Chatterbox only clones the voice timbre, not
+content.
 
 Install: pip install chatterbox-tts
 """
 from __future__ import annotations
 
 import threading
+from pathlib import Path
 
 import numpy as np
 
 from .. import logger as _logger_mod
 from ..audio_player import play_audio, stop_playback
+from ..config import models_root
 from ..device import select_device
 from .base import SpeakParams, TtsEngine, Voice
 
 _log = _logger_mod.get_logger("chatterbox")
 
 _VOICES = [
-    Voice(id="default",  name="Default"),
+    Voice(id="default",     name="Default"),
+    Voice(id="female_calm", name="Female · Calm"),
+    Voice(id="male_warm",   name="Male · Warm"),
 ]
 _DEFAULT_VOICE = "default"
 _VALID_VOICE_IDS: frozenset[str] = frozenset(v.id for v in _VOICES)
 _SAMPLE_RATE = 22_050
 _HF_REPO = "ResembleAI/chatterbox"
+
+
+def _ref_wav(voice_id: str) -> Path:
+    return models_root() / "ml" / "chatterbox" / "voices" / f"{voice_id}.wav"
 
 
 class ChatterboxEngine(TtsEngine):
@@ -91,8 +108,20 @@ class ChatterboxEngine(TtsEngine):
         if voice_id not in _VALID_VOICE_IDS:
             voice_id = _DEFAULT_VOICE
         model = self._get_model()
-        _log.info("Chatterbox generating %d chars", len(text))
-        wav = model.generate(text)
+
+        ref_wav_path = _ref_wav(voice_id) if voice_id != _DEFAULT_VOICE else None
+        if ref_wav_path is not None and not ref_wav_path.exists():
+            _log.warn(
+                "Chatterbox reference voice %r not found at %s — using default voice",
+                voice_id, ref_wav_path,
+            )
+            ref_wav_path = None
+
+        _log.info("Chatterbox generating %d chars (voice=%s)", len(text), voice_id)
+        if ref_wav_path is not None:
+            wav = model.generate(text, audio_prompt_path=str(ref_wav_path))
+        else:
+            wav = model.generate(text)
         audio = wav.squeeze().cpu().numpy().astype(np.float32)
         volume_scale = max(0.0, min(1.0, params.volume / 100.0))
         return audio * volume_scale

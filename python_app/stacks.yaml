@@ -83,7 +83,9 @@ stacks:
         weights_subpath: ml/chatterbox
         auto_download: true        # ChatterboxTTS.from_pretrained() fetches on first use
         voices:
-          - { id: default, label: "Default" }
+          - { id: default,     label: "Default" }
+          - { id: female_calm, label: "Female · Calm" }
+          - { id: male_warm,   label: "Male · Warm" }
         controls:
           rate:        { applies: false }
           pitch:       { applies: false }

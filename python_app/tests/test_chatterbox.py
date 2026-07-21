@@ -3,13 +3,20 @@
 Per .agents/SKILLS/highlevel_design/SKILL.md's anti-mocking testing
 philosophy, real-synthesis tests run against the actual downloaded
 Chatterbox model (gated by @requires_weights — real generate() calls take
-~10-25s each, including one-time model load, so these are consolidated
-into as few real calls as practical). Voice-fallback and threading/abort
-tests remain mocked with justification: real generation timing can't be
-paused at a reproducible point mid-stream, and repeatedly reloading a
-multi-GB model just to test our own threading logic isn't a productive
-trade — those tests exercise our orchestration code given a
-generate()-shaped callable, not Chatterbox's actual behavior.
+~1-25s each depending on text length, including one-time model load, so
+these are consolidated into as few real calls as practical). Voice-fallback
+and threading/abort tests remain mocked with justification: real
+generation timing can't be paused at a reproducible point mid-stream, and
+repeatedly reloading a multi-GB model just to test our own threading logic
+isn't a productive trade — those tests exercise our orchestration code
+given a generate()-shaped callable, not Chatterbox's actual behavior.
+
+Chatterbox supports zero-shot voice cloning (generate()'s audio_prompt_path)
+beyond its one built-in "default" voice — "female_calm"/"male_warm" pass a
+reference clip, reusing the same bundled f5-tts package clips provisioned
+by setup.py's _provision_chatterbox_reference_voices (gated separately by
+@requires_chatterbox_ref_voices, since weights and reference voices can be
+present independently of each other).
 """
 from __future__ import annotations
 
@@ -28,6 +35,7 @@ from src.engines.chatterbox_engine import (
 from .conftest import requires_gpu, requires_weights
 
 requires_chatterbox_weights = requires_weights("ml/chatterbox")
+requires_chatterbox_ref_voices = requires_weights("ml/chatterbox/voices")
 
 # ── Voice roster ──────────────────────────────────────────────────────────────
 
@@ -54,9 +62,9 @@ def test_kokoro_voices_not_in_roster():
 
 @requires_chatterbox_weights
 def test_real_synthesis_produces_audio_for_valid_and_invalid_voice():
-    """Real model, real generate() call. Chatterbox only has one voice
-    ("default"), so this also proves an unrecognized voice ID falls back to
-    it rather than erroring — both paths converge on the same real call."""
+    """Real model, real generate() call. "default" needs no reference clip
+    (Chatterbox's own built-in voice), so this also proves an unrecognized
+    voice ID falls back to it rather than erroring."""
     engine = ChatterboxEngine()
 
     result_valid = engine.synthesize("Hello, this is a real Chatterbox test.", "default", SpeakParams())
@@ -66,19 +74,57 @@ def test_real_synthesis_produces_audio_for_valid_and_invalid_voice():
     assert len(audio) > 100
     assert np.abs(audio).max() <= 1.0
 
-    result_invalid_voice = engine.synthesize("Hello again.", "af_heart", SpeakParams())
+    result_invalid_voice = engine.synthesize("Hello again.", "nonexistent-voice", SpeakParams())
     assert result_invalid_voice is not None  # falls back to "default", still produces audio
+
+
+@requires_chatterbox_weights
+@requires_chatterbox_ref_voices
+def test_real_synthesis_cloned_voices_pass_reference_audio():
+    """female_calm/male_warm must actually reach generate() with
+    audio_prompt_path set to their real reference clip — spies on the real
+    model's generate() (wraps=real call, doesn't replace it) so this stays
+    a genuine end-to-end synthesis, not a simulated one."""
+    from src.engines.chatterbox_engine import _ref_wav
+
+    engine = ChatterboxEngine()
+    model = engine._get_model()  # real model, loaded once
+
+    for voice_id in ("female_calm", "male_warm"):
+        with patch.object(model, "generate", wraps=model.generate) as spy:
+            result = engine.synthesize("Testing a cloned voice.", voice_id, SpeakParams())
+        assert result is not None
+        audio, sr = result
+        assert len(audio) > 100
+        assert spy.call_args.kwargs.get("audio_prompt_path") == str(_ref_wav(voice_id))
 
 
 @requires_chatterbox_weights
 def test_real_speak_calls_play_audio_with_volume_scaling():
     """play_audio is intercepted (no speakers/audio device needed for CI),
-    but the buffer comes from real Chatterbox synthesis, and volume scaling
-    is verified against a real waveform's actual peak amplitude."""
+    but the buffer comes from real Chatterbox synthesis.
+
+    Chatterbox's generate() isn't seeded/deterministic — two independent
+    real calls produce different waveforms, so comparing their peaks
+    directly isn't a valid volume test (this bit Dia's equivalent test
+    too — see test_dia.py). Generate once for real, then replay that same
+    real array through a wrapped generate() to isolate volume math from
+    generation randomness."""
     engine = ChatterboxEngine()
+    model = engine._get_model()  # real model, loaded once
+
+    full = engine.synthesize("consistent volume test phrase", "default", SpeakParams(volume=100))
+    assert full is not None
+    full_audio, _ = full
+    full_peak = np.abs(full_audio).max()
+    assert full_peak > 0
+
+    import torch
+    raw_tensor = torch.from_numpy(full_audio).unsqueeze(0)  # undo volume=100 scaling (no-op) and match generate()'s shape
 
     played = []
-    with patch("src.engines.chatterbox_engine.play_audio",
+    with patch.object(model, "generate", return_value=raw_tensor), \
+         patch("src.engines.chatterbox_engine.play_audio",
                side_effect=lambda a, r: played.append((a, r))):
         engine.speak("consistent volume test phrase", "default", SpeakParams(volume=50))
         engine.wait_until_done(timeout_ms=60_000)
@@ -86,14 +132,7 @@ def test_real_speak_calls_play_audio_with_volume_scaling():
     assert len(played) == 1
     arr, rate = played[0]
     assert rate == _SAMPLE_RATE
-    assert len(arr) > 0
-
-    full = engine.synthesize("consistent volume test phrase", "default", SpeakParams(volume=100))
-    assert full is not None
-    full_audio, _ = full
-    full_peak = np.abs(full_audio).max()
     half_peak = np.abs(arr).max()
-    assert full_peak > 0
     assert abs(half_peak - full_peak * 0.5) < full_peak * 0.05
 
 

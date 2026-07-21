@@ -187,6 +187,8 @@ def _download_auto(models_root: Path, model_id: str, force: bool = False) -> Non
 
     if model_id == "f5tts":
         _provision_f5tts_reference_voice(dest)
+    elif model_id == "chatterbox":
+        _provision_chatterbox_reference_voices(dest)
 
 
 def _provision_f5tts_reference_voice(f5tts_dest: Path) -> None:
@@ -247,6 +249,47 @@ def _provision_f5tts_reference_voice(f5tts_dest: Path) -> None:
             print(f"  ✓ Provisioned {voice_id} reference voice -> {dest_wav}")
     except Exception as exc:
         print(f"  (could not provision f5tts reference voices: {exc})")
+
+
+def _provision_chatterbox_reference_voices(chatterbox_dest: Path) -> None:
+    """Chatterbox also supports zero-shot voice cloning (generate()'s
+    audio_prompt_path) beyond its one built-in default voice — see
+    chatterbox_engine.py's _VOICES. Unlike F5-TTS, no transcript is needed
+    (Chatterbox clones timbre only, not content), so this just needs the
+    reference .wav files. Reuses the same bundled f5-tts package clips
+    already used for F5-TTS's presets (see _provision_f5tts_reference_voice)
+    rather than requiring a second copy of similar assets — the f5-tts
+    package is already a required dependency regardless of which ML models
+    are actually in use.
+    """
+    try:
+        import f5_tts
+        pkg_dir = Path(f5_tts.__path__[0])
+        voices_dir = chatterbox_dest / "voices"
+        voices_dir.mkdir(exist_ok=True)
+
+        presets = [
+            ("female_calm", pkg_dir / "infer" / "examples" / "basic" / "basic_ref_en.wav"),
+            ("male_warm", pkg_dir / "infer" / "examples" / "multi" / "country.flac"),
+        ]
+
+        for voice_id, bundled_src in presets:
+            dest_wav = voices_dir / f"{voice_id}.wav"
+            if dest_wav.exists():
+                continue
+            if not bundled_src.exists():
+                print(f"  (chatterbox bundled reference for {voice_id} not found — needs manual setup)")
+                continue
+            if bundled_src.suffix != ".wav":
+                import soundfile as _sf
+                data, sr = _sf.read(str(bundled_src))
+                _sf.write(str(dest_wav), data, sr)
+            else:
+                import shutil as _shutil
+                _shutil.copy(bundled_src, dest_wav)
+            print(f"  ✓ Provisioned {voice_id} reference voice -> {dest_wav}")
+    except Exception as exc:
+        print(f"  (could not provision chatterbox reference voices: {exc})")
 
 
 def _check_and_offer_models(models_root: Path, stacks_yaml: Path, force: bool = False) -> None:
