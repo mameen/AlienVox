@@ -175,3 +175,41 @@ def test_load_settings_from_applies_patch_via_state_signals(monkeypatch, tmp_pat
     assert ctrl.state.active_model == "chatterbox"
     assert ctrl.state.voice == "default"
     assert ctrl.engine.name == "ml:chatterbox"
+
+
+def test_select_enhance_strategy_persists(monkeypatch):
+    ctrl = _make_controller(monkeypatch)
+    persisted: list[dict] = []
+    monkeypatch.setattr(
+        "src.control.app_controller.save_user_override",
+        lambda patch, **kw: persisted.append(dict(patch)),
+    )
+
+    ctrl.select_enhance_strategy("heuristic")
+
+    assert ctrl.state.enhance_strategy == "heuristic"
+    assert persisted[-1]["enhance_strategy"] == "heuristic"
+
+
+def test_enhance_text_none_strategy_passes_through(monkeypatch):
+    ctrl = _make_controller(monkeypatch)
+    text, used = ctrl._enhance_text("foo  bar", "none")
+    assert text == "foo  bar"
+    assert used == "none"
+
+
+def test_enhance_text_heuristic_strategy_applies_rules(monkeypatch):
+    ctrl = _make_controller(monkeypatch)
+    text, used = ctrl._enhance_text("foo  bar", "heuristic")
+    assert text == "foo bar."
+    assert used == "heuristic"
+
+
+def test_enhance_text_llm_strategy_falls_back_to_heuristic(monkeypatch):
+    """llm_enhance isn't implemented yet (ADR-012 open) — the Controller
+    must fall back to heuristic rather than propagating the failure or
+    silently returning unenhanced text."""
+    ctrl = _make_controller(monkeypatch)
+    text, used = ctrl._enhance_text("foo  bar", "llm")
+    assert text == "foo bar."
+    assert used == "llm_fallback_heuristic"

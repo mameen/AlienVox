@@ -31,6 +31,7 @@ from .. import logger as _logger_mod
 from ..model.app_state import AppState
 from ..config import save_user_override, user_yaml_path
 from ..engines.base import SpeakParams
+from . import text_enhancer
 from .telemetry import Telemetry
 from ..version import version as get_version
 
@@ -85,6 +86,7 @@ class AppController:
         state.model_changed.connect(self._on_stack_or_model_changed)
         state.voice_changed.connect(lambda _v: self._persist())
         state.params_changed.connect(lambda _p: self._persist())
+        state.enhance_strategy_changed.connect(lambda _s: self._persist())
 
         self._load_engine_for_current_state()
 
@@ -195,6 +197,10 @@ class AppController:
         """Rate/pitch/volume/ttl_seconds changes from sliders."""
         self.state.set_params(**kwargs)
 
+    def select_enhance_strategy(self, strategy: str) -> None:
+        """User toggled the Auto-enhance control (main window toolbar)."""
+        self.state.set_enhance_strategy(strategy)
+
     def build_current_speak_params(self) -> SpeakParams:
         """SpeakParams for the currently active state — used by Views that
         need to construct a one-shot dialog (e.g. ExportDialog) without
@@ -228,6 +234,24 @@ class AppController:
         finally:
             self._speak_lock.release()
 
+    def _enhance_text(self, text: str, strategy: str) -> tuple[str, str]:
+        """Apply the requested enhance strategy, falling back to heuristic
+        (never to raw unenhanced text — the user opted into enhancement)
+        if the LLM strategy fails for any reason. Returns (text, strategy
+        actually used) so callers/telemetry can tell a fallback happened."""
+        if strategy == "none" or not text:
+            return text, strategy
+        if strategy == "heuristic":
+            return text_enhancer.heuristic_enhance(text), "heuristic"
+        if strategy == "llm":
+            try:
+                return text_enhancer.llm_enhance(text), "llm"
+            except Exception as exc:
+                _log.warn("llm_enhance failed, falling back to heuristic: %s", exc)
+                return text_enhancer.heuristic_enhance(text), "llm_fallback_heuristic"
+        _log.warn("unknown enhance_strategy=%r, skipping enhancement", strategy)
+        return text, "none"
+
     def _speak_locked(self, text: str | None) -> None:
         tel = self.telemetry
         rid = tel.new_request_id()
@@ -242,6 +266,21 @@ class AppController:
                 text = ""
 
         state = self.state
+        original_chars, original_bytes = len(text), len(text.encode())
+        strategy = state.enhance_strategy
+        enhanced_text, used_strategy = self._enhance_text(text, strategy)
+
+        telemetry_fields: dict[str, Any] = {
+            "text_chars": original_chars,
+            "text_bytes": original_bytes,
+        }
+        # Never record the source text itself — only sizes and strategy.
+        if strategy != "none":
+            telemetry_fields["enhanced_chars"] = len(enhanced_text)
+            telemetry_fields["enhanced_bytes"] = len(enhanced_text.encode())
+            telemetry_fields["enhance_strategy"] = used_strategy
+        text = enhanced_text
+
         tel.emit(
             "speak.triggered",
             request_id=rid,
@@ -252,9 +291,8 @@ class AppController:
             pitch=state.pitch,
             volume=state.volume,
             hotkey=state.hotkey,
-            text_chars=len(text),
-            text_bytes=len(text.encode()),
             version=get_version(),
+            **telemetry_fields,
         )
 
         try:

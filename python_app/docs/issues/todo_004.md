@@ -1,8 +1,33 @@
 # TODO #004: Auto-Enhance Text Before TTS
 
-**Status:** Open  
-**Updated:** 2026-07-20  
-**Scope:** `src/text_enhancer.py` (new), `src/main_window.py`, `src/main.py`, `src/telemetry.py`
+**Status:** Strategy A (heuristic) shipped — Strategy B (LLM) still open on ADR-012  
+**Updated:** 2026-07-21  
+**Scope:** `src/control/text_enhancer.py`, `src/model/app_state.py`, `src/control/app_controller.py`, `src/view/main_window.py`
+
+---
+
+## Implementation status (2026-07-21)
+
+Strategy A (heuristic) is implemented and wired through the MVC stack, following the
+`AppController`-command convention in `.agents/SKILLS/highlevel_design/SKILL.md` §7.2:
+
+- `AppState.enhance_strategy` (`"none" | "heuristic" | "llm"`) — new field, setter, signal,
+  persisted via `to_cfg_patch`/`load_cfg_patch` like every other setting.
+- `AppController.select_enhance_strategy()` — the command; `AppController._enhance_text()` calls
+  `text_enhancer.enhance()` inside `_speak_locked` before building `SpeakParams`, and **falls back
+  to heuristic** (never to raw text) if `strategy == "llm"` raises — currently always, since
+  `llm_enhance()` is still a stub. Telemetry records `enhance_strategy` as
+  `"llm_fallback_heuristic"` when this happens, so a real fallback is distinguishable from a
+  deliberate heuristic choice.
+- `MainWindow` toolbar has a checkable "✨" toggle wired to `select_enhance_strategy` and reactive
+  to `enhance_strategy_changed` (only exposes on/off — heuristic — not the unimplemented LLM path).
+- `heuristic_enhance()` preserves Dia's `[S1]`/`[S2]` tags via a stash/restore pass before any rule
+  runs.
+- Tests: `tests/test_text_enhancer.py` (one per rule + Dia tag preservation), plus `AppState`/
+  `AppController` coverage for the new field and the fallback path.
+
+**Not done:** export path (`audio_exporter.py`) doesn't call `enhance()` yet — only live
+`speak()` does. `llm_enhance()` remains `NotImplementedError` pending ADR-012.
 
 ---
 
@@ -200,10 +225,10 @@ When `auto_enhance` is on, emit both original and enhanced char counts:
 
 ## Acceptance Criteria
 
-- [ ] `heuristic_enhance()` covered by `tests/test_text_enhancer.py` — one test per rule minimum
-- [ ] Toggle visible in toolbar; state survives restart
-- [ ] `enhance()` called in `main.py` before `engine.speak()` when toggle is on
+- [x] `heuristic_enhance()` covered by `tests/test_text_enhancer.py` — one test per rule minimum
+- [x] Toggle visible in toolbar; state survives restart (persisted on `AppState.enhance_strategy`)
+- [x] `enhance()` called in `AppController._speak_locked` before `engine.speak()` when toggle is on
 - [ ] `enhance()` called in `audio_exporter.py` before synthesis when toggle is on
-- [ ] Telemetry emits `enhanced_chars` only when `auto_enhance` is on
-- [ ] LLM path raises `NotImplementedError` until ADR-012 is resolved
-- [ ] Heuristic does NOT strip or modify `[S1]`/`[S2]` Dia speaker tags
+- [x] Telemetry emits `enhanced_chars`/`enhanced_bytes`/`enhance_strategy` only when strategy != "none"
+- [x] LLM path raises `NotImplementedError` until ADR-012 is resolved
+- [x] Heuristic does NOT strip or modify `[S1]`/`[S2]` Dia speaker tags

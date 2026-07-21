@@ -154,3 +154,42 @@ def test_speaking_and_error_are_not_persisted(qapp):
     assert "speaking" not in patch
     assert "last_error" not in patch
     assert "error" not in patch
+
+
+def test_enhance_strategy_defaults_to_none(qapp):
+    state = AppState(_stacks(), _cfg())
+    assert state.enhance_strategy == "none"
+
+
+def test_set_enhance_strategy_emits_signal(qapp):
+    state = AppState(_stacks(), _cfg())
+    received = []
+    state.enhance_strategy_changed.connect(received.append)
+    state.set_enhance_strategy("heuristic")
+    assert received == ["heuristic"]
+    assert state.enhance_strategy == "heuristic"
+
+
+def test_set_enhance_strategy_unknown_value_raises(qapp):
+    state = AppState(_stacks(), _cfg())
+    with pytest.raises(ValueError):
+        state.set_enhance_strategy("not-a-strategy")
+
+
+def test_invalid_enhance_strategy_in_cfg_falls_back_to_none(qapp):
+    state = AppState(_stacks(), _cfg(enhance_strategy="bogus"))
+    assert state.enhance_strategy == "none"
+
+
+def test_enhance_strategy_round_trips_through_cfg_patch(qapp):
+    state = AppState(_stacks(), _cfg())
+    state.set_enhance_strategy("heuristic")
+    assert state.to_cfg_patch()["enhance_strategy"] == "heuristic"
+
+
+def test_load_cfg_patch_applies_enhance_strategy(qapp):
+    state = AppState(_stacks(), _cfg())
+    received = []
+    state.enhance_strategy_changed.connect(received.append)
+    state.load_cfg_patch({"enhance_strategy": "heuristic"})
+    assert received == ["heuristic"]
