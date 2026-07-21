@@ -29,22 +29,39 @@ The installer build additionally requires the **Inno Setup Compiler** (`ISCC.exe
 [jrsoftware.org/isinfo.php](https://jrsoftware.org/isinfo.php). Not installed automatically; the
 script checks common install locations and PATH, and tells you clearly if it can't find it.
 
-Both scripts create (and reuse on subsequent runs) a throwaway build venv —
-`python_app/.venv-base-build` — kept **separate from your dev `.venv`** on purpose: PyInstaller's
-static analysis discovers every `import` statement in the source, including lazy/function-scoped
-ones (e.g. `text_enhancer.py`'s `from llama_cpp import Llama` inside `_get_llm()`), and bundles
-whatever's importable in the build environment. Building from a venv that genuinely doesn't have
+## Where everything transient lives
+
+Both scripts put **all** transient state — the build venv, PyInstaller's dist/work folders, the
+portable zip, and the compiled installer exe — under a single folder:
+
+```
+python_app/install/.venv-base-build/
+├── Scripts/ Lib/ ...          <- the venv itself (shared by both build scripts)
+└── build/
+    ├── portable/
+    │   ├── dist/AlienVox/     <- PyInstaller onedir output
+    │   ├── work/              <- PyInstaller's intermediate build artifacts
+    │   └── AlienVox-portable-win64.zip
+    └── exe/
+        ├── dist/AlienVox/     <- separate freeze, same content, kept independent so
+        │                         building one target never clobbers the other's output
+        ├── work/
+        └── AlienVoxSetup-<version>.exe
+```
+
+One `.gitignore` rule (`.venv-base-build/`, matches at any depth) covers the entire tree — nothing
+under it can ever be accidentally committed. The venv is shared between `build_portable.bat` and
+`build_exe.bat` (created once, reused); each script freezes into its own `build/portable/` or
+`build/exe/` subfolder so they don't step on each other if you run both.
+
+The build venv is kept **separate from your dev `.venv`** on purpose: PyInstaller's static analysis
+discovers every `import` statement in the source, including lazy/function-scoped ones (e.g.
+`text_enhancer.py`'s `from llama_cpp import Llama` inside `_get_llm()`), and bundles whatever's
+importable in the build environment. Building from a venv that genuinely doesn't have
 torch/kokoro/chatterbox-tts/llama-cpp-python installed is what actually keeps a base build small —
 the `excludes=` list in `alienvox.spec` is only a second line of defense, not the primary mechanism.
 
 Verified sizes from an actual build: **~120MB unpacked, ~50MB zipped.**
-
-## What's NOT committed to the repo
-
-Everything under `install/windows/dist/`, `install/windows/build/`, `.venv-base-build/`, the
-portable `.zip`, and the compiled installer `.exe` are build outputs — reproducible from source,
-never committed (see the root `.gitignore` — `dist/`/`build/` already match at any depth, plus
-explicit rules for the zip/exe outputs and `.venv-base-build/`).
 
 ## Where things end up at runtime
 
