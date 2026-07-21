@@ -32,6 +32,12 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    # Needed to create/publish the Release regardless of the repo's default
+    # GITHUB_TOKEN permission setting (Settings -> Actions -> General ->
+    # Workflow permissions) — without this, softprops/action-gh-release
+    # fails with 403 on repos where that default is read-only.
+    permissions:
+      contents: write
     defaults:
       run:
         working-directory: python_app
@@ -83,7 +89,7 @@ jobs:
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: AlienVox ${{ steps.version.outputs.version }}
-          prerelease: ${{ inputs.prerelease != false }}
+          prerelease: ${{ github.event_name != 'push' && inputs.prerelease }}
           body: |
             Base tier (SAPI5 only, no ML) — two separate downloads:
 
