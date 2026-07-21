@@ -146,7 +146,11 @@ def main() -> int:
     state = AppState(stacks, cfg)
     _log.info("active stack=%s model=%s", state.active_stack, state.active_model or "(none)")
 
-    controller = AppController(state, tel, extra_cfg=cfg)
+    debug = os.environ.get("ALIENVOX_DEBUG") == "1"
+    if debug:
+        _log.warn("debug mode ON — raw + enhanced text will be recorded in telemetry")
+
+    controller = AppController(state, tel, extra_cfg=cfg, debug=debug)
     if controller.engine:
         _log.info("engine loaded: %s", type(controller.engine).__name__)
     else:

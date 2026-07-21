@@ -77,7 +77,13 @@ def build_speak_params(state: AppState, extra_cfg: dict[str, Any] | None = None)
 
 
 class AppController:
-    def __init__(self, state: AppState, telemetry: Telemetry, extra_cfg: dict[str, Any] | None = None) -> None:
+    def __init__(
+        self,
+        state: AppState,
+        telemetry: Telemetry,
+        extra_cfg: dict[str, Any] | None = None,
+        debug: bool = False,
+    ) -> None:
         self.state = state
         self.telemetry = telemetry
         # Model-specific controls (Piper's noise_scale etc.) that don't live
@@ -85,6 +91,11 @@ class AppController:
         # effective config and kept here rather than growing AppState with
         # per-model special cases.
         self._extra_cfg: dict[str, Any] = extra_cfg or {}
+        # Debug mode (run.py app --debug): records raw + enhanced text in
+        # telemetry's local JSONL sink. Off by default — normal telemetry
+        # never records source text, only sizes (see SAMPLE_TEXT/enhance
+        # docs in docs/issues/todo_004.md).
+        self._debug = debug
 
         self.engine: "TtsEngine | None" = None
         self._speak_lock = threading.Lock()
@@ -281,11 +292,20 @@ class AppController:
             "text_chars": original_chars,
             "text_bytes": original_bytes,
         }
-        # Never record the source text itself — only sizes and strategy.
+        # Never record the source text itself — only sizes and strategy —
+        # UNLESS the app was started with `run.py app --debug`, in which
+        # case the whole point is to see what actually got said, including
+        # what the enhancer changed. Debug mode is opt-in per launch, not
+        # persisted, and the text still only reaches the local .logs/
+        # JSONL sink (same as every other telemetry field).
         if enhance != "none":
             telemetry_fields["enhanced_chars"] = len(enhanced_text)
             telemetry_fields["enhanced_bytes"] = len(enhanced_text.encode())
             telemetry_fields["enhance_strategy"] = used_strategy
+        if self._debug:
+            telemetry_fields["text"] = text
+            if enhance != "none":
+                telemetry_fields["enhanced_text"] = enhanced_text
         text = enhanced_text
 
         tel.emit(

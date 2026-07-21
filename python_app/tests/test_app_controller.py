@@ -264,6 +264,48 @@ def test_play_sample_async_speaks_fixed_sample_text(monkeypatch):
     assert "enhance" not in kwargs
 
 
+def test_debug_mode_off_never_records_text(monkeypatch):
+    ctrl = _make_controller(monkeypatch)
+    ctrl.engine = None  # skip the actual engine.speak() call path
+    events: list[dict] = []
+    monkeypatch.setattr(ctrl.telemetry, "emit", lambda event, **kw: events.append(kw))
+
+    ctrl._speak_locked("hello  world", "heuristic")
+
+    triggered = next(e for e in events if True)  # only one emit() call reached (engine is None)
+    assert "text" not in triggered
+    assert "enhanced_text" not in triggered
+    assert triggered["text_chars"] == len("hello  world")
+
+
+def test_debug_mode_on_records_raw_and_enhanced_text(monkeypatch):
+    ctrl = _make_controller(monkeypatch)
+    ctrl._debug = True
+    ctrl.engine = None
+    events: list[dict] = []
+    monkeypatch.setattr(ctrl.telemetry, "emit", lambda event, **kw: events.append(kw))
+
+    ctrl._speak_locked("hello  world", "heuristic")
+
+    triggered = events[0]
+    assert triggered["text"] == "hello  world"  # original, pre-enhancement
+    assert triggered["enhanced_text"] == "hello world."  # post-enhancement
+
+
+def test_debug_mode_on_without_enhancement_records_text_but_not_enhanced_text(monkeypatch):
+    ctrl = _make_controller(monkeypatch)
+    ctrl._debug = True
+    ctrl.engine = None
+    events: list[dict] = []
+    monkeypatch.setattr(ctrl.telemetry, "emit", lambda event, **kw: events.append(kw))
+
+    ctrl._speak_locked("hello world", "none")
+
+    triggered = events[0]
+    assert triggered["text"] == "hello world"
+    assert "enhanced_text" not in triggered
+
+
 def test_enhance_text_none_strategy_passes_through(monkeypatch):
     ctrl = _make_controller(monkeypatch)
     text, used = ctrl._enhance_text("foo  bar", "none")

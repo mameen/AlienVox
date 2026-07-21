@@ -348,6 +348,7 @@ class MainWindow(QMainWindow):
         self._voice_combos: list[tuple[QComboBox, str]] = []
         self._model_combos: list[tuple[QComboBox, str]] = []
         self._sliders: list[tuple[str, _SliderRow]] = []
+        self._play_sample_btns: list[QToolButton] = []
 
         # Slider debounce timer
         self._slider_save_timer = QTimer()
@@ -458,10 +459,10 @@ class MainWindow(QMainWindow):
             tb.addWidget(b)
             return b
 
-        def _icon_btn(icon: QIcon, tip: str, slot=None) -> QToolButton:
+        def _icon_btn(icon: QIcon, tip: str, slot=None, size: int = 16) -> QToolButton:
             b = QToolButton()
             b.setIcon(icon)
-            b.setIconSize(QSize(16, 16))
+            b.setIconSize(QSize(size, size))
             b.setToolTip(tip)
             if slot:
                 b.clicked.connect(slot)
@@ -486,19 +487,25 @@ class MainWindow(QMainWindow):
             path = icons_dir / filename
             return QIcon(str(path)) if path.exists() else fallback
 
-        self._btn_play  = _icon_btn(_make_play_icon(),  "Play (speak text)", self._on_play)
+        _PLAYBACK_ICON_SIZE = 24
+        self._btn_play = _icon_btn(
+            _make_play_icon(_PLAYBACK_ICON_SIZE), "Play (speak text)", self._on_play,
+            size=_PLAYBACK_ICON_SIZE,
+        )
         self._btn_play_enhanced = _icon_btn(
-            _asset_icon("play_enhanced.png", _make_play_icon()),
+            _asset_icon("play_enhanced.png", _make_play_icon(_PLAYBACK_ICON_SIZE)),
             "Play Enhanced (fix up text for speech, then speak it)",
             self._on_play_enhanced,
+            size=_PLAYBACK_ICON_SIZE,
         )
-        self._btn_play_sample = _icon_btn(
-            _asset_icon("play_sample_icon.png", _make_play_icon()),
-            "Play Sample (speak a fixed test phrase with the active voice)",
-            self._on_play_sample,
+        self._btn_pause = _icon_btn(
+            _make_pause_icon(_PLAYBACK_ICON_SIZE), "Pause", self._on_pause,
+            size=_PLAYBACK_ICON_SIZE,
         )
-        self._btn_pause = _icon_btn(_make_pause_icon(), "Pause",             self._on_pause)
-        self._btn_stop  = _icon_btn(_make_stop_icon(),  "Stop",              self._on_stop)
+        self._btn_stop = _icon_btn(
+            _make_stop_icon(_PLAYBACK_ICON_SIZE), "Stop", self._on_stop,
+            size=_PLAYBACK_ICON_SIZE,
+        )
 
         # Spacer to push About (and the GPU indicator) to the right
         spacer = QWidget()
@@ -855,6 +862,20 @@ class MainWindow(QMainWindow):
         install_btn.setFixedHeight(28)
         install_btn.clicked.connect(lambda: self._open_install_dialog(stack))
         layout.addWidget(install_btn)
+
+        # Play Sample sits next to Install — it's a diagnostic action
+        # ("is my audio pipeline actually working"), not a text-playback
+        # action, so it belongs with the other diagnostic control rather
+        # than in the toolbar's Play/Play Enhanced/Pause/Stop cluster.
+        sample_icon_path = Path(__file__).parent.parent / "resources" / "icons" / "play_sample_icon.png"
+        sample_btn = QToolButton()
+        sample_btn.setIcon(QIcon(str(sample_icon_path)) if sample_icon_path.exists() else _make_play_icon())
+        sample_btn.setIconSize(QSize(20, 20))
+        sample_btn.setToolTip("Play Sample (speak a fixed test phrase with the active voice)")
+        sample_btn.setFixedHeight(28)
+        sample_btn.clicked.connect(self._on_play_sample)
+        self._play_sample_btns.append(sample_btn)
+        layout.addWidget(sample_btn)
 
         if has_models:
             model_combo.currentIndexChanged.connect(
