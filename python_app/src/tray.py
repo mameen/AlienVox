@@ -14,9 +14,13 @@ _APP_ICON = _ICONS_DIR / "icon_32x32.png"  # official AlienVox icon — see docs
 
 def _status_icon(dot_color: str | None) -> QIcon:
     """Build a tray icon from the official app icon, optionally with a small
-    colored status dot in the bottom-right corner (speaking=green,
-    error=red). Idle uses the plain official icon, unmodified — no ad-hoc
-    placeholder icons.
+    colored status dot in the bottom-right corner.
+
+    Currently always called with dot_color=None — every state (idle/
+    speaking/error) shows the plain official icon unmodified, by request
+    (dynamic per-state dots — idle/playing/exporting — are a nice future
+    idea, parked for now). The dot-compositing code is kept working and
+    ready: flip _DOT_COLORS below to re-enable it later.
     """
     base = QPixmap(str(_APP_ICON)) if _APP_ICON.exists() else QPixmap(32, 32)
     if base.isNull():
@@ -39,6 +43,11 @@ def _status_icon(dot_color: str | None) -> QIcon:
     return QIcon(pix)
 
 
+# Set to e.g. {"idle": None, "speaking": "#3fb950", "error": "#e5484d"} to
+# re-enable per-state status dots later.
+_DOT_COLORS: dict[str, str | None] = {"idle": None, "speaking": None, "error": None}
+
+
 class AlienVoxTray:
     def __init__(
         self,
@@ -53,9 +62,7 @@ class AlienVoxTray:
     ) -> None:
         self._tray = QSystemTrayIcon()
         self._icons = {
-            "idle":     _status_icon(None),
-            "speaking": _status_icon("#3fb950"),  # green dot
-            "error":    _status_icon("#e5484d"),  # red dot
+            state: _status_icon(color) for state, color in _DOT_COLORS.items()
         }
         self._tray.setIcon(self._icons["idle"])
         self._tray.setToolTip("AlienVox — idle")
