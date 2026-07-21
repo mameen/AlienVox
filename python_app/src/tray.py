@@ -4,15 +4,39 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
-from PySide6.QtGui import QIcon
+from PySide6.QtCore import QRect, Qt
+from PySide6.QtGui import QBrush, QColor, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QMenu, QSystemTrayIcon
 
 _ICONS_DIR = Path(__file__).parent / "resources" / "icons"
+_APP_ICON = _ICONS_DIR / "icon_32x32.png"  # official AlienVox icon — see docs/img/icons
 
 
-def _icon(name: str) -> QIcon:
-    path = _ICONS_DIR / name
-    return QIcon(str(path)) if path.exists() else QIcon()
+def _status_icon(dot_color: str | None) -> QIcon:
+    """Build a tray icon from the official app icon, optionally with a small
+    colored status dot in the bottom-right corner (speaking=green,
+    error=red). Idle uses the plain official icon, unmodified — no ad-hoc
+    placeholder icons.
+    """
+    base = QPixmap(str(_APP_ICON)) if _APP_ICON.exists() else QPixmap(32, 32)
+    if base.isNull():
+        base = QPixmap(32, 32)
+        base.fill(Qt.GlobalColor.transparent)
+
+    if dot_color is None:
+        return QIcon(base)
+
+    pix = QPixmap(base)
+    painter = QPainter(pix)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    size = pix.width()
+    dot_d = max(8, size // 3)
+    rect = QRect(size - dot_d - 1, size - dot_d - 1, dot_d, dot_d)
+    painter.setPen(QPen(QColor("#ffffff"), 1))
+    painter.setBrush(QBrush(QColor(dot_color)))
+    painter.drawEllipse(rect)
+    painter.end()
+    return QIcon(pix)
 
 
 class AlienVoxTray:
@@ -29,9 +53,9 @@ class AlienVoxTray:
     ) -> None:
         self._tray = QSystemTrayIcon()
         self._icons = {
-            "idle":     _icon("idle.png"),
-            "speaking": _icon("speaking.png"),
-            "error":    _icon("error.png"),
+            "idle":     _status_icon(None),
+            "speaking": _status_icon("#3fb950"),  # green dot
+            "error":    _status_icon("#e5484d"),  # red dot
         }
         self._tray.setIcon(self._icons["idle"])
         self._tray.setToolTip("AlienVox — idle")
