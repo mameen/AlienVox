@@ -1,41 +1,68 @@
 # TODO #004: Auto-Enhance Text Before TTS
 
-**Status:** Strategy A (heuristic) shipped as a dedicated "Play Enhanced" action — Strategy B (LLM)
-still open on ADR-012  
+**Status:** Strategy A (heuristic) and Strategy B (LLM, ADR-012 resolved) both shipped as a
+dedicated "Play Enhanced" action  
 **Updated:** 2026-07-21  
-**Scope:** `src/control/text_enhancer.py`, `src/control/app_controller.py`, `src/view/main_window.py`
+**Scope:** `src/control/text_enhancer.py`, `src/control/app_controller.py`, `src/view/main_window.py`,
+`src/resources/prompts/enhance_for_tts.txt`
 
 ---
 
+## ADR-012 resolution (2026-07-21)
+
+**Selected: Qwen2.5-0.5B-Instruct**, GGUF `q4_k_m` quantization, via `llama-cpp-python` (in-process,
+no subprocess — required by `SKILL.md` §3). Repo: `Qwen/Qwen2.5-0.5B-Instruct-GGUF`, file
+`qwen2.5-0.5b-instruct-q4_k_m.gguf` (~470MB). Chosen over Phi-3-mini per the original cost table in
+this doc: smaller download, lower VRAM/RAM, faster — "good enough" bar for a delivery-cleanup task,
+not a task that needs Phi-3-mini's extra reasoning capacity.
+
+Verified working end-to-end in this environment: the model downloads to `.models/text_enhancer/`
+on first use (`huggingface_hub.hf_hub_download`, cached after), loads via `llama_cpp.Llama`, and
+`create_chat_completion` returns real output — confirmed via the test suite actually triggering a
+real download+load+inference the first time (before `llm_enhance` was properly mocked in
+`test_app_controller.py`; see git history if curious).
+
 ## Implementation status (2026-07-21)
 
-Strategy A (heuristic) is implemented as a **dedicated one-shot action**, not a persisted mode —
-this differs from the original design below (a toolbar toggle backed by an `AppState` field), which
-was tried first and then deliberately reverted in favor of a simpler shape: a second "Play Enhanced"
+Both strategies are implemented as a **dedicated one-shot action**, not a persisted mode — this
+differs from the original design below (a toolbar toggle backed by an `AppState` field), which was
+tried first and then deliberately reverted in favor of a simpler shape: a second "Play Enhanced"
 button next to the regular Play button, using `resources/icons/play_enhanced.png`.
 
 - `AppController.play_enhanced_async(text)` — the command a View calls; spawns the same
   `speak(text, restart=True, enhance="heuristic")` path as `play_async`, just with `enhance` set.
+  Currently hardcodes `"heuristic"` — see "Not done" below for why LLM isn't the default yet.
   There is no `AppState.enhance_strategy` field — enhancement is a per-call argument to
   `AppController.speak()`, not state that could drift or need syncing across Views. This is why the
   MVC controller-command convention (`.agents/SKILLS/highlevel_design/SKILL.md` §7.2) still applies
   even though there's no new `AppState` field this time: **not every new action needs new state** —
   a one-shot action just needs a Controller command a View can call.
 - `AppController._enhance_text(text, strategy)` — applies the requested strategy, **falling back to
-  heuristic** (never to raw text) if `strategy == "llm"` raises — currently always, since
-  `llm_enhance()` is still a stub. Telemetry records `enhance_strategy` as
-  `"llm_fallback_heuristic"` when this happens, distinguishable from a deliberate heuristic choice.
+  heuristic** (never to raw text) if `strategy == "llm"` raises (model load failure, empty output,
+  speaker-tag count mismatch, or implausible output length — see `llm_enhance`'s validation).
+  Telemetry records `enhance_strategy` as `"llm_fallback_heuristic"` when this happens,
+  distinguishable from a deliberate heuristic choice.
+- `text_enhancer.llm_enhance(text, prompt_path=None)` — loads the GGUF model (lazy singleton,
+  thread-safe via a lock), sends `resources/prompts/enhance_for_tts.txt` as the system prompt plus
+  the raw text as the user message, and validates the response before returning it: non-empty,
+  same `[S1]`/`[S2]` tag count as the input, and output length within 0.3x–3x of input length.
+  Any validation failure raises `RuntimeError`, triggering the Controller's fallback.
 - `MainWindow` toolbar has two buttons side by side: `_btn_play` (unchanged, speaks as-is) and
   `_btn_play_enhanced` (uses `play_enhanced.png`, calls `play_enhanced_async`). Regular Play is
   completely unaffected by the enhanced button existing.
 - `heuristic_enhance()` preserves Dia's `[S1]`/`[S2]` tags via a stash/restore pass before any rule
-  runs.
-- Tests: `tests/test_text_enhancer.py` (one per rule + Dia tag preservation), plus `AppController`
-  coverage for `_enhance_text`, `play_enhanced_async`, and that `play_async` stays un-enhanced.
+  runs; `llm_enhance()` preserves them via prompt instruction + post-hoc tag-count validation.
+- Tests: `tests/test_text_enhancer.py` mocks `_get_llm()` so the LLM-path tests run in milliseconds
+  with no network/model dependency (covers success, empty output, tag mismatch, implausible length,
+  custom prompt file). `tests/test_app_controller.py` mocks `text_enhancer.llm_enhance` itself to
+  test the Controller's fallback wiring in isolation from model behavior.
 
-**Not done:** export path (`audio_exporter.py`) doesn't call `enhance()` yet. `llm_enhance()`
-remains `NotImplementedError` pending ADR-012 — when it lands, `play_enhanced_async` (or a third
-button) would pass `enhance="llm"` instead of hardcoding `"heuristic"`.
+**Not done:**
+- Export path (`audio_exporter.py`) doesn't call `enhance()` yet.
+- `play_enhanced_async` still hardcodes `enhance="heuristic"` rather than `"llm"` — LLM enhancement
+  works but adds real latency (model load + inference) and a ~470MB one-time download, so making it
+  the default for a single button needs a product decision (a loading indicator? a third button?
+  user-visible download consent?), not just a code change. Tracked as open follow-up, not blocking.
 
 ---
 
@@ -228,8 +255,11 @@ When `auto_enhance` is on, emit both original and enhanced char counts:
 
 ## Open Questions / ADR Candidates
 
-- **ADR-012**: Which local LLM for strategy B? (Qwen 0.5B vs Phi-3-mini)
-- Should the toggle be per-engine? (Dia uses `[S1]`/`[S2]` tags — heuristic must not touch them)
+- **ADR-012 — RESOLVED**: Qwen2.5-0.5B-Instruct GGUF via `llama-cpp-python`. See "ADR-012
+  resolution" above.
+- Should `play_enhanced_async` default to `"llm"` instead of `"heuristic"` now that it's real? Not
+  done yet — see "Not done" above (latency/download-consent product question, not a code blocker).
+- Should the toggle be per-engine? (Dia uses `[S1]`/`[S2]` tags — both strategies must not touch them)
 - Should heuristic rules be user-configurable checkboxes in Preferences?
 - Should we auto-detect Markdown pasted as plain text and render it? (Editor-layer gap noted above)
 
@@ -243,5 +273,8 @@ When `auto_enhance` is on, emit both original and enhanced char counts:
       `engine.speak()` — regular Play stays un-enhanced (`tests/test_app_controller.py`)
 - [ ] `enhance()` called in `audio_exporter.py` before synthesis (export path not wired yet)
 - [x] Telemetry emits `enhanced_chars`/`enhanced_bytes`/`enhance_strategy` only when `enhance != "none"`
-- [x] LLM path raises `NotImplementedError` until ADR-012 is resolved
-- [x] Heuristic does NOT strip or modify `[S1]`/`[S2]` Dia speaker tags
+- [x] LLM path (`llm_enhance`) implemented and verified working (real download + inference confirmed
+      during test development) — ADR-012 resolved; validates output before returning it and falls
+      back to heuristic on any failure
+- [x] Heuristic does NOT strip or modify `[S1]`/`[S2]` Dia speaker tags; LLM path validates tag count
+      unchanged and falls back to heuristic if it drifts

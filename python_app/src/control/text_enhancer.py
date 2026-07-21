@@ -11,18 +11,26 @@ AppState like every other user-facing setting.
 
 Two strategies:
   - heuristic_enhance: pure Python, zero dependencies, deterministic.
-  - llm_enhance: on-device model rewrite — not yet implemented (ADR-012
-    is still open on model selection); raises NotImplementedError so a
-    caller accidentally selecting "llm" fails loudly instead of silently
-    doing nothing.
+  - llm_enhance: on-device model rewrite (ADR-012: Qwen2.5-0.5B-Instruct
+    GGUF via llama-cpp-python — smallest of the candidates considered,
+    in-process per SKILL.md §3's no-subprocess rule). Lazy-loaded on
+    first use; the ~470MB weight file downloads to .models/text_enhancer/
+    on first call and is cached after.
 
-Dia's [S1]/[S2] speaker tags must survive heuristic_enhance() untouched —
+Dia's [S1]/[S2] speaker tags must survive both strategies untouched —
 they aren't prosody punctuation, they're semantic markers the engine
-parses.
+parses. heuristic_enhance() stashes/restores them structurally;
+llm_enhance() instructs the model to preserve them via the system prompt
+and then validates the tag count didn't change, raising if it did (the
+caller — AppController._enhance_text — falls back to heuristic_enhance
+on any exception from here, never to raw unenhanced text).
 """
 from __future__ import annotations
 
 import re
+import threading
+from pathlib import Path
+from typing import Any
 
 _SPEAKER_TAG_RE = re.compile(r"\[S\d+\]")
 _BLANK_LINES_RE = re.compile(r"\n{3,}")
@@ -86,10 +94,76 @@ def heuristic_enhance(text: str) -> str:
     return text
 
 
-def llm_enhance(text: str, prompt_path: "str | None" = None) -> str:
-    """LLM rewrite for natural speech. Raises NotImplementedError until
-    ADR-012 selects a model — see docs/issues/todo_004.md."""
-    raise NotImplementedError("LLM enhancer pending ADR-012 model selection")
+# ── LLM strategy (ADR-012: Qwen2.5-0.5B-Instruct GGUF) ─────────────────────
+
+_GGUF_REPO = "Qwen/Qwen2.5-0.5B-Instruct-GGUF"
+_GGUF_FILENAME = "qwen2.5-0.5b-instruct-q4_k_m.gguf"
+
+_DEFAULT_PROMPT_PATH = Path(__file__).parent.parent / "resources" / "prompts" / "enhance_for_tts.txt"
+_FALLBACK_SYSTEM_PROMPT = (
+    "You rewrite text so it sounds natural when read aloud by a text-to-speech engine. "
+    "Fix awkward phrasing and missing punctuation for natural pacing. Do not change the "
+    "meaning or add commentary — output ONLY the rewritten text."
+)
+
+_llm_lock = threading.Lock()
+_llm_instance: Any = None  # lazily-loaded llama_cpp.Llama singleton
+
+
+def _get_llm() -> Any:
+    """Lazily loads (and caches) the GGUF model, downloading it on first
+    use. Guarded by a lock since speak() calls can arrive from different
+    threads (hotkey vs. UI button)."""
+    global _llm_instance
+    with _llm_lock:
+        if _llm_instance is None:
+            from huggingface_hub import hf_hub_download
+            from llama_cpp import Llama
+
+            from ..config import models_root
+
+            model_dir = models_root() / "text_enhancer"
+            model_dir.mkdir(parents=True, exist_ok=True)
+            model_path = hf_hub_download(
+                repo_id=_GGUF_REPO, filename=_GGUF_FILENAME, local_dir=str(model_dir),
+            )
+            _llm_instance = Llama(model_path=model_path, n_ctx=2048, verbose=False)
+        return _llm_instance
+
+
+def llm_enhance(text: str, prompt_path: "Path | str | None" = None) -> str:
+    """LLM rewrite for natural speech (ADR-012: Qwen2.5-0.5B-Instruct).
+
+    Raises on any failure (model load, generation, or output validation)
+    — the caller (AppController._enhance_text) falls back to
+    heuristic_enhance rather than propagating the failure or returning
+    unenhanced text."""
+    if not text:
+        return text
+
+    path = Path(prompt_path) if prompt_path else _DEFAULT_PROMPT_PATH
+    system_prompt = path.read_text(encoding="utf-8") if path.exists() else _FALLBACK_SYSTEM_PROMPT
+
+    llm = _get_llm()
+    response = llm.create_chat_completion(
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": text},
+        ],
+        max_tokens=max(64, int(len(text.split()) * 2.5) + 32),
+        temperature=0.2,
+    )
+    result = response["choices"][0]["message"]["content"].strip()
+
+    if not result:
+        raise RuntimeError("llm_enhance: model returned empty output")
+    if len(_SPEAKER_TAG_RE.findall(result)) != len(_SPEAKER_TAG_RE.findall(text)):
+        raise RuntimeError("llm_enhance: speaker tag count changed — discarding output")
+    if len(result) > len(text) * 3 or len(result) < len(text) * 0.3:
+        raise RuntimeError(
+            f"llm_enhance: implausible output length ({len(text)} -> {len(result)} chars)"
+        )
+    return result
 
 
 def enhance(text: str, strategy: str = "none") -> str:

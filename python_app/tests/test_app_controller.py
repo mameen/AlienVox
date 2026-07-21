@@ -366,11 +366,27 @@ def test_enhance_text_heuristic_strategy_applies_rules(monkeypatch):
     assert used == "heuristic"
 
 
-def test_enhance_text_llm_strategy_falls_back_to_heuristic(monkeypatch):
-    """llm_enhance isn't implemented yet (ADR-012 open) — the Controller
-    must fall back to heuristic rather than propagating the failure or
-    silently returning unenhanced text."""
+def test_enhance_text_llm_strategy_falls_back_to_heuristic_on_failure(monkeypatch):
+    """Whenever llm_enhance raises (model load failure, output failed
+    validation, ...), the Controller must fall back to heuristic rather
+    than propagating the failure or silently returning unenhanced text.
+    llm_enhance itself is mocked here — its real behavior (including the
+    real model) is covered by tests/test_text_enhancer.py."""
+    import src.control.app_controller as ac
+    monkeypatch.setattr(
+        ac.text_enhancer, "llm_enhance",
+        lambda text, prompt_path=None: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
     ctrl = _make_controller(monkeypatch)
     text, used = ctrl._enhance_text("foo  bar", "llm")
     assert text == "foo bar."
     assert used == "llm_fallback_heuristic"
+
+
+def test_enhance_text_llm_strategy_uses_result_on_success(monkeypatch):
+    import src.control.app_controller as ac
+    monkeypatch.setattr(ac.text_enhancer, "llm_enhance", lambda text, prompt_path=None: "Foo, bar.")
+    ctrl = _make_controller(monkeypatch)
+    text, used = ctrl._enhance_text("foo  bar", "llm")
+    assert text == "Foo, bar."
+    assert used == "llm"

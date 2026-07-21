@@ -82,7 +82,7 @@ class AlienVoxTray:
         self._act_stop  = menu.addAction("Stop")
         self._act_stop.setEnabled(False)
         menu.addSeparator()
-        self._voice_menu = menu.addMenu("Voice ▸")
+        self._voice_menu = menu.addMenu("Voice")
         menu.addSeparator()
         menu.addAction("Settings…", self._on_window_toggle)
         menu.addAction("Save Settings…", self._on_save_settings)
