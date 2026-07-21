@@ -30,7 +30,7 @@ from typing import Any
 
 from PySide6.QtCore import QObject, Signal
 
-from .engines.registry import StackInfo
+from ..engines.registry import StackInfo
 
 
 class AppState(QObject):

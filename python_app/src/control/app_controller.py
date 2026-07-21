@@ -25,14 +25,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from .engines.base import TtsEngine
+    from ..engines.base import TtsEngine
 
-from . import logger as _logger_mod
-from .app_state import AppState
-from .config import save_user_override, user_yaml_path
-from .engines.base import SpeakParams
+from .. import logger as _logger_mod
+from ..model.app_state import AppState
+from ..config import save_user_override, user_yaml_path
+from ..engines.base import SpeakParams
 from .telemetry import Telemetry
-from .version import version as get_version
+from ..version import version as get_version
 
 _log = _logger_mod.get_logger("controller")
 
@@ -95,14 +95,14 @@ class AppController:
         if sys.platform == "win32":
             if stack_id == "sapi5":
                 try:
-                    from .engines.sapi_win import SapiEngine
+                    from ..engines.sapi_win import SapiEngine
                     return SapiEngine()
                 except Exception as exc:
                     _log.error("SapiEngine init failed: %s", exc)
                     return None
             if stack_id == "speech_platform":
                 try:
-                    from .engines.sapi_win import SpeechPlatformEngine
+                    from ..engines.sapi_win import SpeechPlatformEngine
                     return SpeechPlatformEngine()
                 except Exception as exc:
                     _log.warn("SpeechPlatformEngine init failed (runtime not installed?): %s", exc)
@@ -112,7 +112,7 @@ class AppController:
             if model in _ML_ENGINES:
                 module_name, class_name = _ML_ENGINES[model]
                 try:
-                    mod = importlib.import_module(f".engines.{module_name}", package=__package__)
+                    mod = importlib.import_module(f".engines.{module_name}", package=__package__.rsplit(".", 1)[0])
                     cls = getattr(mod, class_name)
                     eng = cls()
                     _log.info("%s loaded", class_name)
@@ -194,6 +194,12 @@ class AppController:
     def update_params(self, **kwargs: int) -> None:
         """Rate/pitch/volume/ttl_seconds changes from sliders."""
         self.state.set_params(**kwargs)
+
+    def build_current_speak_params(self) -> SpeakParams:
+        """SpeakParams for the currently active state — used by Views that
+        need to construct a one-shot dialog (e.g. ExportDialog) without
+        reaching into AppController's internals themselves."""
+        return build_speak_params(self.state, self._extra_cfg)
 
     # ── Persistence ───────────────────────────────────────────────────────
 

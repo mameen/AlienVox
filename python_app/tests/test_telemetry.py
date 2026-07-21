@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from src.telemetry import Telemetry
+from src.control.telemetry import Telemetry
 
 
 @pytest.fixture()

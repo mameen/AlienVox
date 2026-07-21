@@ -41,7 +41,7 @@ from .config import (
     save_user_override,
 )
 from .engines.registry import StackInfo
-from .telemetry import Telemetry
+from .control.telemetry import Telemetry
 
 
 class _Slider(QWidget):

@@ -16,8 +16,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .device import cuda_available
-from .version import version as get_version
+from ..device import cuda_available
+from ..version import version as get_version
 
 _ICONS = Path(__file__).parent / "resources" / "icons"
 

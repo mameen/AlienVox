@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
 )
 
 if TYPE_CHECKING:
-    from .engines.base import SpeakParams, TtsEngine
+    from ..engines.base import SpeakParams, TtsEngine
 
 
 class _Worker(QObject):
@@ -42,7 +42,7 @@ class _Worker(QObject):
         self._dest = dest
 
     def run(self) -> None:
-        from .audio_exporter import ExportError, export_audio
+        from ..control.audio_exporter import ExportError, export_audio
         try:
             export_audio(
                 self._engine,

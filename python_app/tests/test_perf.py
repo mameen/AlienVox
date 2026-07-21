@@ -775,14 +775,14 @@ class TestRegistryPerf:
 
 class TestTelemetryPerf:
     def test_emit_single_event_under_5ms(self, tmp_path):
-        from src.telemetry import Telemetry
+        from src.control.telemetry import Telemetry
         tel = Telemetry(sink=tmp_path / "tel.jsonl")
         ms = _elapsed_ms(tel.emit, "speak_start", engine="sapi5", text_chars=100)
         print(f"\n  telemetry.emit (single): {ms:.2f} ms")
         assert ms < 5, f"telemetry.emit took {ms:.1f} ms (threshold 5 ms)"
 
     def test_emit_100_events_under_200ms(self, tmp_path):
-        from src.telemetry import Telemetry
+        from src.control.telemetry import Telemetry
         tel = Telemetry(sink=tmp_path / "tel.jsonl")
         t0 = time.perf_counter()
         for i in range(100):
@@ -792,7 +792,7 @@ class TestTelemetryPerf:
         assert ms < 200, f"100 telemetry events took {ms:.1f} ms (threshold 200 ms)"
 
     def test_jsonl_file_is_valid_json_per_line(self, tmp_path):
-        from src.telemetry import Telemetry
+        from src.control.telemetry import Telemetry
         sink = tmp_path / "tel.jsonl"
         tel = Telemetry(sink=sink)
         for i in range(5):
