@@ -4,11 +4,17 @@ Mirrors the Rust/Tauri frontend design:
   Toolbar → Engine tabs → Voice controls bar → Audio sliders → Text editor → Status bar
 
 Opened from the tray "Settings…" item (or double-click in the future).
+
+This is a reactive View in the MVC split (see app_state.py/app_controller.py):
+it holds no state of its own beyond widget contents, reads initial values
+from AppState, connects to AppState's signals to stay in sync (including
+changes that originate elsewhere — the tray menu, Load Settings, ...), and
+calls AppController methods in response to user input. It never mutates
+AppState directly.
 """
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Callable
 
 from PySide6.QtCore import QPoint, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import (
@@ -41,9 +47,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .config import get_controls, get_voices, load_effective_config
-from .device import cuda_available
-from .engines.registry import StackInfo
+from ..config import get_controls, get_voices, load_effective_config
+from ..control.app_controller import AppController
+from ..device import cuda_available
+from ..engines.registry import StackInfo
+from ..model.app_state import AppState
 
 _ACCENT = "#0078d4"
 _TOOLBAR_BG = "#f5f5f5"
@@ -307,32 +315,19 @@ class _MultiFormatEditor(QWidget):
 
 
 class MainWindow(QMainWindow):
-    """Balabolka-style main window — testing harness and settings."""
+    """Balabolka-style main window — testing harness and settings.
 
-    speak_requested = Signal(str, str, str, dict)   # text, engine, voice, params
-    stop_requested = Signal()
-    pause_requested = Signal()
-    resume_requested = Signal()
+    Reactive View: reads AppState, connects to its signals, calls
+    AppController methods. Holds no state of its own beyond widget
+    contents (and those are always kept in sync with AppState, never a
+    separate source of truth).
+    """
 
     def __init__(
         self,
-        stacks: list[StackInfo],
-        telemetry=None,
-        on_speak: Callable | None = None,
-        on_stop: Callable | None = None,
-        on_voice_changed: Callable[[str], None] | None = None,
-        on_config_saved: Callable[[dict[str, Any]], None] | None = None,
-        on_about: Callable | None = None,
-        on_stack_changed: Callable[[str], None] | None = None,
-        on_model_changed: "Callable[[str, str], None] | None" = None,
-        on_export: "Callable[[str, str, str], None] | None" = None,
-        on_save_settings: Callable[[], None] | None = None,
-        on_load_settings: Callable[[], None] | None = None,
-        live_voices: dict[str, list[dict]] | None = None,
-        current_voice_id: str = "",
+        app_state: AppState,
+        controller: AppController,
         models_root: Path | None = None,
-        active_stack_id: str = "",
-        active_model_id: str = "",
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -341,33 +336,19 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(560, 400)
         # Qt.Window ensures it gets its own taskbar button even when parented
         self.setWindowFlags(Qt.WindowType.Window)
-        _icon_path = Path(__file__).parent / "resources" / "icons" / "icon_256x256.png"
+        _icon_path = Path(__file__).parent.parent / "resources" / "icons" / "icon_256x256.png"
         if _icon_path.exists():
             self.setWindowIcon(QIcon(str(_icon_path)))
 
-        self._stacks = stacks
-        self._tel = telemetry
-        self._on_speak_cb = on_speak
-        self._on_stop_cb = on_stop
-        self._on_voice_changed_cb = on_voice_changed
-        self._on_config_saved_cb = on_config_saved
-        self._on_about_cb = on_about
-        self._on_stack_changed_cb = on_stack_changed
-        self._on_model_changed_cb = on_model_changed
-        self._on_export_cb = on_export
-        self._on_save_settings_cb = on_save_settings
-        self._on_load_settings_cb = on_load_settings
+        self._state = app_state
+        self._controller = controller
         self._models_root = models_root
-        self._active_stack_id = active_stack_id
-        self._active_model_id = active_model_id
-        # live_voices: {stack_id -> [{id, label}, ...]} from running engine
-        self._live_voices: dict[str, list[dict]] = live_voices or {}
-        self._current_voice_id = current_voice_id
 
         # Collectors for post-build wiring
         self._voice_combos: list[tuple[QComboBox, str]] = []
         self._model_combos: list[tuple[QComboBox, str]] = []
         self._sliders: list[tuple[str, _SliderRow]] = []
+        self._play_sample_btns: list[QToolButton] = []
 
         # Slider debounce timer
         self._slider_save_timer = QTimer()
@@ -383,6 +364,21 @@ class MainWindow(QMainWindow):
 
         # Wire up collected widgets
         self._wire_voices_and_sliders()
+
+        # Reactive subscriptions — this is what structurally prevents the
+        # "UI shows stale/wrong state" bug class: every widget update below
+        # is driven by an AppState signal, regardless of what triggered the
+        # underlying change (this window's own combo, the tray menu, Load
+        # Settings, ...), instead of only updating in response to this
+        # window's own widget callbacks.
+        self._state.stack_changed.connect(self._on_state_stack_changed)
+        self._state.model_changed.connect(self._on_state_model_changed)
+        self._state.voice_changed.connect(self._on_state_voice_changed)
+        self._state.params_changed.connect(self._on_state_params_changed)
+        self._state.speaking_changed.connect(self._on_state_speaking_changed)
+        self._state.error_changed.connect(self._on_state_error_changed)
+        self._state.catalog_changed.connect(self._on_state_catalog_changed)
+        self._state.voice_enabled_changed.connect(self._on_state_voice_enabled_changed)
 
     # ── Menu bar ─────────────────────────────────────────────────────────────
 
@@ -400,15 +396,43 @@ class MainWindow(QMainWindow):
         load_action.triggered.connect(self._on_load_settings)
         settings_menu.addAction(load_action)
 
+        settings_menu.addSeparator()
+
+        manage_voices_action = QAction("&Manage Voices…", self)
+        manage_voices_action.setToolTip("Enable/disable individual voices and preview them")
+        manage_voices_action.triggered.connect(self._on_manage_voices)
+        settings_menu.addAction(manage_voices_action)
+
         self.setMenuBar(mb)
 
     def _on_save_settings(self) -> None:
-        if self._on_save_settings_cb:
-            self._on_save_settings_cb()
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save Settings", "alienvox-settings.yaml", "YAML Files (*.yaml *.yml)"
+        )
+        if not path:
+            return
+        try:
+            self._controller.save_settings_to(Path(path))
+            self._set_status(f"Settings saved to {Path(path).name}")
+        except Exception as exc:
+            self._set_status(f"Save settings failed: {exc}")
 
     def _on_load_settings(self) -> None:
-        if self._on_load_settings_cb:
-            self._on_load_settings_cb()
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Load Settings", "", "YAML Files (*.yaml *.yml)"
+        )
+        if not path:
+            return
+        try:
+            self._controller.load_settings_from(Path(path))
+            self._set_status(f"Settings loaded from {Path(path).name}")
+        except Exception as exc:
+            self._set_status(f"Load settings failed: {exc}")
+
+    def _on_manage_voices(self) -> None:
+        from .manage_voices_dialog import ManageVoicesDialog
+        dlg = ManageVoicesDialog(self._state, self._controller, parent=self)
+        dlg.exec()
 
     # ── Toolbar ───────────────────────────────────────────────────────────────
 
@@ -448,10 +472,10 @@ class MainWindow(QMainWindow):
             tb.addWidget(b)
             return b
 
-        def _icon_btn(icon: QIcon, tip: str, slot=None) -> QToolButton:
+        def _icon_btn(icon: QIcon, tip: str, slot=None, size: int = 16) -> QToolButton:
             b = QToolButton()
             b.setIcon(icon)
-            b.setIconSize(QSize(16, 16))
+            b.setIconSize(QSize(size, size))
             b.setToolTip(tip)
             if slot:
                 b.clicked.connect(slot)
@@ -470,9 +494,31 @@ class MainWindow(QMainWindow):
         _sep()
         _text_btn("🎵", "Export to WAV / MP3", self._on_export)
         _sep()
-        self._btn_play  = _icon_btn(_make_play_icon(),  "Play (speak text)", self._on_play)
-        self._btn_pause = _icon_btn(_make_pause_icon(), "Pause",             self._on_pause)
-        self._btn_stop  = _icon_btn(_make_stop_icon(),  "Stop",              self._on_stop)
+        icons_dir = Path(__file__).parent.parent / "resources" / "icons"
+
+        def _asset_icon(filename: str, fallback: QIcon) -> QIcon:
+            path = icons_dir / filename
+            return QIcon(str(path)) if path.exists() else fallback
+
+        _PLAYBACK_ICON_SIZE = 24
+        self._btn_play = _icon_btn(
+            _make_play_icon(_PLAYBACK_ICON_SIZE), "Play (speak text)", self._on_play,
+            size=_PLAYBACK_ICON_SIZE,
+        )
+        self._btn_play_enhanced = _icon_btn(
+            _asset_icon("play_enhanced.png", _make_play_icon(_PLAYBACK_ICON_SIZE)),
+            "Play Enhanced (fix up text for speech, then speak it)",
+            self._on_play_enhanced,
+            size=_PLAYBACK_ICON_SIZE,
+        )
+        self._btn_pause = _icon_btn(
+            _make_pause_icon(_PLAYBACK_ICON_SIZE), "Pause", self._on_pause,
+            size=_PLAYBACK_ICON_SIZE,
+        )
+        self._btn_stop = _icon_btn(
+            _make_stop_icon(_PLAYBACK_ICON_SIZE), "Stop", self._on_stop,
+            size=_PLAYBACK_ICON_SIZE,
+        )
 
         # Spacer to push About (and the GPU indicator) to the right
         spacer = QWidget()
@@ -482,7 +528,7 @@ class MainWindow(QMainWindow):
         if cuda_available():
             _sep()
             gpu_lbl = QLabel()
-            gpu_icon_path = Path(__file__).parent / "resources" / "icons" / "gpu.png"
+            gpu_icon_path = Path(__file__).parent.parent / "resources" / "icons" / "gpu.png"
             if gpu_icon_path.exists():
                 gpu_lbl.setPixmap(QPixmap(str(gpu_icon_path)).scaled(
                     16, 16, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation,
@@ -548,26 +594,137 @@ class MainWindow(QMainWindow):
         sb.addPermanentWidget(self._chars_lbl)
         self.setStatusBar(sb)
 
-    # ── Public voice API ─────────────────────────────────────────────────────
+    # ── AppState reactive handlers ───────────────────────────────────────────
+    # Every one of these is the ONLY place its corresponding widget state
+    # gets updated — no constructor snapshot, no separate "push" method
+    # called ad hoc from outside. Whatever triggered the AppState change
+    # (this window, the tray, Load Settings) ends up here the same way.
 
-    def update_voices(self, stack_id: str, voices: list[dict], current_voice_id: str = "") -> None:
-        """Populate the voice dropdown for `stack_id` with live engine voices.
-
-        Call this from main.py after the engine finishes enumerating voices,
-        e.g. for sapi5 after SapiEngine.list_voices() returns.
-        """
-        for combo, sid in self._voice_combos:
-            if sid == stack_id:
-                self._fill_voice_combo(combo, voices, current_voice_id or self._current_voice_id)
+    def _on_state_stack_changed(self, stack_id: str) -> None:
+        for i in range(self._tabs.count()):
+            tab = self._tabs.widget(i)
+            if tab and tab.property("stack_id") == stack_id:
+                self._tabs.blockSignals(True)
+                self._tabs.setCurrentIndex(i)
+                self._tabs.blockSignals(False)
                 break
+        self._set_status(f"Engine: {stack_id or '—'}")
+
+    def _on_state_model_changed(self, model_id: str) -> None:
+        stack_id = self._state.active_stack
+        stack = self._state.stack_info(stack_id)
+        if stack is None:
+            return
+        model = self._state.model_info(stack_id, model_id)
+
+        for combo, sid in self._model_combos:
+            if sid != stack_id:
+                continue
+            combo.blockSignals(True)
+            idx = combo.findData(model_id)
+            if idx >= 0:
+                combo.setCurrentIndex(idx)
+            combo.blockSignals(False)
+
+        for combo, sid in self._voice_combos:
+            if sid != stack_id:
+                continue
+            combo.blockSignals(True)
+            combo.clear()
+            if model:
+                for v in self._visible_voices(stack_id, model_id, model.voices, self._state.voice):
+                    combo.addItem(v.get("label", v["id"]), v["id"])
+            combo.blockSignals(False)
+
+    def _on_state_voice_changed(self, voice_id: str) -> None:
+        stack_id = self._state.active_stack
+        for combo, sid in self._voice_combos:
+            if sid != stack_id:
+                continue
+            combo.blockSignals(True)
+            idx = combo.findData(voice_id)
+            if idx >= 0:
+                combo.setCurrentIndex(idx)
+            combo.blockSignals(False)
+
+    def _on_state_params_changed(self, changed: dict) -> None:
+        # rate/pitch/volume are global (one value shared across every
+        # stack tab's slider row, not per-model) — update every slider
+        # with a matching name, not just the active tab's.
+        for name, slider in self._sliders:
+            if name in changed:
+                slider.blockSignals(True)
+                slider.setValue(changed[name])
+                slider.blockSignals(False)
+
+    def _on_state_speaking_changed(self, speaking: bool) -> None:
+        self._set_status("Speaking…" if speaking else "Ready")
+
+    def _on_state_error_changed(self, message: str) -> None:
+        if message:
+            self._set_status(f"Error: {message}")
+
+    def _on_state_catalog_changed(self) -> None:
+        """Live voices (e.g. SAPI's OS-enumerated list) arrived/changed —
+        refresh any non-ML voice combo that sources from them."""
+        for combo, sid in self._voice_combos:
+            stack = self._state.stack_info(sid)
+            if stack is None or stack.models:
+                continue  # ML stacks source voices from the catalog, not live_voices
+            live = self._state.live_voices_for(sid)
+            if not live:
+                continue
+            current_voice = self._state.voice if sid == self._state.active_stack else ""
+            self._fill_voice_combo(combo, sid, live, current_voice)
+
+    def _on_state_voice_enabled_changed(self, stack_id: str, model_id: str, voice_id: str, enabled: bool) -> None:
+        """A voice was (un)checked in the Manage Voices dialog — refresh
+        every tab's voice combo for that stack so the filtered list stays
+        current whether or not that tab happens to be visible right now."""
+        model_combo = next((c for c, sid in self._model_combos if sid == stack_id), None)
+        voice_combo = next((c for c, sid in self._voice_combos if sid == stack_id), None)
+        if voice_combo is None:
+            return
+
+        is_active_stack = stack_id == self._state.active_stack
+        keep_voice = voice_combo.currentData() or ""
+
+        if model_combo is not None:
+            selected_model_id = model_combo.currentData() or model_id
+            model = self._state.model_info(stack_id, selected_model_id)
+            if model:
+                voice_combo.blockSignals(True)
+                voice_combo.clear()
+                for v in self._visible_voices(stack_id, selected_model_id, model.voices, keep_voice):
+                    voice_combo.addItem(v.get("label", v["id"]), v["id"])
+                idx = voice_combo.findData(keep_voice)
+                if idx >= 0:
+                    voice_combo.setCurrentIndex(idx)
+                voice_combo.blockSignals(False)
+        else:
+            live = self._state.live_voices_for(stack_id)
+            if live:
+                self._fill_voice_combo(voice_combo, stack_id, live, keep_voice if is_active_stack else "")
+
+    def _visible_voices(
+        self, stack_id: str, model_id: str, voices: list[dict], keep_voice_id: str = ""
+    ) -> list[dict]:
+        """Filter out disabled voices (Manage Voices dialog), except the
+        currently-selected one — a voice that's already selected stays
+        visible even if disabled, rather than disappearing from under the
+        user; disabling only affects what's offered going forward."""
+        return [
+            v for v in voices
+            if v["id"] == keep_voice_id or self._state.is_voice_enabled(stack_id, model_id, v["id"])
+        ]
 
     def _fill_voice_combo(
-        self, combo: QComboBox, voices: list[dict], current_voice_id: str = ""
+        self, combo: QComboBox, stack_id: str, voices: list[dict], current_voice_id: str = ""
     ) -> None:
         combo.blockSignals(True)
         combo.clear()
         select_idx = 0
-        for i, v in enumerate(voices):
+        for i, v in enumerate(self._visible_voices(stack_id, "", voices, current_voice_id)):
             combo.addItem(v.get("label", v["id"]), v["id"])
             if v["id"] == current_voice_id:
                 select_idx = i
@@ -575,13 +732,13 @@ class MainWindow(QMainWindow):
             combo.setCurrentIndex(select_idx)
         combo.blockSignals(False)
 
-    # ── Wiring ────────────────────────────────────────────────────────────────
+    # ── User-input wiring ────────────────────────────────────────────────────
 
     def _wire_voices_and_sliders(self) -> None:
         """Connect voice combos and sliders after all tabs are built."""
         for combo, stack_id in self._voice_combos:
             combo.currentIndexChanged.connect(
-                lambda idx, c=combo, s=stack_id: self._on_voice_changed(c, s)
+                lambda idx, c=combo, s=stack_id: self._on_voice_combo_changed(c, s)
             )
 
         for name, slider in self._sliders:
@@ -589,11 +746,20 @@ class MainWindow(QMainWindow):
                 lambda v, n=name: self._on_slider_debounced(n, v)
             )
 
-    def _on_voice_changed(self, combo: QComboBox, stack_id: str) -> None:
-        """Handle voice dropdown change — save to user.yaml and update tray."""
+    def _on_voice_combo_changed(self, combo: QComboBox, stack_id: str) -> None:
+        """User picked a different voice in a stack's dropdown."""
         vid = combo.itemData(combo.currentIndex())
-        if vid and self._on_voice_changed_cb:
-            self._on_voice_changed_cb(vid)
+        if not vid:
+            return
+        if stack_id == self._state.active_stack:
+            self._controller.select_voice(vid)
+        else:
+            # Defensive: shouldn't normally happen (picking a voice under a
+            # non-active tab implies a tab switch, which _on_tab_changed
+            # already handles before this could fire) — but if it does,
+            # treat it as switching to that stack, not a silent voice-only
+            # update against the wrong active model.
+            self._controller.select_stack(stack_id, vid)
 
     def _on_slider_debounced(self, name: str, value: float) -> None:
         """Called on every slider change; debounces saves via QTimer."""
@@ -601,11 +767,11 @@ class MainWindow(QMainWindow):
         self._slider_save_timer.start(350)  # 350ms debounce
 
     def _save_pending_sliders(self) -> None:
-        """Save pending slider changes to user.yaml and clear the pending dict."""
-        if not self._pending_slider_changes or not self._on_config_saved_cb:
+        """Push pending slider changes to AppController and clear the pending dict."""
+        if not self._pending_slider_changes:
             return
         patch = {k: int(v) for k, v in self._pending_slider_changes.items()}
-        self._on_config_saved_cb(patch)
+        self._controller.update_params(**patch)
         self._pending_slider_changes.clear()
 
     # ── Stack tabs ────────────────────────────────────────────────────────────
@@ -616,7 +782,7 @@ class MainWindow(QMainWindow):
         self._tabs.addTab(dummy, "SAPI 4")
         self._tabs.setTabEnabled(0, False)
 
-        for stack in self._stacks:
+        for stack in self._state.stacks:
             tab = self._build_stack_tab(stack)
             self._tabs.addTab(tab, stack.name)
             if not stack.available:
@@ -625,12 +791,13 @@ class MainWindow(QMainWindow):
 
         # Restore last active stack, falling back to first available tab
         restored = False
-        if self._active_stack_id:
+        active_stack_id = self._state.active_stack
+        if active_stack_id:
             for i in range(self._tabs.count()):
                 tab = self._tabs.widget(i)
                 if (
                     tab
-                    and tab.property("stack_id") == self._active_stack_id
+                    and tab.property("stack_id") == active_stack_id
                     and self._tabs.isTabEnabled(i)
                 ):
                     self._tabs.setCurrentIndex(i)
@@ -674,22 +841,16 @@ class MainWindow(QMainWindow):
 
         has_models = bool(stack.models)
 
-        # Which model is actually active for this stack right now — NOT
-        # necessarily stack.models[0]. Previously the model dropdown always
-        # visually defaulted to the first catalog entry (e.g. Kokoro) and
-        # the voice dropdown was populated from THAT model's voices,
-        # regardless of which model the backend engine actually had loaded
-        # (e.g. Chatterbox, persisted from a prior session). Picking a
-        # voice from that mismatched dropdown only ever updated cfg["voice"]
-        # — the model/engine never visibly needed to change because the UI
-        # never showed a difference — leaving cfg["voice"] holding an ID
-        # that belongs to a completely different model than the one
-        # actually active (e.g. "af_bella" while Chatterbox stayed active).
-        is_active_stack = stack.id == self._active_stack_id
+        # Which model is actually active for this stack right now — sourced
+        # from AppState, not stack.models[0]. Only the actually active
+        # stack's tab tries to match AppState's current model/voice;
+        # non-active tabs just show their first model/voice, since
+        # AppState's values weren't recorded for a stack that isn't running.
+        is_active_stack = stack.id == self._state.active_stack
         selected_model = None
         if has_models:
             selected_model = (
-                next((m for m in stack.models if m.id == self._active_model_id), None)
+                next((m for m in stack.models if m.id == self._state.active_model), None)
                 if is_active_stack else None
             ) or stack.models[0]
 
@@ -711,27 +872,25 @@ class MainWindow(QMainWindow):
         bar.setProperty("voice_combo", voice_combo)
         self._voice_combos.append((voice_combo, stack.id))
 
-        # Populate initial voices — from the ACTUALLY active model. Only
-        # select to match current_voice_id on the stack that's actually
-        # active; other tabs' voice combos just default to their first
-        # entry (current_voice_id wasn't recorded for a non-running stack).
         if has_models and selected_model is not None:
+            keep_voice = self._state.voice if is_active_stack else ""
             select_idx = 0
-            for i, v in enumerate(selected_model.voices):
+            for i, v in enumerate(self._visible_voices(stack.id, selected_model.id, selected_model.voices, keep_voice)):
                 voice_combo.addItem(v.get("label", v["id"]), v["id"])
-                if is_active_stack and v["id"] == self._current_voice_id:
+                if is_active_stack and v["id"] == self._state.voice:
                     select_idx = i
-            if is_active_stack and self._current_voice_id:
+            if is_active_stack and self._state.voice:
                 voice_combo.setCurrentIndex(select_idx)
-        elif stack.id in self._live_voices and self._live_voices[stack.id]:
-            # OS-enumerated voices supplied by the engine at startup
-            self._fill_voice_combo(voice_combo, self._live_voices[stack.id])
-        elif stack.id in ("sapi5", "speech_platform"):
-            voice_combo.addItem("(loading voices…)", "")
         else:
-            voices = get_voices(stack.id)
-            for v in voices:
-                voice_combo.addItem(v.get("label", v["id"]), v["id"])
+            live = self._state.live_voices_for(stack.id)
+            if live:
+                self._fill_voice_combo(voice_combo, stack.id, live, self._state.voice if is_active_stack else "")
+            elif stack.id in ("sapi5", "speech_platform"):
+                voice_combo.addItem("(loading voices…)", "")
+            else:
+                voices = get_voices(stack.id)
+                for v in self._visible_voices(stack.id, "", voices, self._state.voice if is_active_stack else ""):
+                    voice_combo.addItem(v.get("label", v["id"]), v["id"])
 
         layout.addWidget(voice_combo)
 
@@ -742,7 +901,7 @@ class MainWindow(QMainWindow):
             ttl_lbl.setStyleSheet("font-size:11px; color:#555;")
             ttl_spin = QSpinBox()
             ttl_spin.setRange(0, 300)
-            ttl_spin.setValue(30)
+            ttl_spin.setValue(self._state.ttl_seconds)
             ttl_spin.setSuffix(" s")
             ttl_spin.setFixedWidth(72)
             ttl_spin.setStyleSheet(_combo_style())
@@ -759,10 +918,25 @@ class MainWindow(QMainWindow):
         install_btn.clicked.connect(lambda: self._open_install_dialog(stack))
         layout.addWidget(install_btn)
 
+        # Play Sample sits next to Install — it's a diagnostic action
+        # ("is my audio pipeline actually working"), not a text-playback
+        # action, so it belongs with the other diagnostic control rather
+        # than in the toolbar's Play/Play Enhanced/Pause/Stop cluster.
+        sample_icon_path = Path(__file__).parent.parent / "resources" / "icons" / "play_sample_icon.png"
+        sample_btn = QToolButton()
+        sample_btn.setStyleSheet("QToolButton { border: none; background-color: transparent; }")
+        sample_btn.setIcon(QIcon(str(sample_icon_path)) if sample_icon_path.exists() else _make_play_icon())
+        sample_btn.setIconSize(QSize(20, 20))
+        sample_btn.setToolTip("Play Sample (speak a fixed test phrase with the active voice)")
+        sample_btn.setFixedHeight(28)
+        sample_btn.clicked.connect(self._on_play_sample)
+        self._play_sample_btns.append(sample_btn)
+        layout.addWidget(sample_btn)
+
         if has_models:
             model_combo.currentIndexChanged.connect(
-                lambda idx, s=stack, vc=voice_combo, mc=model_combo:
-                    self._on_model_changed(s, mc.itemData(idx), vc)
+                lambda idx, s=stack, mc=model_combo:
+                    self._on_model_combo_changed(s, mc.itemData(idx))
             )
 
         return bar
@@ -833,11 +1007,18 @@ class MainWindow(QMainWindow):
         if not text:
             self._set_status("No text to export")
             return
-        if self._on_export_cb:
-            # Delegate to main.py which has engine + voice references
-            self._on_export_cb(text)
-        else:
+        if not self._controller.engine:
             self._set_status("Export not available — engine not loaded")
+            return
+        from .export_dialog import ExportDialog
+        dlg = ExportDialog(
+            engine=self._controller.engine,
+            text=text,
+            voice_id=self._state.voice,
+            params=self._controller.build_current_speak_params(),
+            parent=self,
+        )
+        dlg.exec()
 
     def _on_play(self) -> None:
         text = self._editor.to_plain_text().strip()
@@ -845,46 +1026,55 @@ class MainWindow(QMainWindow):
             self._set_status("No text to speak")
             return
         self._set_status("Speaking…")
-        if self._on_speak_cb:
-            self._on_speak_cb(text)
+        self._controller.play_async(text)
+
+    def _on_play_enhanced(self) -> None:
+        """Dedicated action, not a mode toggle: fixes up the current text
+        (heuristic_enhance — whitespace/punctuation prosody cleanup) and
+        speaks the fixed version, this call only. The regular Play button
+        is unaffected and always speaks text as-is."""
+        text = self._editor.to_plain_text().strip()
+        if not text:
+            self._set_status("No text to speak")
+            return
+        self._set_status("Speaking (enhanced)…")
+        self._controller.play_enhanced_async(text)
+
+    def _on_play_sample(self) -> None:
+        """Speaks a fixed test phrase with the active engine/voice,
+        ignoring whatever's in the editor — lets a user judge a voice
+        without needing text of their own."""
+        self._set_status("Speaking (sample)…")
+        self._controller.play_sample_async()
 
     def _on_pause(self) -> None:
-        if self._on_stop_cb:
-            pass  # pause/resume via engine — wired later
-        self._set_status("Paused")
+        self._set_status("Paused")  # pause/resume via engine — wired later
 
     def _on_stop(self) -> None:
-        if self._on_stop_cb:
-            self._on_stop_cb()
+        self._controller.stop()
         self._set_status("Stopped")
 
     def _on_about(self) -> None:
-        if self._on_about_cb:
-            self._on_about_cb()
-        else:
-            from .about import AboutDialog
-            dlg = AboutDialog(parent=self)
-            dlg.exec()
+        from .about import AboutDialog
+        dlg = AboutDialog(parent=self)
+        dlg.exec()
 
     def _on_tab_changed(self, idx: int) -> None:
         tab = self._tabs.widget(idx)
         if not tab:
             return
         stack_id = tab.property("stack_id") or ""
-        self._set_status(f"Engine: {stack_id or '—'}")
-
-        # Notify main.py so it can swap the active engine
-        if self._on_stack_changed_cb and stack_id:
-            # Also pass the currently selected voice for this tab
-            voice_id = ""
-            for combo, sid in self._voice_combos:
-                if sid == stack_id:
-                    voice_id = combo.currentData() or ""
-                    break
-            self._on_stack_changed_cb(stack_id, voice_id)
+        if not stack_id or stack_id == self._state.active_stack:
+            return
+        voice_id = ""
+        for combo, sid in self._voice_combos:
+            if sid == stack_id:
+                voice_id = combo.currentData() or ""
+                break
+        self._controller.select_stack(stack_id, voice_id)
 
     def _open_install_dialog(self, stack: StackInfo) -> None:
-        from .config import models_root as _models_root
+        from ..config import models_root as _models_root
         from .install_dialog import InstallDialog
 
         # Resolve the currently selected model for this stack
@@ -904,28 +1094,19 @@ class MainWindow(QMainWindow):
         )
         dlg.exec()
 
-    def _on_model_changed(self, stack: StackInfo, model_id: str, voice_combo: QComboBox) -> None:
-        """Handle model dropdown change (ML/AI tab) — reload voices AND
-        notify main.py to swap the active engine.
+    def _on_model_combo_changed(self, stack: StackInfo, model_id: str) -> None:
+        """User picked a different model in the ML/AI tab's dropdown.
 
-        Previously this only refilled voice_combo, so the UI showed the new
-        model's voices but main.py's `engine`/`active_model` never actually
-        changed — every synthesis silently kept using whichever engine was
-        loaded at startup, with the new (invalid-for-that-engine) voice_id
-        falling back to that engine's own default voice.
+        Just forwards to AppController — the actual voice-combo repopulation
+        happens reactively in _on_state_model_changed once AppState's
+        model_changed signal fires, whether it came from this combo, the
+        tray menu, or Load Settings.
         """
-        model = next((m for m in stack.models if m.id == model_id), None)
-        voice_combo.blockSignals(True)
-        voice_combo.clear()
-        if model:
-            for v in model.voices:
-                voice_combo.addItem(v.get("label", v["id"]), v["id"])
-        voice_combo.blockSignals(False)
-
-        if not model_id or not self._on_model_changed_cb:
+        if not model_id:
             return
-        first_voice_id = voice_combo.itemData(0) if voice_combo.count() > 0 else ""
-        self._on_model_changed_cb(model_id, first_voice_id or "")
+        model = next((m for m in stack.models if m.id == model_id), None)
+        first_voice_id = model.voices[0]["id"] if model and model.voices else ""
+        self._controller.select_model(model_id, first_voice_id)
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -936,35 +1117,6 @@ class MainWindow(QMainWindow):
         self._status_lbl.setText(msg)
         if hasattr(self, "_status_engine_lbl"):
             self._status_engine_lbl.setText(msg)
-
-    def set_speaking(self) -> None:
-        self._set_status("Speaking…")
-
-    def set_idle(self) -> None:
-        self._set_status("Ready")
-
-    def set_error(self, message: str) -> None:
-        self._set_status(f"Error: {message}")
-
-    def update_sapi_voices(self, voices: list[dict]) -> None:
-        """Call after SAPI engine is live to fill the voice dropdown."""
-        for i in range(self._tabs.count()):
-            tab = self._tabs.widget(i)
-            if tab and tab.property("stack_id") == "sapi5":
-                # Find the voice bar widget (it has property "voice_combo" set in _build_voice_bar)
-                voice_bar = None
-                for child in tab.findChildren(QWidget):
-                    if child.property("voice_combo"):
-                        voice_bar = child
-                        break
-                if not voice_bar:
-                    continue
-                vc = voice_bar.property("voice_combo")
-                if vc:
-                    vc.clear()
-                    for v in voices:
-                        vc.addItem(v.get("label", v["id"]), v["id"])
-                break
 
     @staticmethod
     def _hsep() -> QFrame:
@@ -1033,7 +1185,7 @@ def _make_stop_icon(size: int = 16) -> QIcon:
 
 def _make_about_icon(size: int = 16) -> QIcon:
     """App logo scaled to toolbar size — used for the About button."""
-    icons_dir = Path(__file__).parent / "resources" / "icons"
+    icons_dir = Path(__file__).parent.parent / "resources" / "icons"
     logo = icons_dir / "icon_16x16.png"
     if logo.exists():
         pix = QPixmap(str(logo))

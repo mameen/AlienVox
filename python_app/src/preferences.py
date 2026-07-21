@@ -40,8 +40,8 @@ from .config import (
     load_effective_config,
     save_user_override,
 )
+from .control.telemetry import Telemetry
 from .engines.registry import StackInfo
-from .telemetry import Telemetry
 
 
 class _Slider(QWidget):
@@ -251,7 +251,7 @@ class PreferencesWindow(QDialog):
         global_tab = QWidget()
         global_form = QFormLayout(global_tab)
         global_cfg = load_effective_config(user_file=user_file)
-        self._hotkey_edit = QLineEdit(global_cfg.get("hotkey", "<ctrl>+<esc>"))
+        self._hotkey_edit = QLineEdit(global_cfg.get("hotkey", "<alt>+<esc>"))
         self._hotkey_edit.editingFinished.connect(
             lambda: self._on_setting_changed("global", "hotkey", self._hotkey_edit.text())
         )

@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from .engines.base import SpeakParams, TtsEngine
 
 # Intermediate files land here (gitignored)
-_GENERATED_DIR = Path(__file__).parent.parent / ".generated"
+_GENERATED_DIR = Path(__file__).parent.parent.parent / ".generated"
 
 
 def generated_dir() -> Path:
@@ -146,7 +146,6 @@ def export_audio(
             "Use an ML engine (Kokoro, Chatterbox, Dia, F5-TTS, OuteTTS) for WAV/MP3 export."
         )
 
-    from .engines.base import SpeakParams as _SP
     inter = intermediate_path(".wav")
     _prog("Generating WAV via SAPI…")
     done = speak_to_wav(text, voice_id, params, inter)

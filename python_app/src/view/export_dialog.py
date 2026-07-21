@@ -10,7 +10,7 @@ import threading
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt, Signal, QObject
+from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
 )
 
 if TYPE_CHECKING:
-    from .engines.base import SpeakParams, TtsEngine
+    from ..engines.base import SpeakParams, TtsEngine
 
 
 class _Worker(QObject):
@@ -42,7 +42,7 @@ class _Worker(QObject):
         self._dest = dest
 
     def run(self) -> None:
-        from .audio_exporter import ExportError, export_audio
+        from ..control.audio_exporter import ExportError, export_audio
         try:
             export_audio(
                 self._engine,
@@ -142,8 +142,8 @@ class ExportDialog(QDialog):
             p = Path(current)
             self._path_edit.setText(str(p.with_suffix(ext)))
         else:
-            from pathlib import Path as _P
             import os
+            from pathlib import Path as _P
             default_dir = _P(os.path.expanduser("~/Desktop"))
             self._path_edit.setText(str(default_dir / f"{self._default_name}{ext}"))
 

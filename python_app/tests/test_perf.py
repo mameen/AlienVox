@@ -28,12 +28,14 @@ import sys
 import tempfile
 import threading
 import time
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import pytest
+
+from src.control.app_controller import SAMPLE_TEXT as WELCOME_PHRASE
 
 # ── Thresholds ────────────────────────────────────────────────────────────────
 
@@ -43,13 +45,6 @@ THRESHOLDS = {
     "cpu_percent":  {"warn": 80,   "error": 95},
     "completion_ms":{"warn": 3000, "error": 8000},
 }
-
-# ── Welcome phrase (mandatory) ────────────────────────────────────────────────
-
-WELCOME_PHRASE = (
-    "Welcome to AlienVox. This is a performance test of your TTS engine. "
-    "If you can hear this, your system is working correctly."
-)
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 
@@ -252,7 +247,7 @@ def welcome_phrase_benchmark() -> list[PerfResult]:
     results: list[PerfResult] = []
     skipped: list[str] = []
 
-    from src.config import load_stacks_catalog, list_stacks
+    from src.config import list_stacks, load_stacks_catalog
     from src.engines.registry import available_stacks
 
     stacks_yaml = FIXTURES / "stacks.yaml"
@@ -775,14 +770,14 @@ class TestRegistryPerf:
 
 class TestTelemetryPerf:
     def test_emit_single_event_under_5ms(self, tmp_path):
-        from src.telemetry import Telemetry
+        from src.control.telemetry import Telemetry
         tel = Telemetry(sink=tmp_path / "tel.jsonl")
         ms = _elapsed_ms(tel.emit, "speak_start", engine="sapi5", text_chars=100)
         print(f"\n  telemetry.emit (single): {ms:.2f} ms")
         assert ms < 5, f"telemetry.emit took {ms:.1f} ms (threshold 5 ms)"
 
     def test_emit_100_events_under_200ms(self, tmp_path):
-        from src.telemetry import Telemetry
+        from src.control.telemetry import Telemetry
         tel = Telemetry(sink=tmp_path / "tel.jsonl")
         t0 = time.perf_counter()
         for i in range(100):
@@ -792,7 +787,7 @@ class TestTelemetryPerf:
         assert ms < 200, f"100 telemetry events took {ms:.1f} ms (threshold 200 ms)"
 
     def test_jsonl_file_is_valid_json_per_line(self, tmp_path):
-        from src.telemetry import Telemetry
+        from src.control.telemetry import Telemetry
         sink = tmp_path / "tel.jsonl"
         tel = Telemetry(sink=sink)
         for i in range(5):

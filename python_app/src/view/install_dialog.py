@@ -26,8 +26,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from . import logger as _logger_mod
-from .engines.registry import StackInfo
+from .. import logger as _logger_mod
+from ..engines.registry import StackInfo
 
 _log = _logger_mod.get_logger("install")
 

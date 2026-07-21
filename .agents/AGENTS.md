@@ -43,6 +43,33 @@ When there is no clear single answer, present 2–3 options with:
 
 Keep the table tight. The developer picks; you execute.
 
+## UI architecture: MVC — wire new actions through the Controller
+
+The Python app (`python_app/src/`) is MVC: `src/model/` (`AppState`, a `QObject` with `Signal`s —
+plus `engines/`), `src/control/` (`AppController` — the only thing that mutates `AppState`), and
+`src/view/` (`MainWindow`, `AlienVoxTray` — reactive Views that read `AppState` and call
+`AppController`). Full rules and the reference pattern live in
+`.agents/SKILLS/highlevel_design/SKILL.md` §7 and `python_app/docs/adr/adr-004-mvc-architecture.md`.
+
+When a task adds or changes a user-facing action that touches application state:
+
+- **Think "what AppController method does this need?" before touching any View file.** A new
+  toolbar button, menu item, or setting is a new (or reused) `AppController` method — never a
+  callback threaded through `MainWindow.__init__`/`AlienVoxTray.__init__`, and never a View
+  mutating `AppState` directly.
+- If the action needs new state, add it to `AppState` with a setter + `Signal`, not as a variable
+  living in a View or in `main.py`.
+- Wire side effects (engine reload, persistence) by connecting `AppController.__init__` to
+  `AppState`'s own signal — so the side effect fires no matter which caller triggered the state
+  change, not just the one you're adding right now.
+- Every View that displays the changed state must subscribe to the new signal and update its
+  widgets from that slot (with `blockSignals()` guarding against feedback loops) — a View updating
+  only in response to its *own* widget's callback is exactly the bug pattern this architecture
+  replaced (recurring model/voice desync, fixed in `adr-004-mvc-architecture.md`).
+- If you're unsure whether an action belongs in `AppController` vs. staying a View-local, one-shot
+  concern (e.g. opening a modal dialog), see SKILL.md §7.4 — one-shot dialogs are explicitly
+  exempt from the `AppState` signal contract.
+
 ## VCS safety
 
 - Create a private branch for any non-trivial work. Be ready to merge and push to `main` after user approval.

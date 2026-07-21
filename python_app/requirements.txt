@@ -46,6 +46,11 @@ outetts>=0.3.0
 huggingface_hub[hf_xet]>=0.20.0
 python-dotenv>=1.0.0
 
+# ── Text enhancement (ADR-012: LLM strategy, in-process via llama.cpp) ────────
+# Was already present transitively via outetts; pinned explicitly now that
+# src/control/text_enhancer.py depends on it directly.
+llama-cpp-python>=0.3.0
+
 # ── Pin transitive conflicts ────────────────────────────────────────────────────
 # onnx/onnxruntime (piper-tts's inference backend) and google-api-core/wandb
 # (pulled in transitively by chatterbox-tts's deps) all require protobuf>=4.25;

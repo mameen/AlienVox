@@ -7,6 +7,8 @@ Usage:
                                  (--cuda is an alias for --gpu; respects
                                  CUDA_VISIBLE_DEVICES from .env if set there)
     python run.py app --cpu  -- explicit CPU-only (same as the default; for clarity)
+    python run.py app --debug -- also record raw + enhanced text in telemetry
+                                 (local .logs/*.jsonl only — never in normal mode)
     python run.py health     -- check imports, version pins, model weights are ready
     python run.py health --cpu / --gpu  -- same device override, for health reporting
     python run.py download   -- download missing ML model weights to .models/
@@ -123,6 +125,9 @@ def cmd_app() -> int:
     env, early_exit = _resolve_device()
     if early_exit is not None:
         return early_exit
+    if "--debug" in set(sys.argv[2:]):
+        env["ALIENVOX_DEBUG"] = "1"
+        print("Debug mode: ON — raw + enhanced text will be recorded in telemetry (.logs/*.jsonl)")
     _header("Starting AlienVox")
     # Run as a package module so relative imports work correctly.
     return _run(_venv_python(), "-m", "src.main", cwd=ROOT, env=env)

@@ -148,94 +148,95 @@ the engine and the frontend.
 
 ---
 
-## 7. Python App — UI Architecture Pattern
+## 7. Python App — UI Architecture Pattern (MVC)
 
-### 7.1 Current Pattern: MVP (Model-View-Presenter)
+### 7.1 Current Pattern: MVC (AppState + AppController)
 
-The Python app (`python_app/`) uses **MVP with callbacks**, not MVC or MVVM. The distinction matters because it explains which bugs are natural and which require discipline to avoid.
+The Python app (`python_app/src/`) is **MVC**, split into three top-level packages:
 
-```mermaid
-flowchart TD
-    subgraph Model
-        E1["engines/base.py\nTtsEngine (abstract)"]
-        E2["engines/sapi_win.py\nSapiEngine · SpeechPlatformEngine"]
-        E3["engines/kokoro_engine.py\nKokoroEngine"]
-        C["config.py\nload_effective_config · save_user_override"]
-        Y["stacks.yaml\nvoice / model / control catalog"]
-    end
+- `src/model/` — `app_state.py` (`AppState`, a `QObject` holding all active stack/model/voice/
+  params state, `Signal`-backed) plus the `engines/` hierarchy and `audio_player.py` (kept at
+  `src/` root — treat them as Model-layer even though the directory isn't literally under
+  `src/model/`).
+- `src/control/` — `app_controller.py` (`AppController`, the **only** thing that mutates
+  `AppState`), plus `hotkey.py`, `capture.py`, `telemetry.py`, `audio_exporter.py`.
+- `src/view/` — `main_window.py` (`MainWindow`), `tray.py` (`AlienVoxTray`), `about.py`,
+  `export_dialog.py`, `install_dialog.py`. Views read `AppState` and call `AppController`; they
+  never mutate `AppState` directly and never touch engine objects themselves.
 
-    subgraph Presenter["Presenter — main.py"]
-        P["Owns all mutable state\nengine · active_stack · active_model · cfg\n\nspeak() · stop()\non_voice_changed() · on_stack_changed()\non_config_saved()"]
-    end
+See `adr-004-mvc-architecture.md` for the full decision record and the bug history that motivated
+this split (recurring model/voice desync — a View showing state that didn't match what was
+actually active, because there was no single object both sides read from).
 
-    subgraph Views
-        MW["main_window.py\nMainWindow\n(pure Qt UI — no state, no engine refs)"]
-        TR["tray.py\nAlienVoxTray\n(pure Qt UI — no state, no engine refs)"]
-    end
+**Key invariant**: Views hold **no mutable application state** of their own beyond widget
+contents, and those contents are always driven by an `AppState` signal handler — never a
+constructor snapshot, never a separate "push" method called ad hoc from outside. Every user action
+in a View calls an `AppController` method; `AppController` mutates `AppState` through its setters;
+`AppState` emits a signal; every View's slot for that signal updates itself. One-directional,
+traceable:
 
-    Model -->|"read / write"| Presenter
-    MW -->|"callbacks (user action → Presenter)"| Presenter
-    TR -->|"callbacks (user action → Presenter)"| Presenter
-    Presenter -->|"method calls (push updates)"| MW
-    Presenter -->|"method calls (push updates)"| TR
+```
+View event -> AppController method -> AppState mutation -> Signal -> every View's slot updates
 ```
 
-**Key invariant**: Views hold **no mutable application state** and have **no direct references to engine objects**. Every user action fires a callback into the Presenter. The Presenter mutates state and pushes updates back to the View via explicit method calls (`update_voices()`, `set_speaking()`, etc.).
+### 7.2 Adding a new user-facing action — the required steps
 
-### 7.2 Why Not MVVM?
+When a new action needs to change application state (not a one-shot dialog like Export/About —
+see §7.4 for those), do **all** of the following. Skipping any step reintroduces the exact bug
+class this architecture exists to prevent:
 
-MVVM would place observable properties (`active_stack`, `engine`, `voices`) on a **ViewModel** object. The View would bind to those properties and update automatically when they change — no explicit push calls needed. The tab-switch bug (2026-07-20: switching engine tabs didn't swap the engine) is the canonical symptom of MVP without full state routing: the View fired an event, but the Presenter had no registered handler for it yet.
+1. **If the state is new**, add a field + setter + `Signal` to `AppState` (`src/model/app_state.py`).
+   The setter must no-op when the value is unchanged and must be the *only* way that field is
+   written — no direct attribute assignment from outside `AppState`.
+2. **Add a method to `AppController`** (`src/control/app_controller.py`) that calls the `AppState`
+   setter(s). This is the command surface — every state-changing action is a named method here,
+   not a callback threaded through a View constructor.
+3. **If the change should trigger a side effect** (engine reload, persistence), wire it in
+   `AppController.__init__` by connecting to `AppState`'s own signal — not by remembering to call
+   the side effect inline in step 2's method. This is what makes side effects automatic regardless
+   of which code path triggered the state change (a View's combo, Load Settings, the tray menu).
+4. **In each View that displays this state**, connect a slot to the new signal in `__init__` and
+   update the relevant widget(s) there — with `combo.blockSignals(True)` bracketing the update if
+   the widget also has a user-input signal that would otherwise re-fire and call back into the
+   Controller. See `_on_state_model_changed` in `main_window.py` for the reference pattern.
+5. **Call the `AppController` method from the View's own widget signal handler** for the
+   interactive path (e.g. a `QComboBox.currentIndexChanged` handler calling
+   `self._controller.select_voice(vid)`).
 
-In MVVM that bug is structurally impossible: `active_stack` is an observable on the ViewModel; the View binds to it; changing it automatically triggers the engine-swap side-effect.
+A new action is **not done** until both directions work: triggering it from the UI, and having
+every View reflect a change that originated somewhere else (test this explicitly — see
+`tests/test_main_window.py::test_model_combo_change_updates_state_and_reflects_in_voice_combo` for
+the pattern).
 
-**Adopting MVVM in PySide6** requires:
-- A `AppViewModel` class with `Signal`-backed properties (`active_stack_changed = Signal(str)`, etc.)
-- Views connect to those signals rather than receiving injected callbacks
-- The Presenter role dissolves into the ViewModel
+### 7.3 Reactive-update sharp edge: signal feedback loops
 
-This is the correct long-term direction. Until then, every new user action (tab switch, model change, hotkey rebind) **must have an explicit callback registered** in `main.py` — document the gap in `todo_001.md` when one is missing.
+A View's widget often has two signal directions: the widget's own Qt signal (fires on user
+interaction) and an `AppState` signal that this View also updates the widget from (fires
+regardless of origin). Without guarding, a state-driven update (`combo.setCurrentIndex(...)`)
+re-fires the widget's own signal, which calls back into `AppController`, which may re-mutate
+`AppState` — usually harmless (the setter no-ops on an unchanged value) but wasteful and, in cases
+involving `.clear()` + repeated `.addItem()`, can fire spurious intermediate signals. Always
+bracket a reactive widget update with `blockSignals(True)` / `blockSignals(False)`:
 
-### 7.3 Callback Contract
-
-Every View → Presenter boundary must be declared in `MainWindow.__init__` as a named `Callable` parameter. No implicit event routing, no direct method calls from View into `main.py`. The full contract as of 2026-07-20:
-
-| Callback | Fired when | Presenter action |
-| :--- | :--- | :--- |
-| `on_speak(text)` | Play button / hotkey | `speak_async(text)` |
-| `on_stop()` | Stop button | `engine.stop()` |
-| `on_voice_changed(voice_id)` | Voice dropdown changes | update `cfg["voice"]`, save |
-| `on_stack_changed(stack_id, voice_id)` | Engine tab switches | swap `engine`, update `cfg["engine"]`, save |
-| `on_config_saved(patch)` | Slider released | `save_user_override(patch)` |
-| `on_about()` | About button | open `AboutDialog` |
-
-Any new UI control that changes application state **must** add a row to this table and a corresponding parameter to `MainWindow.__init__`.
-
-### 7.4 Migration Path Toward MVVM
-
-When the callback table exceeds ~10 entries or state synchronisation bugs recur, migrate incrementally:
-
-1. Extract `AppState` dataclass: `active_stack`, `active_model`, `voice_id`, `engine`, `cfg`.
-2. Wrap it in `AppViewModel(QObject)` with `Signal` properties.
-3. Replace injected callbacks with signal connections in `MainWindow.__init__`.
-4. `main.py` becomes a thin bootstrap: instantiate `AppViewModel`, connect signals, start Qt event loop.
-
-```mermaid
-flowchart LR
-    subgraph MVVM["Target: MVVM"]
-        VM["AppViewModel\n(QObject)\nactive_stack: Signal\nvoices: Signal\nengine: Signal"]
-        V1["MainWindow\n(binds to VM signals)"]
-        V2["AlienVoxTray\n(binds to VM signals)"]
-        M["Model\nengines · config · stacks.yaml"]
-    end
-
-    VM -->|"Signal emit"| V1
-    VM -->|"Signal emit"| V2
-    V1 -->|"slot call"| VM
-    V2 -->|"slot call"| VM
-    VM -->|"read / write"| M
+```python
+def _on_state_voice_changed(self, voice_id: str) -> None:
+    for combo, sid in self._voice_combos:
+        if sid != self._state.active_stack:
+            continue
+        combo.blockSignals(True)
+        idx = combo.findData(voice_id)
+        if idx >= 0:
+            combo.setCurrentIndex(idx)
+        combo.blockSignals(False)
 ```
 
-Record this migration as `python_app/docs/adr/adr-003-mvvm-migration.md` when the decision is made.
+### 7.4 One-shot dialogs are explicitly out of scope
+
+Transient, one-shot modal operations (`AboutDialog`, `ExportDialog`, `InstallDialog`) are
+constructed directly by the View when needed, using a snapshot of current state
+(`self._controller.build_current_speak_params()`, `self._state.voice`, `self._controller.engine`).
+They are not part of the `AppState`/signal contract — there's no ongoing state to keep in sync
+once the dialog is open, so the extra indirection isn't worth it.
 
 ---
 
