@@ -28,12 +28,14 @@ import sys
 import tempfile
 import threading
 import time
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import pytest
+
+from src.control.app_controller import SAMPLE_TEXT as WELCOME_PHRASE
 
 # ── Thresholds ────────────────────────────────────────────────────────────────
 
@@ -43,13 +45,6 @@ THRESHOLDS = {
     "cpu_percent":  {"warn": 80,   "error": 95},
     "completion_ms":{"warn": 3000, "error": 8000},
 }
-
-# ── Welcome phrase (mandatory) ────────────────────────────────────────────────
-
-WELCOME_PHRASE = (
-    "Welcome to AlienVox. This is a performance test of your TTS engine. "
-    "If you can hear this, your system is working correctly."
-)
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 
@@ -252,7 +247,7 @@ def welcome_phrase_benchmark() -> list[PerfResult]:
     results: list[PerfResult] = []
     skipped: list[str] = []
 
-    from src.config import load_stacks_catalog, list_stacks
+    from src.config import list_stacks, load_stacks_catalog
     from src.engines.registry import available_stacks
 
     stacks_yaml = FIXTURES / "stacks.yaml"

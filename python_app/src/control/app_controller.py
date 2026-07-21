@@ -37,6 +37,14 @@ from .telemetry import Telemetry
 
 _log = _logger_mod.get_logger("controller")
 
+# Single source of truth for the "Play Sample" button and the performance
+# test harness (tests/test_perf.py imports this rather than keeping its
+# own copy) — both need the exact same phrase for results to be comparable.
+SAMPLE_TEXT = (
+    "Welcome to AlienVox. This is a performance test of your TTS engine. "
+    "If you can hear this, your system is working correctly."
+)
+
 # Model-specific controls (beyond rate/pitch/volume) that get forwarded into
 # SpeakParams.extra when the given model is active. Keys must match both the
 # cfg dict AppState.to_cfg_patch() would produce and stacks.yaml's per-model
@@ -356,6 +364,13 @@ class AppController:
         threading.Thread(
             target=self.speak, args=(text, True), kwargs={"enhance": "heuristic"}, daemon=True
         ).start()
+
+    def play_sample_async(self) -> None:
+        """Speaks SAMPLE_TEXT with the active engine/voice — used by the
+        main window's "Play Sample" button to let a user judge a voice
+        without needing any text of their own. No hotkey (toolbar-only,
+        deliberately not wired into hotkey.py)."""
+        threading.Thread(target=self.speak, args=(SAMPLE_TEXT, True), daemon=True).start()
 
     def stop(self) -> None:
         if self.engine:

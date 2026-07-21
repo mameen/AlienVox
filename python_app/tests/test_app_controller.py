@@ -241,6 +241,29 @@ def test_speak_enhanced_async_calls_speak_with_heuristic_enhance_and_toggle_beha
     assert kwargs.get("enhance") == "heuristic"
 
 
+def test_play_sample_async_speaks_fixed_sample_text(monkeypatch):
+    """Play Sample ignores editor content entirely — it always speaks
+    SAMPLE_TEXT with the active voice, restart=True (interrupts anything
+    currently playing), no enhancement."""
+    from src.control.app_controller import SAMPLE_TEXT
+    ctrl = _make_controller(monkeypatch)
+    calls: list[tuple] = []
+    monkeypatch.setattr(ctrl, "speak", lambda *a, **kw: calls.append((a, kw)))
+
+    ctrl.play_sample_async()
+    import time as _time
+    for _ in range(50):
+        if calls:
+            break
+        _time.sleep(0.01)
+
+    assert calls, "speak() was never called by play_sample_async's thread"
+    args, kwargs = calls[0]
+    assert args[0] == SAMPLE_TEXT
+    assert args[1] is True  # restart=True
+    assert "enhance" not in kwargs
+
+
 def test_enhance_text_none_strategy_passes_through(monkeypatch):
     ctrl = _make_controller(monkeypatch)
     text, used = ctrl._enhance_text("foo  bar", "none")

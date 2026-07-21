@@ -480,15 +480,22 @@ class MainWindow(QMainWindow):
         _sep()
         _text_btn("🎵", "Export to WAV / MP3", self._on_export)
         _sep()
+        icons_dir = Path(__file__).parent.parent / "resources" / "icons"
+
+        def _asset_icon(filename: str, fallback: QIcon) -> QIcon:
+            path = icons_dir / filename
+            return QIcon(str(path)) if path.exists() else fallback
+
         self._btn_play  = _icon_btn(_make_play_icon(),  "Play (speak text)", self._on_play)
-        play_enhanced_icon_path = Path(__file__).parent.parent / "resources" / "icons" / "play_enhanced.png"
-        play_enhanced_icon = (
-            QIcon(str(play_enhanced_icon_path)) if play_enhanced_icon_path.exists() else _make_play_icon()
-        )
         self._btn_play_enhanced = _icon_btn(
-            play_enhanced_icon,
+            _asset_icon("play_enhanced.png", _make_play_icon()),
             "Play Enhanced (fix up text for speech, then speak it)",
             self._on_play_enhanced,
+        )
+        self._btn_play_sample = _icon_btn(
+            _asset_icon("play_sample_icon.png", _make_play_icon()),
+            "Play Sample (speak a fixed test phrase with the active voice)",
+            self._on_play_sample,
         )
         self._btn_pause = _icon_btn(_make_pause_icon(), "Pause",             self._on_pause)
         self._btn_stop  = _icon_btn(_make_stop_icon(),  "Stop",              self._on_stop)
@@ -955,6 +962,13 @@ class MainWindow(QMainWindow):
             return
         self._set_status("Speaking (enhanced)…")
         self._controller.play_enhanced_async(text)
+
+    def _on_play_sample(self) -> None:
+        """Speaks a fixed test phrase with the active engine/voice,
+        ignoring whatever's in the editor — lets a user judge a voice
+        without needing text of their own."""
+        self._set_status("Speaking (sample)…")
+        self._controller.play_sample_async()
 
     def _on_pause(self) -> None:
         self._set_status("Paused")  # pause/resume via engine — wired later
