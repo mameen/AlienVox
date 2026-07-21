@@ -14,6 +14,7 @@ from src.config import (
     load_effective_config,
     get_stack_def,
     get_model_def,
+    models_root,
     save_user_override,
     _load_yaml,
 )
@@ -183,3 +184,26 @@ def test_effective_config_stack_name_not_leaked_as_top_level(stacks_yaml, tmp_pa
     cfg = load_effective_config("sapi5", stacks_file=stacks_yaml, user_file=tmp_path / "u.yaml")
     # cfg should NOT have a key from the stack-level dict that conflicts with DEFAULTS
     assert "rate" in cfg  # from defaults
+
+
+# ── models_root() frozen-build resolution ─────────────────────────────────────
+
+def test_models_root_override_wins(tmp_path):
+    assert models_root(tmp_path) == tmp_path
+
+
+def test_models_root_frozen_always_uses_app_data_dir_and_creates_it(monkeypatch, tmp_path):
+    """A frozen (PyInstaller) build must never fall back to a path derived
+    from its own bundle location — portable installs in particular may sit
+    on read-only or removable media, and multi-GB model downloads need a
+    guaranteed-writable, stable location regardless of where the app was
+    launched from."""
+    import sys as _sys
+    monkeypatch.setattr(_sys, "frozen", True, raising=False)
+    fake_app_data = tmp_path / "com.alientech.alienvox"
+    monkeypatch.setattr("src.config.app_data_dir", lambda: fake_app_data)
+
+    result = models_root()
+
+    assert result == fake_app_data / ".models"
+    assert result.is_dir()  # created, not just returned as a path

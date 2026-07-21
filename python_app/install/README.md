@@ -1,6 +1,10 @@
 # AlienVox — Install
 
-Two layers, both optional after the first:
+Running from source, for developers (or anyone with Python already installed) — see below. If you
+just want a runnable app with no Python install at all, see **[windows/](windows/README.md)** for
+the portable zip and the Windows installer.
+
+## From source: two layers, both optional after the first
 
 | Layer | What it gets you | Size | Script |
 |---|---|---|---|

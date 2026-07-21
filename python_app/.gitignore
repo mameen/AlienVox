@@ -1,5 +1,6 @@
 .venv/
 venv/
+.venv-base-build/
 __pycache__/
 *.pyc
 *.pyo
@@ -7,6 +8,12 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+
+# Windows packaging build outputs — install/windows/dist and
+# install/windows/build are already caught by dist/ and build/ above; the
+# zipped/compiled installer artifacts are not.
+install/windows/portable/*.zip
+install/windows/exe/*.exe
 
 # Test / runner artifacts
 .coverage

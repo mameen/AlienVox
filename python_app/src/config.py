@@ -93,11 +93,20 @@ def models_root(override: Path | None = None) -> Path:
 
     Search order:
       1. explicit override (tests)
-      2. app-data dir  (%LOCALAPPDATA%/com.alientech.alienvox/.models)
-      3. dev override  (<repo>/python_app/.models)
+      2. frozen (PyInstaller) build: always %LOCALAPPDATA%/.../.models,
+         created on first use — a frozen bundle's own directory isn't a
+         reliable place to write multi-GB downloads (portable installs in
+         particular may sit on read-only or removable media)
+      3. dev, if app-data dir already has models from a previous
+         production install: app-data dir
+      4. dev fallback: <repo>/python_app/.models
     """
     if override is not None:
         return override
+    if getattr(sys, "frozen", False):
+        prod = app_data_dir() / ".models"
+        prod.mkdir(parents=True, exist_ok=True)
+        return prod
     prod = app_data_dir() / ".models"
     if prod.exists():
         return prod
