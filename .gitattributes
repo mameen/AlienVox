@@ -1,0 +1,13 @@
+# GitHub Linguist: exclude retired/generated content from the repo's
+# language stats bar, so it reflects the active implementation (Python)
+# rather than the retired Rust+Tauri prototype or generated HTML.
+#
+# gemini_poc/ is a retired Rust+Tauri prototype (see .agents/AGENTS.md —
+# "do not add new code there") — not the active implementation.
+gemini_poc/** linguist-vendored
+*.rs linguist-vendored
+
+# HTML here is either the retired prototype's frontend or generated
+# artifacts (coverage reports, telemetry dashboards), not source we want
+# counted as a "language" in the repo stats.
+*.html linguist-vendored
