@@ -1029,6 +1029,7 @@ class MainWindow(QMainWindow):
             text=text,
             voice_id=self._state.voice,
             params=self._controller.build_current_speak_params(),
+            default_name=self._controller.export_default_name(),
             parent=self,
         )
         dlg.exec()

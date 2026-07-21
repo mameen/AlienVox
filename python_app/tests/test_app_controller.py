@@ -262,6 +262,28 @@ def test_apply_current_enhance_uses_global_toggle(monkeypatch):
     assert ctrl.apply_current_enhance("foo  bar") == "foo bar."
 
 
+def test_export_default_name_includes_session_play_stack_voice(monkeypatch):
+    ctrl = _make_controller(monkeypatch)  # active: ml/kokoro, voice: af_heart
+
+    name = ctrl.export_default_name()
+
+    parts = name.split("_")
+    assert ctrl.telemetry.session_id in name
+    assert "ml" in parts
+    assert "af" in parts and "heart" in parts  # af_heart itself contains "_"
+    # Two calls must produce different play_ids (uniqueness per export)
+    assert ctrl.export_default_name() != name
+
+
+def test_export_default_name_sanitizes_unsafe_characters(monkeypatch):
+    ctrl = _make_controller(
+        monkeypatch, cfg=_cfg(engine="ml", model="kokoro", voice="weird:voice/name"),
+    )
+    name = ctrl.export_default_name()
+    assert ":" not in name
+    assert "/" not in name
+
+
 def test_play_sample_async_speaks_fixed_sample_text_always_unenhanced(monkeypatch):
     """Play Sample ignores editor content entirely — it always speaks
     SAMPLE_TEXT with the active voice, restart=True (interrupts anything

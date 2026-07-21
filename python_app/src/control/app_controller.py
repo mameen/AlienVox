@@ -18,6 +18,7 @@ loading themselves.
 from __future__ import annotations
 
 import importlib
+import re
 import sys
 import threading
 import time
@@ -36,6 +37,11 @@ from . import text_enhancer
 from .telemetry import Telemetry
 
 _log = _logger_mod.get_logger("controller")
+
+# Characters not safe in a Windows filename — swapped for "_" when
+# building export_default_name() (voice ids in particular can contain
+# characters like ":" depending on the source engine).
+_UNSAFE_FILENAME_CHARS_RE = re.compile(r'[<>:"/\\|?*]')
 
 # Single source of truth for the "Play Sample" button and the performance
 # test harness (tests/test_perf.py imports this rather than keeping its
@@ -276,6 +282,15 @@ class AppController:
         need to construct a one-shot dialog (e.g. ExportDialog) without
         reaching into AppController's internals themselves."""
         return build_speak_params(self.state, self._extra_cfg)
+
+    def export_default_name(self) -> str:
+        """Default export filename stem (no extension):
+        <session_id>_<play_id>_<stack>_<voice> — traceable back to the
+        telemetry session, unique per export via a fresh request-style id,
+        and identifies which stack/voice produced the audio at a glance."""
+        play_id = self.telemetry.new_request_id()
+        parts = [self.telemetry.session_id, play_id, self.state.active_stack, self.state.voice]
+        return "_".join(_UNSAFE_FILENAME_CHARS_RE.sub("_", p) for p in parts if p)
 
     # ── Persistence ───────────────────────────────────────────────────────
 
