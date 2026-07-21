@@ -29,3 +29,7 @@ perf_results*.json
 # Runtime detection cache (written next to stacks.yaml on first run)
 # The committed template is platform.yaml.example — copy it to platform.yaml to pre-populate.
 platform.yaml
+
+# User settings — instant-persisted next to the app (config.user_yaml_path()),
+# not %LOCALAPPDATA% — this is per-user runtime state, never committed.
+user.yaml

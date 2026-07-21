@@ -3,13 +3,16 @@
 Resolution order (later wins):
   Layer 1: built-in defaults (this module)
   Layer 2+3: stacks.yaml  — bundled with the app; declares all stacks, models, controls, voices
-  Layer 4: user.yaml      — user overrides in app-data dir
+  Layer 4: user.yaml      — user overrides, saved instantly on every change
 
-stacks.yaml lives:
-  - Dev mode:    next to setup.py  (<repo>/python_app/stacks.yaml)
+Both stacks.yaml and user.yaml live next to the app, not hidden in
+%LOCALAPPDATA% — easy to find, inspect, back up, or delete to reset:
+  - Dev mode:    next to setup.py  (<repo>/python_app/{stacks,user}.yaml)
   - Production:  next to the executable
 
-This module is pure (no side-effects, no global state).
+This module is pure (no side-effects, no global state) except for
+user_yaml_path()'s one-time migration of a pre-existing AppData user.yaml
+(from before this file moved next to the app) on first read.
 """
 from __future__ import annotations
 
@@ -54,6 +57,34 @@ def stacks_yaml_path(override: Path | None = None) -> Path:
         return exe_sibling
     # Dev: <repo>/python_app/stacks.yaml
     return Path(__file__).resolve().parents[1] / "stacks.yaml"
+
+
+def user_yaml_path(override: Path | None = None) -> Path:
+    """Locate user.yaml: explicit override → next to exe → dev fallback.
+
+    Same resolution pattern as stacks_yaml_path() — lives next to the app,
+    not in %LOCALAPPDATA%, so settings are easy to find/back up/reset.
+
+    One-time migration: if this path doesn't exist yet but an older
+    AppData-based user.yaml does (from before this moved), copy it over so
+    existing settings aren't silently lost.
+    """
+    if override is not None:
+        return override
+    exe_sibling = Path(sys.executable).parent / "stacks.yaml"
+    target = (exe_sibling.parent if exe_sibling.exists()
+              else Path(__file__).resolve().parents[1]) / "user.yaml"
+
+    if not target.exists():
+        legacy = app_data_dir() / "user.yaml"
+        if legacy.exists():
+            try:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(legacy.read_bytes())
+            except OSError:
+                pass  # best-effort migration — fall through to defaults if it fails
+
+    return target
 
 
 def models_root(override: Path | None = None) -> Path:
@@ -158,7 +189,7 @@ def load_effective_config(
     user_file: Path | None = None,
 ) -> dict[str, Any]:
     """Return the full four-layer merged config for a given stack/model."""
-    uf = user_file if user_file is not None else app_data_dir() / "user.yaml"
+    uf = user_file if user_file is not None else user_yaml_path()
 
     stack_layer: dict[str, Any] = {}
     model_layer: dict[str, Any] = {}
@@ -175,7 +206,7 @@ def load_effective_config(
 
 
 def save_user_override(patch: dict[str, Any], user_file: Path | None = None) -> None:
-    uf = user_file if user_file is not None else app_data_dir() / "user.yaml"
+    uf = user_file if user_file is not None else user_yaml_path()
     uf.parent.mkdir(parents=True, exist_ok=True)
     existing = _load_yaml(uf)
     existing.update(patch)
