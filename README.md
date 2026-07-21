@@ -12,10 +12,22 @@ Simple, standalone TTS apps — high quality, zero friction. Start with **Speak 
 [![PySide6](https://img.shields.io/badge/Qt6-PySide6-41CD52.svg)](https://doc.qt.io/qtforpython-6/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Third-Party Notices](https://img.shields.io/badge/3P-notices-lightgrey.svg)](3P.md)
+[![Download](https://img.shields.io/github/v/release/mameen/AlienVox?label=download&color=success)](https://github.com/mameen/AlienVox/releases/latest)
 
 </div>
 
 ---
+
+## Download
+
+Just want to run it? Grab the latest build from **[Releases](https://github.com/mameen/AlienVox/releases/latest)** — no Python required:
+
+| | |
+|---|---|
+| **Portable** | `AlienVox-portable-win64.zip` — extract anywhere, run `AlienVox.exe`. No installer, no admin rights. |
+| **Installer** | `AlienVoxSetup-<version>.exe` — Start Menu shortcut, optional desktop icon, proper uninstaller. |
+
+Both are base tier (Windows SAPI5 voices, no ML models) — see [Configuration](#configuration) below for adding ML voices from source.
 
 ## What is AlienVox?
 
