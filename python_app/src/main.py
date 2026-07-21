@@ -593,6 +593,7 @@ def main() -> int:
                 live_voices=win_live_voices,
                 current_voice_id=cfg.get("voice", ""),
                 active_stack_id=active_stack,
+                active_model_id=active_model,
                 models_root=_models_root(),
             )
         return _main_window

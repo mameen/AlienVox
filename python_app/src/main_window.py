@@ -332,6 +332,7 @@ class MainWindow(QMainWindow):
         current_voice_id: str = "",
         models_root: Path | None = None,
         active_stack_id: str = "",
+        active_model_id: str = "",
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -358,6 +359,7 @@ class MainWindow(QMainWindow):
         self._on_load_settings_cb = on_load_settings
         self._models_root = models_root
         self._active_stack_id = active_stack_id
+        self._active_model_id = active_model_id
         # live_voices: {stack_id -> [{id, label}, ...]} from running engine
         self._live_voices: dict[str, list[dict]] = live_voices or {}
         self._current_voice_id = current_voice_id
@@ -672,12 +674,33 @@ class MainWindow(QMainWindow):
 
         has_models = bool(stack.models)
 
+        # Which model is actually active for this stack right now — NOT
+        # necessarily stack.models[0]. Previously the model dropdown always
+        # visually defaulted to the first catalog entry (e.g. Kokoro) and
+        # the voice dropdown was populated from THAT model's voices,
+        # regardless of which model the backend engine actually had loaded
+        # (e.g. Chatterbox, persisted from a prior session). Picking a
+        # voice from that mismatched dropdown only ever updated cfg["voice"]
+        # — the model/engine never visibly needed to change because the UI
+        # never showed a difference — leaving cfg["voice"] holding an ID
+        # that belongs to a completely different model than the one
+        # actually active (e.g. "af_bella" while Chatterbox stayed active).
+        is_active_stack = stack.id == self._active_stack_id
+        selected_model = None
+        if has_models:
+            selected_model = (
+                next((m for m in stack.models if m.id == self._active_model_id), None)
+                if is_active_stack else None
+            ) or stack.models[0]
+
         if has_models:
             model_combo = QComboBox()
             model_combo.setFixedWidth(220)
             model_combo.setStyleSheet(_combo_style())
-            for m in stack.models:
+            for i, m in enumerate(stack.models):
                 model_combo.addItem(m.name, m.id)
+                if m.id == selected_model.id:
+                    model_combo.setCurrentIndex(i)
             bar.setProperty("model_combo", model_combo)
             self._model_combos.append((model_combo, stack.id))
             layout.addWidget(model_combo)
@@ -688,11 +711,18 @@ class MainWindow(QMainWindow):
         bar.setProperty("voice_combo", voice_combo)
         self._voice_combos.append((voice_combo, stack.id))
 
-        # Populate initial voices
-        if has_models and stack.models:
-            first_model = stack.models[0]
-            for v in first_model.voices:
+        # Populate initial voices — from the ACTUALLY active model. Only
+        # select to match current_voice_id on the stack that's actually
+        # active; other tabs' voice combos just default to their first
+        # entry (current_voice_id wasn't recorded for a non-running stack).
+        if has_models and selected_model is not None:
+            select_idx = 0
+            for i, v in enumerate(selected_model.voices):
                 voice_combo.addItem(v.get("label", v["id"]), v["id"])
+                if is_active_stack and v["id"] == self._current_voice_id:
+                    select_idx = i
+            if is_active_stack and self._current_voice_id:
+                voice_combo.setCurrentIndex(select_idx)
         elif stack.id in self._live_voices and self._live_voices[stack.id]:
             # OS-enumerated voices supplied by the engine at startup
             self._fill_voice_combo(voice_combo, self._live_voices[stack.id])
