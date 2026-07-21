@@ -231,6 +231,56 @@ def _check_known_limitations() -> list[CheckResult]:
     return []
 
 
+def hardware_summary_lines() -> list[str]:
+    """CPU/RAM/GPU one-liners for a quick startup banner.
+
+    Reuses the same detection as `python run.py health` but skips the WMI
+    "other display adapters" query (a few seconds via PowerShell) — too
+    slow to run on every app startup, and not needed for a one-line summary.
+    """
+    lines = []
+    for r in _check_hardware():
+        if r.label.startswith("GPU (other)"):
+            continue
+        lines.append(f"{r.label}: {r.detail}")
+    return lines
+
+
+def list_running_instances() -> list[dict]:
+    """Find other AlienVox app processes (python running src.main), for
+    `python run.py health` to surface PIDs the user can shut down.
+
+    Best-effort: requires psutil, and only sees processes visible to the
+    current user (which is the common case on a single-user Windows box).
+    """
+    try:
+        import psutil  # type: ignore
+    except ImportError:
+        return []
+
+    instances = []
+    current_pid = None
+    import os
+    current_pid = os.getpid()
+
+    for proc in psutil.process_iter(["pid", "name", "cmdline", "create_time"]):
+        try:
+            cmdline = proc.info.get("cmdline") or []
+            joined = " ".join(cmdline)
+            if "src.main" not in joined and "src\\main.py" not in joined and "src/main.py" not in joined:
+                continue
+            if proc.info["pid"] == current_pid:
+                continue
+            instances.append({
+                "pid": proc.info["pid"],
+                "cmdline": joined,
+                "create_time": proc.info.get("create_time"),
+            })
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+    return instances
+
+
 # ── Report rendering ──────────────────────────────────────────────────────────
 
 def _print_section(title: str, results: list[CheckResult]) -> None:
@@ -271,6 +321,18 @@ def run() -> int:
 
     hardware_results = _check_hardware()
     _print_section("Hardware", hardware_results)
+
+    running = list_running_instances()
+    print("\nRunning AlienVox instances")
+    print("-" * len("Running AlienVox instances"))
+    if running:
+        for inst in running:
+            print(f"  PID {inst['pid']:<8} {inst['cmdline']}")
+        print("  (only one instance is allowed to run at a time — "
+              "close these before starting a new one, e.g. "
+              "`taskkill /PID <pid> /F` on Windows)")
+    else:
+        print("  (none)")
 
     limitation_results = _check_known_limitations()
     if limitation_results:

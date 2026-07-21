@@ -114,12 +114,25 @@ class F5TTSEngine(TtsEngine):
             voice_id = _DEFAULT_VOICE
         ref_wav_path = _ref_wav(voice_id)
         if not ref_wav_path.exists():
-            _log.error(
-                "F5-TTS reference voice %r not found at %s — "
-                "open the Install dialog to download preset voices",
-                voice_id, ref_wav_path,
-            )
-            return None
+            if voice_id != _DEFAULT_VOICE and _ref_wav(_DEFAULT_VOICE).exists():
+                # Requested voice is declared but its reference audio was
+                # never provisioned (e.g. en_male_warm has no bundled
+                # source — see setup.py's _provision_f5tts_reference_voice).
+                # Fall back to whichever preset voice DOES have real
+                # reference audio, rather than silently producing no sound.
+                _log.warn(
+                    "F5-TTS reference voice %r not found at %s — falling back to %r",
+                    voice_id, ref_wav_path, _DEFAULT_VOICE,
+                )
+                voice_id = _DEFAULT_VOICE
+                ref_wav_path = _ref_wav(voice_id)
+            else:
+                _log.error(
+                    "F5-TTS reference voice %r not found at %s — "
+                    "open the Install dialog to download preset voices",
+                    voice_id, ref_wav_path,
+                )
+                return None
         ref_txt_path = _ref_txt(voice_id)
         ref_text = ref_txt_path.read_text(encoding="utf-8").strip() if ref_txt_path.exists() else ""
         model = self._get_model()

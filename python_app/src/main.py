@@ -120,6 +120,35 @@ def _speak_startup(engine, voice_id: str) -> None:
 
 
 def main() -> int:
+    # Single-instance guard — must run before anything else. One AlienVox
+    # process total, regardless of --cpu/--gpu; switching device mode
+    # requires closing the running instance first.
+    from .single_instance import SingleInstanceGuard
+    instance_guard = SingleInstanceGuard()
+    if not instance_guard.acquired:
+        msg = "AlienVox is already running. Close the running instance first."
+        print(f"\n  {msg}\n")
+        if sys.platform == "win32":
+            try:
+                import ctypes
+                ctypes.windll.user32.MessageBoxW(0, msg, "AlienVox", 0x40)  # MB_ICONINFORMATION
+            except Exception:
+                pass
+        return 1
+
+    # Must run before any window is created — otherwise Windows groups the
+    # taskbar entry under python.exe's own icon instead of AlienVox's,
+    # since we're launched via `python -m src.main` rather than a
+    # dedicated .exe (which would carry its own AppUserModelID for free).
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+                "AlienTech.AlienVox.App"
+            )
+        except Exception:
+            pass
+
     app = QApplication(sys.argv)
     app.setApplicationName("AlienVox")
     app.setOrganizationName("AlienTech.Software")
@@ -132,14 +161,22 @@ def main() -> int:
     log_path = _logger.init(tel.session_id)
 
     # ── Startup banner (printed to stdout so `run.py app` shows it) ───────────
+    import os
     version = get_version()
     print("")
     print(f"  AlienVox  v{version}")
+    print(f"  PID     : {os.getpid()}")
     print(f"  Session : {tel.session_id}")
     print(f"  Log     : {log_path}")
+    try:
+        from .health import hardware_summary_lines
+        for line in hardware_summary_lines():
+            print(f"  {line}")
+    except Exception as exc:
+        print(f"  (hardware summary unavailable: {exc})")
     print("")
 
-    _log.info("AlienVox v%s starting — session %s", version, tel.session_id)
+    _log.info("AlienVox v%s starting — session %s (PID %d)", version, tel.session_id, os.getpid())
     tel.emit("app.start")
 
     cfg = load_effective_config()
