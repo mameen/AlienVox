@@ -1,0 +1,67 @@
+name: Build Windows Release
+
+# Manual only — builds the AlienVox portable zip + installer exe (base
+# tier: SAPI5 only, no ML) and publishes both to a GitHub Release.
+# windows-latest runners ship with Inno Setup 6 preinstalled (ISCC on
+# PATH), so build_exe.bat's ISCC auto-detection just works here.
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to create/publish to (e.g. v0.0.20260721230113). Defaults to the version in python_app/version.yaml."
+        required: false
+        type: string
+      prerelease:
+        description: "Mark the GitHub release as a pre-release"
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: python_app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build portable zip
+        run: install\windows\portable\build_portable.bat
+        shell: cmd
+
+      - name: Build installer exe
+        run: install\windows\exe\build_exe.bat
+        shell: cmd
+
+      - name: Read version
+        id: version
+        shell: bash
+        run: |
+          ver=$(grep '^version:' version.yaml | sed -E 's/version: *"(.*)"/\1/')
+          echo "version=$ver" >> "$GITHUB_OUTPUT"
+
+      - name: Locate build artifacts
+        id: artifacts
+        shell: bash
+        run: |
+          zip=$(ls install/.venv-base-build/build/portable/*.zip)
+          exe=$(ls install/.venv-base-build/build/exe/AlienVoxSetup-*.exe)
+          echo "zip=$zip" >> "$GITHUB_OUTPUT"
+          echo "exe=$exe" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag || format('v{0}', steps.version.outputs.version) }}
+          name: AlienVox ${{ steps.version.outputs.version }}
+          prerelease: ${{ inputs.prerelease }}
+          files: |
+            python_app/${{ steps.artifacts.outputs.zip }}
+            python_app/${{ steps.artifacts.outputs.exe }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
