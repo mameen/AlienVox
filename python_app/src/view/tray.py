@@ -106,6 +106,7 @@ class AlienVoxTray:
         state.stack_changed.connect(lambda _v: self._rebuild_voice_menu())
         state.model_changed.connect(lambda _v: self._rebuild_voice_menu())
         state.voice_changed.connect(lambda _v: self._rebuild_voice_menu())
+        state.voice_enabled_changed.connect(lambda *_a: self._rebuild_voice_menu())
 
         self._rebuild_voice_menu()
 
@@ -157,7 +158,11 @@ class AlienVoxTray:
                 # ML-style: Stack ▸ Models ▸ [model] ▸ Voice (4 levels)
                 models_menu = self._voice_menu.addMenu(f"{stack_label} · Models")
                 for model in stack.models:
-                    voices = model.voices
+                    voices = [
+                        v for v in model.voices
+                        if v["id"] == current_voice_id
+                        or self._state.is_voice_enabled(stack_id, model.id, v["id"])
+                    ]
                     if not voices:
                         continue
                     has_any = True
@@ -174,7 +179,10 @@ class AlienVoxTray:
             else:
                 # SAPI-style: Stack ▸ Voice — sourced from live_voices, since
                 # non-ML stacks enumerate voices from the OS/engine at runtime.
-                voices = self._state.live_voices_for(stack_id)
+                voices = [
+                    v for v in self._state.live_voices_for(stack_id)
+                    if v["id"] == current_voice_id or self._state.is_voice_enabled(stack_id, "", v["id"])
+                ]
                 if not voices:
                     continue
                 has_any = True

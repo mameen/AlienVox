@@ -16,6 +16,7 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
+from src.control.app_controller import SAMPLE_TEXT as _SAMPLE_TEXT_FOR_TEST
 from src.control.app_controller import AppController, build_speak_params
 from src.control.telemetry import Telemetry
 from src.engines.registry import ModelInfo, StackInfo
@@ -34,12 +35,19 @@ class _FakeEngine:
     def __init__(self, name: str) -> None:
         self.name = name
         self.stopped = False
+        self.spoken: list[tuple[str, str]] = []  # (text, voice_id)
 
     def list_voices(self):
         class _V:
             def __init__(self, id_, name_):
                 self.id, self.name = id_, name_
         return [_V("v1", "Voice One")]
+
+    def speak(self, text, voice_id, params) -> None:
+        self.spoken.append((text, voice_id))
+
+    def wait_until_done(self, timeout_ms: int) -> bool:
+        return True
 
     def stop(self) -> None:
         self.stopped = True
@@ -304,6 +312,44 @@ def test_debug_mode_on_without_enhancement_records_text_but_not_enhanced_text(mo
     triggered = events[0]
     assert triggered["text"] == "hello world"
     assert "enhanced_text" not in triggered
+
+
+def test_set_voice_enabled_updates_state_and_persists(monkeypatch):
+    ctrl = _make_controller(monkeypatch)
+    persisted: list[dict] = []
+    monkeypatch.setattr(
+        "src.control.app_controller.save_user_override",
+        lambda patch, **kw: persisted.append(dict(patch)),
+    )
+
+    ctrl.set_voice_enabled("ml", "kokoro", "af_heart", False)
+
+    assert ctrl.state.is_voice_enabled("ml", "kokoro", "af_heart") is False
+    assert persisted[-1]["disabled_voices"] == ["ml|kokoro|af_heart"]
+
+
+def test_preview_voice_reuses_active_engine_when_matching(monkeypatch):
+    """Previewing the currently active stack/model must not load a
+    redundant second engine instance — it should speak through the
+    engine AppController already has."""
+    ctrl = _make_controller(monkeypatch)  # active: ml/kokoro
+    active_engine = ctrl.engine
+
+    ctrl._preview_voice("ml", "kokoro", "af_heart")
+
+    assert active_engine.spoken == [(_SAMPLE_TEXT_FOR_TEST, "af_heart")]
+    assert active_engine.stopped is False  # reused, not torn down
+    assert ctrl._load_calls == [("ml", "kokoro")]  # no extra load
+
+
+def test_preview_voice_loads_and_discards_temp_engine_for_non_active_target(monkeypatch):
+    ctrl = _make_controller(monkeypatch)  # active: ml/kokoro
+    active_engine = ctrl.engine
+
+    ctrl._preview_voice("ml", "chatterbox", "default")
+
+    assert ctrl.engine is active_engine  # AppController's own engine untouched
+    assert ctrl._load_calls == [("ml", "kokoro"), ("ml", "chatterbox")]
 
 
 def test_enhance_text_none_strategy_passes_through(monkeypatch):

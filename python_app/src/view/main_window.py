@@ -378,6 +378,7 @@ class MainWindow(QMainWindow):
         self._state.speaking_changed.connect(self._on_state_speaking_changed)
         self._state.error_changed.connect(self._on_state_error_changed)
         self._state.catalog_changed.connect(self._on_state_catalog_changed)
+        self._state.voice_enabled_changed.connect(self._on_state_voice_enabled_changed)
 
     # ── Menu bar ─────────────────────────────────────────────────────────────
 
@@ -394,6 +395,13 @@ class MainWindow(QMainWindow):
         load_action.setToolTip("Import settings from a YAML file")
         load_action.triggered.connect(self._on_load_settings)
         settings_menu.addAction(load_action)
+
+        settings_menu.addSeparator()
+
+        manage_voices_action = QAction("&Manage Voices…", self)
+        manage_voices_action.setToolTip("Enable/disable individual voices and preview them")
+        manage_voices_action.triggered.connect(self._on_manage_voices)
+        settings_menu.addAction(manage_voices_action)
 
         self.setMenuBar(mb)
 
@@ -420,6 +428,11 @@ class MainWindow(QMainWindow):
             self._set_status(f"Settings loaded from {Path(path).name}")
         except Exception as exc:
             self._set_status(f"Load settings failed: {exc}")
+
+    def _on_manage_voices(self) -> None:
+        from .manage_voices_dialog import ManageVoicesDialog
+        dlg = ManageVoicesDialog(self._state, self._controller, parent=self)
+        dlg.exec()
 
     # ── Toolbar ───────────────────────────────────────────────────────────────
 
@@ -619,7 +632,7 @@ class MainWindow(QMainWindow):
             combo.blockSignals(True)
             combo.clear()
             if model:
-                for v in model.voices:
+                for v in self._visible_voices(stack_id, model_id, model.voices, self._state.voice):
                     combo.addItem(v.get("label", v["id"]), v["id"])
             combo.blockSignals(False)
 
@@ -662,15 +675,56 @@ class MainWindow(QMainWindow):
             if not live:
                 continue
             current_voice = self._state.voice if sid == self._state.active_stack else ""
-            self._fill_voice_combo(combo, live, current_voice)
+            self._fill_voice_combo(combo, sid, live, current_voice)
+
+    def _on_state_voice_enabled_changed(self, stack_id: str, model_id: str, voice_id: str, enabled: bool) -> None:
+        """A voice was (un)checked in the Manage Voices dialog — refresh
+        every tab's voice combo for that stack so the filtered list stays
+        current whether or not that tab happens to be visible right now."""
+        model_combo = next((c for c, sid in self._model_combos if sid == stack_id), None)
+        voice_combo = next((c for c, sid in self._voice_combos if sid == stack_id), None)
+        if voice_combo is None:
+            return
+
+        is_active_stack = stack_id == self._state.active_stack
+        keep_voice = voice_combo.currentData() or ""
+
+        if model_combo is not None:
+            selected_model_id = model_combo.currentData() or model_id
+            model = self._state.model_info(stack_id, selected_model_id)
+            if model:
+                voice_combo.blockSignals(True)
+                voice_combo.clear()
+                for v in self._visible_voices(stack_id, selected_model_id, model.voices, keep_voice):
+                    voice_combo.addItem(v.get("label", v["id"]), v["id"])
+                idx = voice_combo.findData(keep_voice)
+                if idx >= 0:
+                    voice_combo.setCurrentIndex(idx)
+                voice_combo.blockSignals(False)
+        else:
+            live = self._state.live_voices_for(stack_id)
+            if live:
+                self._fill_voice_combo(voice_combo, stack_id, live, keep_voice if is_active_stack else "")
+
+    def _visible_voices(
+        self, stack_id: str, model_id: str, voices: list[dict], keep_voice_id: str = ""
+    ) -> list[dict]:
+        """Filter out disabled voices (Manage Voices dialog), except the
+        currently-selected one — a voice that's already selected stays
+        visible even if disabled, rather than disappearing from under the
+        user; disabling only affects what's offered going forward."""
+        return [
+            v for v in voices
+            if v["id"] == keep_voice_id or self._state.is_voice_enabled(stack_id, model_id, v["id"])
+        ]
 
     def _fill_voice_combo(
-        self, combo: QComboBox, voices: list[dict], current_voice_id: str = ""
+        self, combo: QComboBox, stack_id: str, voices: list[dict], current_voice_id: str = ""
     ) -> None:
         combo.blockSignals(True)
         combo.clear()
         select_idx = 0
-        for i, v in enumerate(voices):
+        for i, v in enumerate(self._visible_voices(stack_id, "", voices, current_voice_id)):
             combo.addItem(v.get("label", v["id"]), v["id"])
             if v["id"] == current_voice_id:
                 select_idx = i
@@ -819,8 +873,9 @@ class MainWindow(QMainWindow):
         self._voice_combos.append((voice_combo, stack.id))
 
         if has_models and selected_model is not None:
+            keep_voice = self._state.voice if is_active_stack else ""
             select_idx = 0
-            for i, v in enumerate(selected_model.voices):
+            for i, v in enumerate(self._visible_voices(stack.id, selected_model.id, selected_model.voices, keep_voice)):
                 voice_combo.addItem(v.get("label", v["id"]), v["id"])
                 if is_active_stack and v["id"] == self._state.voice:
                     select_idx = i
@@ -829,12 +884,12 @@ class MainWindow(QMainWindow):
         else:
             live = self._state.live_voices_for(stack.id)
             if live:
-                self._fill_voice_combo(voice_combo, live, self._state.voice if is_active_stack else "")
+                self._fill_voice_combo(voice_combo, stack.id, live, self._state.voice if is_active_stack else "")
             elif stack.id in ("sapi5", "speech_platform"):
                 voice_combo.addItem("(loading voices…)", "")
             else:
                 voices = get_voices(stack.id)
-                for v in voices:
+                for v in self._visible_voices(stack.id, "", voices, self._state.voice if is_active_stack else ""):
                     voice_combo.addItem(v.get("label", v["id"]), v["id"])
 
         layout.addWidget(voice_combo)
@@ -869,6 +924,7 @@ class MainWindow(QMainWindow):
         # than in the toolbar's Play/Play Enhanced/Pause/Stop cluster.
         sample_icon_path = Path(__file__).parent.parent / "resources" / "icons" / "play_sample_icon.png"
         sample_btn = QToolButton()
+        sample_btn.setStyleSheet("QToolButton { border: none; background-color: transparent; }")
         sample_btn.setIcon(QIcon(str(sample_icon_path)) if sample_icon_path.exists() else _make_play_icon())
         sample_btn.setIconSize(QSize(20, 20))
         sample_btn.setToolTip("Play Sample (speak a fixed test phrase with the active voice)")

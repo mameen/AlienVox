@@ -48,11 +48,15 @@ class AppState(QObject):
     speaking_changed = Signal(bool)              # True while audio is playing
     error_changed = Signal(str)                  # non-empty message on error, "" to clear
     catalog_changed = Signal()                   # stacks/live_voices data replaced wholesale
+    voice_enabled_changed = Signal(str, str, str, bool)  # stack_id, model_id, voice_id, enabled
 
     def __init__(self, stacks: list[StackInfo], cfg: dict[str, Any]) -> None:
         super().__init__()
         self._stacks = stacks
         self._live_voices: dict[str, list[dict]] = {}
+        self._disabled_voices: set[tuple[str, str, str]] = set(
+            self._parse_disabled_voices(cfg.get("disabled_voices", []))
+        )
 
         self._active_stack: str = cfg.get("engine", "sapi5")
         self._active_model: str = cfg.get("model", "")
@@ -86,6 +90,31 @@ class AppState(QObject):
         if stack is None:
             return None
         return next((m for m in stack.models if m.id == model_id), None)
+
+    # ── Per-voice enable/disable (Manage Voices dialog) ───────────────────
+
+    @staticmethod
+    def _parse_disabled_voices(raw: list[str]) -> list[tuple[str, str, str]]:
+        out = []
+        for entry in raw:
+            parts = entry.split("|", 2)
+            if len(parts) == 3:
+                out.append((parts[0], parts[1], parts[2]))
+        return out
+
+    def is_voice_enabled(self, stack_id: str, model_id: str, voice_id: str) -> bool:
+        return (stack_id, model_id, voice_id) not in self._disabled_voices
+
+    def set_voice_enabled(self, stack_id: str, model_id: str, voice_id: str, enabled: bool) -> None:
+        key = (stack_id, model_id, voice_id)
+        currently_enabled = key not in self._disabled_voices
+        if enabled == currently_enabled:
+            return
+        if enabled:
+            self._disabled_voices.discard(key)
+        else:
+            self._disabled_voices.add(key)
+        self.voice_enabled_changed.emit(stack_id, model_id, voice_id, enabled)
 
     # ── Active stack/model/voice ──────────────────────────────────────────
 
@@ -193,6 +222,9 @@ class AppState(QObject):
             "volume": self._volume,
             "hotkey": self._hotkey,
             "ttl_seconds": self._ttl_seconds,
+            "disabled_voices": [
+                f"{s}|{m}|{v}" for s, m, v in sorted(self._disabled_voices)
+            ],
         }
 
     def load_cfg_patch(self, patch: dict[str, Any]) -> None:
@@ -210,3 +242,9 @@ class AppState(QObject):
             self.set_params(**params)
         if "hotkey" in patch:
             self.set_hotkey(patch["hotkey"])
+        if "disabled_voices" in patch:
+            new_disabled = set(self._parse_disabled_voices(patch["disabled_voices"]))
+            for key in new_disabled - self._disabled_voices:
+                self.set_voice_enabled(*key, False)
+            for key in self._disabled_voices - new_disabled:
+                self.set_voice_enabled(*key, True)

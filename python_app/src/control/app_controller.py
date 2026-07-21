@@ -215,6 +215,46 @@ class AppController:
         """Rate/pitch/volume/ttl_seconds changes from sliders."""
         self.state.set_params(**kwargs)
 
+    def set_voice_enabled(self, stack_id: str, model_id: str, voice_id: str, enabled: bool) -> None:
+        """User (un)checked a voice row in the Manage Voices dialog."""
+        self.state.set_voice_enabled(stack_id, model_id, voice_id, enabled)
+        self._persist()
+
+    def preview_voice_async(self, stack_id: str, model_id: str, voice_id: str) -> None:
+        """Speak SAMPLE_TEXT with an arbitrary (stack, model, voice) —
+        used by the Manage Voices dialog's per-row preview button. Unlike
+        play_sample_async (which always uses the currently active
+        engine/voice), this may target a voice that isn't active at all,
+        so it never touches self.engine or AppState — it loads its own
+        throwaway engine instance, speaks once, and discards it."""
+        threading.Thread(
+            target=self._preview_voice, args=(stack_id, model_id, voice_id), daemon=True
+        ).start()
+
+    def _preview_voice(self, stack_id: str, model_id: str, voice_id: str) -> None:
+        if stack_id == self.state.active_stack and model_id == self.state.active_model and self.engine:
+            # Already the active engine — reuse it rather than loading a
+            # redundant second instance of the same model.
+            engine = self.engine
+            owns_engine = False
+        else:
+            engine = self._load_engine(stack_id, model_id)
+            owns_engine = True
+        if not engine:
+            _log.warn("preview failed: no engine for stack=%s model=%s", stack_id, model_id)
+            return
+        try:
+            engine.speak(SAMPLE_TEXT, voice_id, SpeakParams())
+            engine.wait_until_done(30_000)
+        except Exception as exc:
+            _log.warn("preview_voice failed for %s/%s/%s: %s", stack_id, model_id, voice_id, exc)
+        finally:
+            if owns_engine:
+                try:
+                    engine.stop()
+                except Exception:
+                    pass
+
     def build_current_speak_params(self) -> SpeakParams:
         """SpeakParams for the currently active state — used by Views that
         need to construct a one-shot dialog (e.g. ExportDialog) without

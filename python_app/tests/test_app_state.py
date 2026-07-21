@@ -154,3 +154,45 @@ def test_speaking_and_error_are_not_persisted(qapp):
     assert "speaking" not in patch
     assert "last_error" not in patch
     assert "error" not in patch
+
+
+def test_voices_enabled_by_default(qapp):
+    state = AppState(_stacks(), _cfg())
+    assert state.is_voice_enabled("ml", "kokoro", "af_heart") is True
+
+
+def test_set_voice_enabled_false_disables_and_emits(qapp):
+    state = AppState(_stacks(), _cfg())
+    received = []
+    state.voice_enabled_changed.connect(lambda *a: received.append(a))
+    state.set_voice_enabled("ml", "kokoro", "af_heart", False)
+    assert received == [("ml", "kokoro", "af_heart", False)]
+    assert state.is_voice_enabled("ml", "kokoro", "af_heart") is False
+
+
+def test_set_voice_enabled_noop_when_unchanged_does_not_emit(qapp):
+    state = AppState(_stacks(), _cfg())
+    received = []
+    state.voice_enabled_changed.connect(lambda *a: received.append(a))
+    state.set_voice_enabled("ml", "kokoro", "af_heart", True)  # already enabled
+    assert received == []
+
+
+def test_disabled_voices_round_trip_through_cfg_patch(qapp):
+    state = AppState(_stacks(), _cfg())
+    state.set_voice_enabled("ml", "kokoro", "af_heart", False)
+    patch = state.to_cfg_patch()
+    assert patch["disabled_voices"] == ["ml|kokoro|af_heart"]
+
+    state2 = AppState(_stacks(), _cfg(disabled_voices=patch["disabled_voices"]))
+    assert state2.is_voice_enabled("ml", "kokoro", "af_heart") is False
+    assert state2.is_voice_enabled("ml", "kokoro", "af_bella") is True
+
+
+def test_load_cfg_patch_applies_disabled_voices_and_emits(qapp):
+    state = AppState(_stacks(), _cfg())
+    received = []
+    state.voice_enabled_changed.connect(lambda *a: received.append(a))
+    state.load_cfg_patch({"disabled_voices": ["ml|kokoro|af_heart"]})
+    assert received == [("ml", "kokoro", "af_heart", False)]
+    assert state.is_voice_enabled("ml", "kokoro", "af_heart") is False
