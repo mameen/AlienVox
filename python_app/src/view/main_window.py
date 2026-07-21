@@ -52,6 +52,7 @@ from ..control.app_controller import AppController
 from ..device import cuda_available
 from ..engines.registry import StackInfo
 from ..model.app_state import AppState
+from .toggle_switch import ToggleSwitch
 
 _ACCENT = "#0078d4"
 _TOOLBAR_BG = "#f5f5f5"
@@ -379,6 +380,7 @@ class MainWindow(QMainWindow):
         self._state.error_changed.connect(self._on_state_error_changed)
         self._state.catalog_changed.connect(self._on_state_catalog_changed)
         self._state.voice_enabled_changed.connect(self._on_state_voice_enabled_changed)
+        self._state.enhance_strategy_changed.connect(self._on_state_enhance_strategy_changed)
 
     # ── Menu bar ─────────────────────────────────────────────────────────────
 
@@ -494,21 +496,9 @@ class MainWindow(QMainWindow):
         _sep()
         _text_btn("🎵", "Export to WAV / MP3", self._on_export)
         _sep()
-        icons_dir = Path(__file__).parent.parent / "resources" / "icons"
-
-        def _asset_icon(filename: str, fallback: QIcon) -> QIcon:
-            path = icons_dir / filename
-            return QIcon(str(path)) if path.exists() else fallback
-
         _PLAYBACK_ICON_SIZE = 24
         self._btn_play = _icon_btn(
             _make_play_icon(_PLAYBACK_ICON_SIZE), "Play (speak text)", self._on_play,
-            size=_PLAYBACK_ICON_SIZE,
-        )
-        self._btn_play_enhanced = _icon_btn(
-            _asset_icon("play_enhanced.png", _make_play_icon(_PLAYBACK_ICON_SIZE)),
-            "Play Enhanced (fix up text for speech, then speak it)",
-            self._on_play_enhanced,
             size=_PLAYBACK_ICON_SIZE,
         )
         self._btn_pause = _icon_btn(
@@ -519,6 +509,18 @@ class MainWindow(QMainWindow):
             _make_stop_icon(_PLAYBACK_ICON_SIZE), "Stop", self._on_stop,
             size=_PLAYBACK_ICON_SIZE,
         )
+        _sep()
+        enhance_label = QLabel("Enhanced")
+        enhance_label.setStyleSheet("font-size:11px; color:#555;")
+        tb.addWidget(enhance_label)
+        self._enhance_toggle = ToggleSwitch()
+        self._enhance_toggle.setToolTip(
+            "Enhanced playback — fixes up text for speech before Play, the "
+            "hotkey, the tray, and Export. Off by default."
+        )
+        self._enhance_toggle.setChecked(self._state.enhance_strategy != "none")
+        self._enhance_toggle.toggled.connect(self._on_enhance_toggled)
+        tb.addWidget(self._enhance_toggle)
 
         # Spacer to push About (and the GPU indicator) to the right
         spacer = QWidget()
@@ -659,6 +661,14 @@ class MainWindow(QMainWindow):
 
     def _on_state_speaking_changed(self, speaking: bool) -> None:
         self._set_status("Speaking…" if speaking else "Ready")
+
+    def _on_state_enhance_strategy_changed(self, strategy: str) -> None:
+        """Keeps the toolbar toggle in sync if the strategy changed from
+        elsewhere (Load Settings) — not just this window's own toggle click."""
+        checked = strategy != "none"
+        self._enhance_toggle.blockSignals(True)
+        self._enhance_toggle.setChecked(checked)
+        self._enhance_toggle.blockSignals(False)
 
     def _on_state_error_changed(self, message: str) -> None:
         if message:
@@ -1010,6 +1020,9 @@ class MainWindow(QMainWindow):
         if not self._controller.engine:
             self._set_status("Export not available — engine not loaded")
             return
+        # Global Enhanced toggle applies to export too — same text a Play
+        # click would speak is what gets written to the file.
+        text = self._controller.apply_current_enhance(text)
         from .export_dialog import ExportDialog
         dlg = ExportDialog(
             engine=self._controller.engine,
@@ -1028,17 +1041,11 @@ class MainWindow(QMainWindow):
         self._set_status("Speaking…")
         self._controller.play_async(text)
 
-    def _on_play_enhanced(self) -> None:
-        """Dedicated action, not a mode toggle: fixes up the current text
-        (heuristic_enhance — whitespace/punctuation prosody cleanup) and
-        speaks the fixed version, this call only. The regular Play button
-        is unaffected and always speaks text as-is."""
-        text = self._editor.to_plain_text().strip()
-        if not text:
-            self._set_status("No text to speak")
-            return
-        self._set_status("Speaking (enhanced)…")
-        self._controller.play_enhanced_async(text)
+    def _on_enhance_toggled(self, checked: bool) -> None:
+        """Global toggle — flips AppState.enhance_strategy, which every
+        subsequent Play/hotkey/tray speak() call and Export read via
+        AppController.speak()'s enhance=None default / apply_current_enhance()."""
+        self._controller.select_enhance_strategy("heuristic" if checked else "none")
 
     def _on_play_sample(self) -> None:
         """Speaks a fixed test phrase with the active engine/voice,

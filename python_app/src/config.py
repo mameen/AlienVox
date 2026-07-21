@@ -33,6 +33,7 @@ DEFAULTS: dict[str, Any] = {
     "volume": 100,
     "ttl_seconds": 30,
     "hotkey": "<alt>+<esc>",
+    "enhance_strategy": "none",
 }
 
 # ── Path helpers ──────────────────────────────────────────────────────────────

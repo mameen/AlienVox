@@ -1,10 +1,25 @@
 # TODO #004: Auto-Enhance Text Before TTS
 
-**Status:** Strategy A (heuristic) and Strategy B (LLM, ADR-012 resolved) both shipped as a
-dedicated "Play Enhanced" action  
+**Status:** Strategy A (heuristic) and Strategy B (LLM, ADR-012 resolved) both shipped, as a
+**global, persisted toggle** — third design iteration, see "Design history" below  
 **Updated:** 2026-07-21  
-**Scope:** `src/control/text_enhancer.py`, `src/control/app_controller.py`, `src/view/main_window.py`,
-`src/resources/prompts/enhance_for_tts.txt`
+**Scope:** `src/model/app_state.py`, `src/control/app_controller.py`, `src/view/main_window.py`,
+`src/view/toggle_switch.py`, `src/control/text_enhancer.py`, `src/resources/prompts/enhance_for_tts.txt`
+
+---
+
+## Design history (for context on the code below)
+
+This feature's UI shape changed twice during implementation, each time on explicit developer
+request — recorded here so the "why" survives, not just the current state:
+
+1. **First**: a persisted `AppState.enhance_strategy` toggle in the toolbar.
+2. **Then**: reverted to a dedicated one-shot "Play Enhanced" button/hotkey — the reasoning at the
+   time was "not every new action needs new state," and `AppState.enhance_strategy` was removed.
+3. **Finally (current)**: back to a persisted global toggle (`AppState.enhance_strategy` re-added),
+   this time explicitly wired into Export too, and using a shared `ToggleSwitch` widget everywhere
+   the app needs an on/off control (this toggle, and the per-voice enable/disable in the Settings
+   dialog) instead of a checkbox or a plain checkable button.
 
 ---
 
@@ -22,47 +37,43 @@ on first use (`huggingface_hub.hf_hub_download`, cached after), loads via `llama
 real download+load+inference the first time (before `llm_enhance` was properly mocked in
 `test_app_controller.py`; see git history if curious).
 
-## Implementation status (2026-07-21)
+## Implementation status (2026-07-21, current design)
 
-Both strategies are implemented as a **dedicated one-shot action**, not a persisted mode — this
-differs from the original design below (a toolbar toggle backed by an `AppState` field), which was
-tried first and then deliberately reverted in favor of a simpler shape: a second "Play Enhanced"
-button next to the regular Play button, using `resources/icons/play_enhanced.png`.
+Both strategies are wired through a **global, persisted toggle** in the toolbar — flipping it
+affects every subsequent Play click, the global hotkey, the tray, and Export, until flipped back.
 
-- `AppController.play_enhanced_async(text)` — the command a View calls; spawns the same
-  `speak(text, restart=True, enhance="heuristic")` path as `play_async`, just with `enhance` set.
-  Currently hardcodes `"heuristic"` — see "Not done" below for why LLM isn't the default yet.
-  There is no `AppState.enhance_strategy` field — enhancement is a per-call argument to
-  `AppController.speak()`, not state that could drift or need syncing across Views. This is why the
-  MVC controller-command convention (`.agents/SKILLS/highlevel_design/SKILL.md` §7.2) still applies
-  even though there's no new `AppState` field this time: **not every new action needs new state** —
-  a one-shot action just needs a Controller command a View can call.
-- `AppController._enhance_text(text, strategy)` — applies the requested strategy, **falling back to
-  heuristic** (never to raw text) if `strategy == "llm"` raises (model load failure, empty output,
-  speaker-tag count mismatch, or implausible output length — see `llm_enhance`'s validation).
-  Telemetry records `enhance_strategy` as `"llm_fallback_heuristic"` when this happens,
-  distinguishable from a deliberate heuristic choice.
-- `text_enhancer.llm_enhance(text, prompt_path=None)` — loads the GGUF model (lazy singleton,
-  thread-safe via a lock), sends `resources/prompts/enhance_for_tts.txt` as the system prompt plus
-  the raw text as the user message, and validates the response before returning it: non-empty,
-  same `[S1]`/`[S2]` tag count as the input, and output length within 0.3x–3x of input length.
-  Any validation failure raises `RuntimeError`, triggering the Controller's fallback.
-- `MainWindow` toolbar has two buttons side by side: `_btn_play` (unchanged, speaks as-is) and
-  `_btn_play_enhanced` (uses `play_enhanced.png`, calls `play_enhanced_async`). Regular Play is
-  completely unaffected by the enhanced button existing.
+- `AppState.enhance_strategy` (`"none" | "heuristic" | "llm"`) — persisted field, setter, signal
+  (`enhance_strategy_changed`), like every other user-facing setting.
+- `AppController.select_enhance_strategy(strategy)` — the command the toolbar toggle calls.
+- `AppController.speak(text, restart, enhance=None)` — `enhance=None` (the default used by
+  `play_async`/`speak_async`, i.e. Play/hotkey/tray) means "use `state.enhance_strategy`," resolved
+  inside `_speak_locked` at call time. An explicit `"none"`/`"heuristic"`/`"llm"` overrides the
+  toggle for that call only — used by `play_sample_async`, which always passes `"none"` explicitly
+  so the diagnostic sample phrase stays deterministic regardless of the toggle (also keeps
+  testing/perf benchmarking deterministic, since neither touches this state).
+- `AppController.apply_current_enhance(text)` — applies `state.enhance_strategy` to arbitrary text;
+  `MainWindow._on_export` calls this before constructing `ExportDialog`, so exported audio matches
+  whatever Play would currently speak.
+- `AppController._enhance_text(text, strategy)` — unchanged: applies the requested strategy,
+  **falling back to heuristic** (never to raw text) if `strategy == "llm"` raises (model load
+  failure, empty output, speaker-tag count mismatch, or implausible output length — see
+  `llm_enhance`'s validation). Telemetry records `enhance_strategy` as `"llm_fallback_heuristic"`
+  when this happens.
+- `MainWindow` toolbar has a labeled `ToggleSwitch` ("Enhanced") next to Play/Pause/Stop — see
+  `src/view/toggle_switch.py`, a small reusable custom-painted on/off switch (PySide6/QtWidgets has
+  no built-in one) used here and for per-voice enable/disable in the Settings dialog, so every
+  toggle in the app looks and behaves the same.
 - `heuristic_enhance()` preserves Dia's `[S1]`/`[S2]` tags via a stash/restore pass before any rule
   runs; `llm_enhance()` preserves them via prompt instruction + post-hoc tag-count validation.
 - Tests: `tests/test_text_enhancer.py` mocks `_get_llm()` so the LLM-path tests run in milliseconds
-  with no network/model dependency (covers success, empty output, tag mismatch, implausible length,
-  custom prompt file). `tests/test_app_controller.py` mocks `text_enhancer.llm_enhance` itself to
-  test the Controller's fallback wiring in isolation from model behavior.
+  with no network/model dependency. `tests/test_app_controller.py` covers the `enhance=None`
+  resolution, the explicit-override path, `apply_current_enhance`, and that `play_sample_async`
+  stays unenhanced even with the toggle on.
 
-**Not done:**
-- Export path (`audio_exporter.py`) doesn't call `enhance()` yet.
-- `play_enhanced_async` still hardcodes `enhance="heuristic"` rather than `"llm"` — LLM enhancement
-  works but adds real latency (model load + inference) and a ~470MB one-time download, so making it
-  the default for a single button needs a product decision (a loading indicator? a third button?
-  user-visible download consent?), not just a code change. Tracked as open follow-up, not blocking.
+**Still open:** the toggle only offers heuristic (`"heuristic"`, not `"llm"`) — flipping it to use
+the LLM strategy by default needs a product decision around latency (model load + inference isn't
+instant) and the one-time ~470MB download, not just a code change. `select_enhance_strategy` already
+accepts `"llm"`, so this is a UI-only follow-up when that decision is made.
 
 ## Known limitation: heuristic strategy does not fix prosody/pacing issues
 

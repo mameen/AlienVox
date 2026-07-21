@@ -7,10 +7,10 @@ AlienVoxTray._rebuild_voice_menu already builds for its Voice ▸ menu, just
 rendered as an expandable tree instead of a nested context menu, so both
 surfaces agree on structure.
 
-Per-voice enable/disable is a checkable toggle button (same widget style
-as the toolbar's old ✨ enhance toggle), not a tree-item checkbox or a
-QRadioButton — each voice is independently on/off, multiple voices per
-model can be enabled at once.
+Per-voice enable/disable uses the shared ToggleSwitch widget (same one
+the toolbar's global Enhanced toggle uses) — each voice is independently
+on/off, multiple voices per model can be enabled at once; not a tree-item
+checkbox or a mutually-exclusive QRadioButton group.
 """
 from __future__ import annotations
 
@@ -20,7 +20,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QToolButton,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -29,6 +28,7 @@ from PySide6.QtWidgets import (
 
 from ..control.app_controller import AppController
 from ..model.app_state import AppState
+from .toggle_switch import ToggleSwitch
 
 _VOICE_ROW_ROLE = Qt.ItemDataRole.UserRole
 
@@ -57,6 +57,7 @@ class ManageVoicesDialog(QDialog):
         self._tree.setHeaderLabels(["Voice", "Enabled", ""])
         self._tree.setColumnWidth(0, 380)
         self._tree.setColumnWidth(1, 70)
+        self._tree.setStyleSheet("QTreeView::item { min-height: 30px; }")
         root.addWidget(self._tree, stretch=1)
 
         btn_row = QHBoxLayout()
@@ -102,31 +103,21 @@ class ManageVoicesDialog(QDialog):
         parent_item.addChild(item)
 
         enabled = self._state.is_voice_enabled(stack_id, model_id, voice_id)
-        toggle_btn = QToolButton()
-        toggle_btn.setCheckable(True)
-        toggle_btn.setChecked(enabled)
-        toggle_btn.setText("On" if enabled else "Off")
-        toggle_btn.setFixedWidth(48)
-        toggle_btn.setToolTip(f"Enable/disable {label}")
-        toggle_btn.toggled.connect(
-            lambda checked, btn=toggle_btn, s=stack_id, m=model_id, v=voice_id:
-                self._on_voice_toggled(btn, s, m, v, checked)
+        toggle = ToggleSwitch()
+        toggle.setChecked(enabled)
+        toggle.setToolTip(f"Enable/disable {label}")
+        toggle.toggled.connect(
+            lambda checked, s=stack_id, m=model_id, v=voice_id:
+                self._controller.set_voice_enabled(s, m, v, checked)
         )
-        self._tree.setItemWidget(item, 1, toggle_btn)
+        self._tree.setItemWidget(item, 1, toggle)
 
         preview_btn = QPushButton("▶")
         preview_btn.setFixedWidth(28)
+        preview_btn.setStyleSheet("font-size: 16px; padding: 0;")
         preview_btn.setToolTip(f"Preview {label}")
         preview_btn.clicked.connect(
             lambda _checked=False, s=stack_id, m=model_id, v=voice_id:
                 self._controller.preview_voice_async(s, m, v)
         )
         self._tree.setItemWidget(item, 2, preview_btn)
-
-    # ── User input ────────────────────────────────────────────────────────
-
-    def _on_voice_toggled(
-        self, btn: QToolButton, stack_id: str, model_id: str, voice_id: str, checked: bool
-    ) -> None:
-        btn.setText("On" if checked else "Off")
-        self._controller.set_voice_enabled(stack_id, model_id, voice_id, checked)

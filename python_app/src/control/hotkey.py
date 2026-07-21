@@ -12,10 +12,3 @@ def start_listener(bindings: dict[str, Callable[[], None]]) -> keyboard.GlobalHo
     listener = keyboard.GlobalHotKeys(bindings)
     listener.start()
     return listener
-
-
-def enhanced_variant_of(hotkey: str) -> str:
-    """The "Play Enhanced" hotkey is the primary hotkey plus Shift — e.g.
-    '<alt>+<esc>' -> '<shift>+<alt>+<esc>'. Derived rather than a separate
-    configurable field: it's always "the same combo, plus Shift"."""
-    return f"<shift>+{hotkey}"

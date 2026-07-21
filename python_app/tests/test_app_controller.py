@@ -185,31 +185,10 @@ def test_load_settings_from_applies_patch_via_state_signals(monkeypatch, tmp_pat
     assert ctrl.engine.name == "ml:chatterbox"
 
 
-def test_play_enhanced_async_calls_speak_with_heuristic_enhance(monkeypatch):
-    """Play Enhanced is a one-shot action, not a persisted mode — it must
-    request enhance='heuristic' for this call only, via the normal speak()
-    command, not some separate AppState toggle."""
-    ctrl = _make_controller(monkeypatch)
-    calls: list[tuple] = []
-    monkeypatch.setattr(ctrl, "speak", lambda *a, **kw: calls.append((a, kw)))
-
-    ctrl.play_enhanced_async("some text")
-    import time as _time
-    for _ in range(50):
-        if calls:
-            break
-        _time.sleep(0.01)
-
-    assert calls, "speak() was never called by play_enhanced_async's thread"
-    args, kwargs = calls[0]
-    assert args[0] == "some text"
-    assert args[1] is True  # restart=True
-    assert kwargs.get("enhance") == "heuristic"
-
-
-def test_play_async_does_not_enhance(monkeypatch):
-    """The regular Play button must remain unaffected by Play Enhanced —
-    no enhance kwarg means AppController.speak's own 'none' default."""
+def test_play_async_does_not_pass_explicit_enhance(monkeypatch):
+    """Play must NOT pass an explicit enhance kwarg — leaving it at
+    speak()'s enhance=None default is what makes it respect the global
+    Enhanced toggle (whatever state.enhance_strategy currently is)."""
     ctrl = _make_controller(monkeypatch)
     calls: list[tuple] = []
     monkeypatch.setattr(ctrl, "speak", lambda *a, **kw: calls.append((a, kw)))
@@ -226,35 +205,71 @@ def test_play_async_does_not_enhance(monkeypatch):
     assert "enhance" not in kwargs
 
 
-def test_speak_enhanced_async_calls_speak_with_heuristic_enhance_and_toggle_behavior(monkeypatch):
-    """The Play Enhanced global hotkey mirrors speak_async's toggle
-    behavior (restart=False, text=None captures selection) but with
-    enhance='heuristic' — same relationship play_enhanced_async has to
-    play_async, just for the hotkey/tray path instead of the toolbar."""
+def test_select_enhance_strategy_updates_state_and_persists(monkeypatch):
     ctrl = _make_controller(monkeypatch)
-    calls: list[tuple] = []
-    monkeypatch.setattr(ctrl, "speak", lambda *a, **kw: calls.append((a, kw)))
+    persisted: list[dict] = []
+    monkeypatch.setattr(
+        "src.control.app_controller.save_user_override",
+        lambda patch, **kw: persisted.append(dict(patch)),
+    )
 
-    ctrl.speak_enhanced_async()
-    import time as _time
-    for _ in range(50):
-        if calls:
-            break
-        _time.sleep(0.01)
+    ctrl.select_enhance_strategy("heuristic")
 
-    assert calls, "speak() was never called by speak_enhanced_async's thread"
-    args, kwargs = calls[0]
-    assert args[0] is None
-    assert args[1] is False  # restart=False, toggle behavior
-    assert kwargs.get("enhance") == "heuristic"
+    assert ctrl.state.enhance_strategy == "heuristic"
+    assert persisted[-1]["enhance_strategy"] == "heuristic"
 
 
-def test_play_sample_async_speaks_fixed_sample_text(monkeypatch):
+def test_speak_locked_none_enhance_resolves_to_global_toggle(monkeypatch):
+    """This is what makes the toggle 'global' — Play, the hotkey, and the
+    tray all call speak() with enhance=None, and _speak_locked resolves
+    that against AppState.enhance_strategy at call time."""
+    ctrl = _make_controller(monkeypatch)
+    ctrl.state.set_enhance_strategy("heuristic")
+    ctrl.engine = None  # skip the actual engine.speak() call path
+    events: list[dict] = []
+    monkeypatch.setattr(ctrl.telemetry, "emit", lambda event, **kw: events.append(kw))
+
+    ctrl._speak_locked("foo  bar", None)
+
+    triggered = events[0]
+    assert triggered["enhance_strategy"] == "heuristic"
+    assert triggered["enhanced_chars"] == len("foo bar.")
+
+
+def test_speak_locked_explicit_none_overrides_global_toggle(monkeypatch):
+    """play_sample_async passes enhance='none' explicitly — that must
+    win over the global toggle even when it's on, since the toggle-off
+    case is the whole point of an explicit override."""
+    ctrl = _make_controller(monkeypatch)
+    ctrl.state.set_enhance_strategy("heuristic")
+    ctrl.engine = None
+    events: list[dict] = []
+    monkeypatch.setattr(ctrl.telemetry, "emit", lambda event, **kw: events.append(kw))
+
+    ctrl._speak_locked("foo  bar", "none")
+
+    triggered = events[0]
+    assert "enhance_strategy" not in triggered
+
+
+def test_apply_current_enhance_uses_global_toggle(monkeypatch):
+    """Used by the export path — Export must speak whatever text Play
+    would speak, so it reads the same global toggle."""
+    ctrl = _make_controller(monkeypatch)
+    assert ctrl.apply_current_enhance("foo  bar") == "foo  bar"  # toggle off by default
+
+    ctrl.select_enhance_strategy("heuristic")
+    assert ctrl.apply_current_enhance("foo  bar") == "foo bar."
+
+
+def test_play_sample_async_speaks_fixed_sample_text_always_unenhanced(monkeypatch):
     """Play Sample ignores editor content entirely — it always speaks
     SAMPLE_TEXT with the active voice, restart=True (interrupts anything
-    currently playing), no enhancement."""
+    currently playing), and stays unenhanced regardless of the global
+    toggle (fixed diagnostic phrase, testing/perf must stay deterministic)."""
     from src.control.app_controller import SAMPLE_TEXT
     ctrl = _make_controller(monkeypatch)
+    ctrl.state.set_enhance_strategy("heuristic")  # toggle ON — must still be ignored
     calls: list[tuple] = []
     monkeypatch.setattr(ctrl, "speak", lambda *a, **kw: calls.append((a, kw)))
 
@@ -269,7 +284,7 @@ def test_play_sample_async_speaks_fixed_sample_text(monkeypatch):
     args, kwargs = calls[0]
     assert args[0] == SAMPLE_TEXT
     assert args[1] is True  # restart=True
-    assert "enhance" not in kwargs
+    assert kwargs.get("enhance") == "none"
 
 
 def test_debug_mode_off_never_records_text(monkeypatch):

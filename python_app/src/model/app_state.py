@@ -49,6 +49,9 @@ class AppState(QObject):
     error_changed = Signal(str)                  # non-empty message on error, "" to clear
     catalog_changed = Signal()                   # stacks/live_voices data replaced wholesale
     voice_enabled_changed = Signal(str, str, str, bool)  # stack_id, model_id, voice_id, enabled
+    enhance_strategy_changed = Signal(str)        # new enhance_strategy: "none" | "heuristic" | "llm"
+
+    _ENHANCE_STRATEGIES = ("none", "heuristic", "llm")
 
     def __init__(self, stacks: list[StackInfo], cfg: dict[str, Any]) -> None:
         super().__init__()
@@ -66,6 +69,13 @@ class AppState(QObject):
         self._volume: int = cfg.get("volume", 100)
         self._hotkey: str = cfg.get("hotkey", "<alt>+<esc>")
         self._ttl_seconds: int = cfg.get("ttl_seconds", 30)
+        # Global, persisted, off by default — deliberately NOT read by
+        # tests/test_perf.py or any test fixture, so testing/benchmarking
+        # always exercises raw (unenhanced) text regardless of what a
+        # developer has toggled on in their own user.yaml.
+        self._enhance_strategy: str = cfg.get("enhance_strategy", "none")
+        if self._enhance_strategy not in self._ENHANCE_STRATEGIES:
+            self._enhance_strategy = "none"
         self._speaking: bool = False
         self._last_error: str = ""
 
@@ -189,6 +199,20 @@ class AppState(QObject):
     def set_hotkey(self, hotkey: str) -> None:
         self._hotkey = hotkey
 
+    # ── Text enhancement strategy (global, persisted toggle) ──────────────
+
+    @property
+    def enhance_strategy(self) -> str:
+        return self._enhance_strategy
+
+    def set_enhance_strategy(self, strategy: str) -> None:
+        if strategy not in self._ENHANCE_STRATEGIES:
+            raise ValueError(f"unknown enhance_strategy {strategy!r}")
+        if strategy == self._enhance_strategy:
+            return
+        self._enhance_strategy = strategy
+        self.enhance_strategy_changed.emit(strategy)
+
     # ── Transient runtime status (not persisted) ─────────────────────────
 
     @property
@@ -225,6 +249,7 @@ class AppState(QObject):
             "disabled_voices": [
                 f"{s}|{m}|{v}" for s, m, v in sorted(self._disabled_voices)
             ],
+            "enhance_strategy": self._enhance_strategy,
         }
 
     def load_cfg_patch(self, patch: dict[str, Any]) -> None:
@@ -248,3 +273,5 @@ class AppState(QObject):
                 self.set_voice_enabled(*key, False)
             for key in self._disabled_voices - new_disabled:
                 self.set_voice_enabled(*key, True)
+        if patch.get("enhance_strategy") in self._ENHANCE_STRATEGIES:
+            self.set_enhance_strategy(patch["enhance_strategy"])

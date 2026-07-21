@@ -74,7 +74,6 @@ def test_toggle_button_reflects_current_enabled_state(qapp):
         item = _find_voice_item(dlg, "af_bella")
         toggle_btn = dlg._tree.itemWidget(item, 1)
         assert toggle_btn.isChecked() is True
-        assert toggle_btn.text() == "On"
     finally:
         dlg.close()
 
@@ -88,7 +87,7 @@ def test_toggling_off_calls_controller_and_updates_state(qapp):
         toggle_btn = dlg._tree.itemWidget(item, 1)
         toggle_btn.click()
         assert state.is_voice_enabled("ml", "kokoro", "af_bella") is False
-        assert toggle_btn.text() == "Off"
+        assert toggle_btn.isChecked() is False
     finally:
         dlg.close()
 

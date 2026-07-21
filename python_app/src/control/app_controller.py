@@ -105,6 +105,7 @@ class AppController:
         state.model_changed.connect(self._on_stack_or_model_changed)
         state.voice_changed.connect(lambda _v: self._persist())
         state.params_changed.connect(lambda _p: self._persist())
+        state.enhance_strategy_changed.connect(lambda _s: self._persist())
 
         self._load_engine_for_current_state()
 
@@ -220,6 +221,21 @@ class AppController:
         self.state.set_voice_enabled(stack_id, model_id, voice_id, enabled)
         self._persist()
 
+    def select_enhance_strategy(self, strategy: str) -> None:
+        """User flipped the global Enhanced toggle (toolbar). Global and
+        persisted: every subsequent speak() call (Play, hotkey, tray) and
+        export uses this strategy until toggled again — see speak()'s
+        enhance=None default and apply_current_enhance() for export."""
+        self.state.set_enhance_strategy(strategy)
+
+    def apply_current_enhance(self, text: str) -> str:
+        """Apply the current global enhance strategy to arbitrary text —
+        used by the export path (Views build the text to synthesize
+        themselves, so they call this before handing it to ExportDialog
+        rather than going through speak())."""
+        enhanced, _used = self._enhance_text(text, self.state.enhance_strategy)
+        return enhanced
+
     def preview_voice_async(self, stack_id: str, model_id: str, voice_id: str) -> None:
         """Speak SAMPLE_TEXT with an arbitrary (stack, model, voice) —
         used by the Manage Voices dialog's per-row preview button. Unlike
@@ -268,7 +284,7 @@ class AppController:
 
     # ── Speak / stop ──────────────────────────────────────────────────────
 
-    def speak(self, text: str | None = None, restart: bool = False, enhance: str = "none") -> None:
+    def speak(self, text: str | None = None, restart: bool = False, enhance: str | None = None) -> None:
         """Speak text — from provided string or captured selection.
 
         restart=False (hotkey/tray click default): acts as a toggle — if
@@ -277,10 +293,13 @@ class AppController:
         playback and immediately speaks the new text, rather than
         requiring a second click to actually hear it.
 
-        enhance: "none" | "heuristic" | "llm" — applied to this call only,
-        not persisted anywhere on AppState. There is no "enhance mode"
-        toggle; each caller (play_async vs play_enhanced_async) decides
-        per call, matching the two distinct toolbar buttons.
+        enhance: None (default) means "use the global Enhanced toggle"
+        (state.enhance_strategy) — Play, the hotkey, and the tray all use
+        this default, so flipping the toggle affects every speak path at
+        once. Pass an explicit "none"/"heuristic"/"llm" to override the
+        toggle for this call only — used by play_sample_async, which
+        always stays unenhanced regardless of the toggle (it's a fixed
+        diagnostic phrase, not user text).
         """
         if not self._speak_lock.acquire(blocking=False):
             self.stop()
@@ -311,7 +330,7 @@ class AppController:
         _log.warn("unknown enhance_strategy=%r, skipping enhancement", strategy)
         return text, "none"
 
-    def _speak_locked(self, text: str | None, enhance: str = "none") -> None:
+    def _speak_locked(self, text: str | None, enhance: str | None = None) -> None:
         tel = self.telemetry
         rid = tel.new_request_id()
         start_ms = time.time_ns() // 1_000_000
@@ -325,6 +344,10 @@ class AppController:
                 text = ""
 
         state = self.state
+        # None means "use the global Enhanced toggle" — resolved here
+        # (not in speak()) so every telemetry/log line downstream sees the
+        # actual strategy, never the None sentinel.
+        enhance = state.enhance_strategy if enhance is None else enhance
         original_chars, original_bytes = len(text), len(text.encode())
         enhanced_text, used_strategy = self._enhance_text(text, enhance)
 
@@ -400,37 +423,26 @@ class AppController:
             self.state.set_speaking(False)
 
     def speak_async(self, text: str | None = None) -> None:
-        """Toggle behavior — used by the tray icon click and global hotkey."""
+        """Toggle behavior — used by the tray icon click and global hotkey.
+        Respects the global Enhanced toggle (enhance=None default)."""
         threading.Thread(target=self.speak, args=(text, False), daemon=True).start()
 
-    def speak_enhanced_async(self, text: str | None = None) -> None:
-        """Toggle behavior with heuristic text enhancement applied — used
-        by the "Play Enhanced" global hotkey (primary hotkey + Shift, see
-        hotkey.enhanced_variant_of). Captures the current selection when
-        text is None, same as speak_async."""
-        threading.Thread(
-            target=self.speak, args=(text, False), kwargs={"enhance": "heuristic"}, daemon=True
-        ).start()
-
     def play_async(self, text: str) -> None:
-        """Restart behavior — used by the main window's Play button."""
+        """Restart behavior — used by the main window's Play button.
+        Respects the global Enhanced toggle (enhance=None default)."""
         threading.Thread(target=self.speak, args=(text, True), daemon=True).start()
-
-    def play_enhanced_async(self, text: str) -> None:
-        """Restart behavior with heuristic text enhancement applied —
-        used by the main window's dedicated "Play Enhanced" button.
-        A one-shot action, not a persisted mode: the regular Play button
-        is unaffected and always speaks text as-is."""
-        threading.Thread(
-            target=self.speak, args=(text, True), kwargs={"enhance": "heuristic"}, daemon=True
-        ).start()
 
     def play_sample_async(self) -> None:
         """Speaks SAMPLE_TEXT with the active engine/voice — used by the
         main window's "Play Sample" button to let a user judge a voice
         without needing any text of their own. No hotkey (toolbar-only,
-        deliberately not wired into hotkey.py)."""
-        threading.Thread(target=self.speak, args=(SAMPLE_TEXT, True), daemon=True).start()
+        deliberately not wired into hotkey.py). Always unenhanced
+        (enhance="none" explicit override) — it's a fixed diagnostic
+        phrase, testing/perf must stay deterministic regardless of the
+        global toggle."""
+        threading.Thread(
+            target=self.speak, args=(SAMPLE_TEXT, True), kwargs={"enhance": "none"}, daemon=True
+        ).start()
 
     def stop(self) -> None:
         if self.engine:
