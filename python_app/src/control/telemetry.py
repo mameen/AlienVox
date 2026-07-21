@@ -36,7 +36,7 @@ def _appdata_sink(session_id: str) -> Path:
 
 def _dev_sink(session_id: str) -> Path:
     """Repo-local .logs/ dir — easy to tail during dev."""
-    return Path(__file__).parent.parent / ".logs" / f"{session_id}_AlienVox.jsonl"
+    return Path(__file__).parent.parent.parent / ".logs" / f"{session_id}_AlienVox.jsonl"
 
 
 class Telemetry:

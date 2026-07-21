@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from .engines.base import SpeakParams, TtsEngine
 
 # Intermediate files land here (gitignored)
-_GENERATED_DIR = Path(__file__).parent.parent / ".generated"
+_GENERATED_DIR = Path(__file__).parent.parent.parent / ".generated"
 
 
 def generated_dir() -> Path:

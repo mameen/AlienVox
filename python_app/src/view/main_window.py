@@ -336,7 +336,7 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(560, 400)
         # Qt.Window ensures it gets its own taskbar button even when parented
         self.setWindowFlags(Qt.WindowType.Window)
-        _icon_path = Path(__file__).parent / "resources" / "icons" / "icon_256x256.png"
+        _icon_path = Path(__file__).parent.parent / "resources" / "icons" / "icon_256x256.png"
         if _icon_path.exists():
             self.setWindowIcon(QIcon(str(_icon_path)))
 
@@ -492,7 +492,7 @@ class MainWindow(QMainWindow):
         if cuda_available():
             _sep()
             gpu_lbl = QLabel()
-            gpu_icon_path = Path(__file__).parent / "resources" / "icons" / "gpu.png"
+            gpu_icon_path = Path(__file__).parent.parent / "resources" / "icons" / "gpu.png"
             if gpu_icon_path.exists():
                 gpu_lbl.setPixmap(QPixmap(str(gpu_icon_path)).scaled(
                     16, 16, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation,
@@ -1073,7 +1073,7 @@ def _make_stop_icon(size: int = 16) -> QIcon:
 
 def _make_about_icon(size: int = 16) -> QIcon:
     """App logo scaled to toolbar size — used for the About button."""
-    icons_dir = Path(__file__).parent / "resources" / "icons"
+    icons_dir = Path(__file__).parent.parent / "resources" / "icons"
     logo = icons_dir / "icon_16x16.png"
     if logo.exists():
         pix = QPixmap(str(logo))
