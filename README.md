@@ -6,6 +6,8 @@ Simple, standalone TTS apps — high quality, zero friction. Start with **Speak 
 
 ![AlienVox Banner](docs/img/banner.png)
 
+![AlienVox Screenshot](docs/img/Screenshot.png)
+
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![PySide6](https://img.shields.io/badge/Qt6-PySide6-41CD52.svg)](https://doc.qt.io/qtforpython-6/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -96,6 +98,15 @@ AlienVox uses a **four-layer config system**:
 4. **CLI overrides** — command-line arguments
 
 Edit `stacks.yaml` to declare stacks, models, voices, and controls. User preferences go in `user.yaml`.
+
+## Examples
+
+Sample input/output demonstrating the text-enhancement pipeline (`docs/sampels/`):
+
+- [Alice's Adventures in Wonderland.txt](docs/sampels/Alice's%20Adventures%20in%20Wonderland.txt) — real book text, including line-wrapped paragraphs and markdown-style links, used as a regression fixture for `heuristic_enhance()`.
+- [Alice's Adventures in Wonderland_gb_export.mp3](docs/sampels/Alice's%20Adventures%20in%20Wonderland_gb_export.mp3) — the audio exported from that text via AlienVox's Export feature.
+
+Book text courtesy of [Project Gutenberg](https://www.gutenberg.org/) — *Alice's Adventures in Wonderland* by Lewis Carroll ([gutenberg.org/ebooks/11](https://www.gutenberg.org/ebooks/11)), public domain.
 
 ## Testing
 
