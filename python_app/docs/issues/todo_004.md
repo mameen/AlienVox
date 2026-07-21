@@ -64,6 +64,19 @@ button next to the regular Play button, using `resources/icons/play_enhanced.png
   the default for a single button needs a product decision (a loading indicator? a third button?
   user-visible download consent?), not just a code change. Tracked as open follow-up, not blocking.
 
+## Known limitation: heuristic strategy does not fix prosody/pacing issues
+
+`heuristic_enhance()` only touches whitespace and punctuation — it cannot restructure a sentence,
+so it does nothing for pauses caused by run-on sentences, awkward clause ordering, or missing
+commas the source text never had a hint of (nothing for it to normalize). Observed directly in
+production telemetry on 2026-07-21: a 325-character input produced a 326-character
+`heuristic_enhance()` output (`text_chars: 325` → `enhanced_chars: 326`, `enhance_strategy:
+"heuristic"`) — effectively a single added character (a missing terminal period), while the user
+still reported "weird pauses" in playback. This confirms the heuristic strategy is not a fix for
+prosody-level pacing problems; that gap is exactly what the LLM strategy (now implemented, see ADR-012
+resolution above) exists to close, but `play_enhanced_async` doesn't route to it by default yet
+(see "Not done" above).
+
 ---
 
 ## Problem
