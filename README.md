@@ -104,15 +104,7 @@ Edit `stacks.yaml` to declare stacks, models, voices, and controls. User prefere
 Sample input/output demonstrating the text-enhancement pipeline (`docs/sampels/`):
 
 - [Alice's Adventures in Wonderland.txt](docs/sampels/Alice's%20Adventures%20in%20Wonderland.txt) — real book text, including line-wrapped paragraphs and markdown-style links, used as a regression fixture for `heuristic_enhance()`.
-- [Alice's Adventures in Wonderland_gb_export.mp3](docs/sampels/Alice's%20Adventures%20in%20Wonderland_gb_export.mp3) — the audio exported from that text via AlienVox's Export feature. GitHub doesn't render an inline player for a plain relative link — click through to play/download.
-
-<!--
-To get a real inline audio player here (GitHub renders these for
-attachments, not repo-linked files): open this README in the GitHub web
-editor, drag the mp3 from docs/sampels/ into the edit box, and GitHub
-will upload it and insert a github.com/user-attachments/... URL with a
-native player. Swap the bullet above for that once done.
--->
+- [Alice's Adventures in Wonderland_gb_export.mp3](docs/sampels/Alice's%20Adventures%20in%20Wonderland_gb_export.mp3) — the audio exported from that text via AlienVox's Export feature. GitHub's README sanitizer strips `<audio>` tags entirely (it's not on their HTML allowlist — `<video>` is, but only from GitHub's own attachment CDN, and that's for video, not confirmed for audio-only files), so there's no way to get a real inline player here — click through to play/download.
 
 Book text courtesy of [Project Gutenberg](https://www.gutenberg.org/) — *Alice's Adventures in Wonderland* by Lewis Carroll ([gutenberg.org/ebooks/11](https://www.gutenberg.org/ebooks/11)), public domain.
 
