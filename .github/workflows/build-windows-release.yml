@@ -1,9 +1,18 @@
 name: Build Windows Release
 
-# Manual only — builds the AlienVox portable zip + installer exe (base
-# tier: SAPI5 only, no ML) and publishes both to a GitHub Release.
-# windows-latest runners ship with Inno Setup 6 preinstalled (ISCC on
-# PATH), so build_exe.bat's ISCC auto-detection just works here.
+# Builds the AlienVox portable zip + installer exe (base tier: SAPI5
+# only, no ML) and publishes both to a GitHub Release, listed as two
+# clearly-labeled downloads. windows-latest runners ship with Inno Setup
+# 6 preinstalled (ISCC on PATH), so build_exe.bat's ISCC auto-detection
+# just works here.
+#
+# Two ways to trigger:
+#   1. Manual (Actions tab -> "Run workflow"): tag defaults to the
+#      version in python_app/version.yaml if you leave it blank — no
+#      need to compute/type one yourself.
+#   2. Push a tag matching v* (e.g. `git tag v0.0.20260721230113 && git
+#      push origin v0.0.20260721230113`): that tag is used directly as
+#      the release, no manual step needed.
 on:
   workflow_dispatch:
     inputs:
@@ -16,6 +25,9 @@ on:
         required: false
         type: boolean
         default: true
+  push:
+    tags:
+      - "v*"
 
 jobs:
   build:
@@ -51,17 +63,36 @@ jobs:
         run: |
           zip=$(ls install/.venv-base-build/build/portable/*.zip)
           exe=$(ls install/.venv-base-build/build/exe/AlienVoxSetup-*.exe)
-          echo "zip=$zip" >> "$GITHUB_OUTPUT"
-          echo "exe=$exe" >> "$GITHUB_OUTPUT"
+          echo "zip=$(basename "$zip")" >> "$GITHUB_OUTPUT"
+          echo "exe=$(basename "$exe")" >> "$GITHUB_OUTPUT"
+          echo "zip_path=$zip" >> "$GITHUB_OUTPUT"
+          echo "exe_path=$exe" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve release tag
+        id: tag
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ inputs.release_tag || format('v{0}', steps.version.outputs.version) }}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.release_tag || format('v{0}', steps.version.outputs.version) }}
+          tag_name: ${{ steps.tag.outputs.tag }}
           name: AlienVox ${{ steps.version.outputs.version }}
-          prerelease: ${{ inputs.prerelease }}
+          prerelease: ${{ inputs.prerelease != false }}
+          body: |
+            Base tier (SAPI5 only, no ML) — two separate downloads:
+
+            | Download | What it is |
+            |---|---|
+            | **${{ steps.artifacts.outputs.zip }}** | Portable — extract anywhere, run `AlienVox.exe`. No installer, no registry entries, no admin rights. |
+            | **${{ steps.artifacts.outputs.exe }}** | Installer — Start Menu shortcut, optional desktop icon, proper uninstaller. Installs per-user, no admin required. |
           files: |
-            python_app/${{ steps.artifacts.outputs.zip }}
-            python_app/${{ steps.artifacts.outputs.exe }}
+            python_app/${{ steps.artifacts.outputs.zip_path }}
+            python_app/${{ steps.artifacts.outputs.exe_path }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
