@@ -18,10 +18,89 @@ def test_collapses_inline_double_spaces():
     assert heuristic_enhance("foo  bar") == "foo bar."
 
 
-def test_strips_trailing_whitespace_per_line():
+def test_reflows_single_newline_mid_sentence():
+    """Word-wrapped text (pasted from a book/PDF, lines wrapped at
+    ~70-80 chars) has a single newline in the middle of a sentence —
+    that must become a space, not survive as a mid-sentence pause.
+    Regression test: real user-reported bug, reproduced with the exact
+    text that triggered it (opening lines of Alice in Wonderland)."""
+    alice = (
+        "Alice was beginning to get very tired of sitting by her sister on the\n"
+        "bank, and of having nothing to do: once or twice she had peeped into\n"
+        "the book her sister was reading, but it had no pictures or"
+    )
+    result = heuristic_enhance(alice)
+    assert "\n" not in result
+    assert "the bank" in result
+    assert "into\nthe" not in result
+    assert "into the" in result
+
+
+def test_double_newline_paragraph_break_is_preserved_not_reflowed():
+    """A blank line (intentional paragraph break) must stay a break —
+    only single mid-sentence newlines get reflowed into spaces."""
+    text = "First paragraph here.\n\nSecond paragraph here."
+    result = heuristic_enhance(text)
+    assert result == "First paragraph here.\n\nSecond paragraph here."
+
+
+def test_markdown_link_becomes_link_text():
+    """A raw markdown link read aloud is 'bracket ... bracket paren h
+    t t p s colon slash slash...' — keep only the link text."""
+    text = "See [www.gutenberg.org](https://www.gutenberg.org) for details."
+    result = heuristic_enhance(text)
+    assert result == "See www.gutenberg.org for details."
+    assert "https" not in result
+    assert "(" not in result and ")" not in result
+
+
+def test_underscore_italic_span_is_unwrapped():
+    text = "There was nothing so _very_ remarkable in that."
+    assert heuristic_enhance(text) == "There was nothing so very remarkable in that."
+
+
+def test_underscore_italic_span_reflowed_across_line_wrap():
+    """Regression: a multi-word italic span that happens to wrap across
+    a pasted-document line break must still be unwrapped — the reflow
+    step must run BEFORE the italic regex, not after."""
+    text = (
+        "when the Rabbit actually _took a\n"
+        "watch out of its waistcoat-pocket_, and looked at it."
+    )
+    result = heuristic_enhance(text)
+    assert "_" not in result
+    assert "took a watch out of its waistcoat-pocket, and looked at it." in result
+
+
+def test_underscore_italic_does_not_touch_snake_case():
+    """Underscores inside an identifier (no surrounding whitespace/
+    punctuation) are not markdown italics — must survive untouched."""
+    text = "Set the snake_case_variable to a value."
+    assert heuristic_enhance(text) == "Set the snake_case_variable to a value."
+
+
+# Disabled by request (2026-07-21) — see the matching commented-out rule
+# in text_enhancer.py. Hearing "[Illustration]" spoken is fine for now.
+# def test_standalone_bracket_placeholder_line_is_removed():
+#     text = "Some text here.\n\n[Illustration]\n\nMore text after."
+#     result = heuristic_enhance(text)
+#     assert "[Illustration]" not in result
+#     assert result == "Some text here.\n\nMore text after."
+
+
+def test_inline_bracket_citation_is_not_removed():
+    """Only a WHOLE line consisting of just a bracketed tag is stripped
+    — an inline citation mid-sentence is left alone."""
+    text = "Release date: June 27, 2008 [eBook #11]"
+    result = heuristic_enhance(text)
+    assert "[eBook #11]" in result
+
+
+def test_strips_trailing_whitespace_before_reflow():
+    """Trailing spaces before a mid-sentence newline don't survive as
+    extra spaces once the newline itself is reflowed away."""
     result = heuristic_enhance("hello   \nworld")
-    assert "hello\n" in result or result.startswith("hello\n")
-    assert "   " not in result
+    assert result == "hello world."
 
 
 def test_adds_terminal_punctuation_to_unterminated_paragraph():

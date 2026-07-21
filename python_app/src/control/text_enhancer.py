@@ -40,8 +40,24 @@ _REPEATED_PUNCT_RE = re.compile(r"([!?])\1+")
 _MIXED_REPEATED_PUNCT_RE = re.compile(r"[!?]{2,}")
 _ELLIPSIS_RE = re.compile(r"\.{3,}")
 _DASH_RE = re.compile(r"\s*[–—]\s*")
-_LONE_SYMBOL_LINE_RE = re.compile(r"^[|\-~=_*^>#`\s]+$", re.MULTILINE)
+_LONE_SYMBOL_LINE_RE = re.compile(r"^[|\-~=_*^>#`\t ]+$", re.MULTILINE)
 _SENTENCE_END_RE = re.compile(r'[.!?…"\')\]]$')
+_SINGLE_NEWLINE_RE = re.compile(r"[ \t]*\n[ \t]*")
+# Whole-line bracketed placeholder, e.g. a standalone "[Illustration]" line
+# from a Gutenberg-style plaintext book — not prose, shouldn't be spoken.
+# Anchored to the full line so it never touches an inline citation like
+# "[eBook #11]" sitting mid-sentence.
+_BRACKET_LINE_RE = re.compile(r"^[ \t]*\[[^\]\n]+\][ \t]*$", re.MULTILINE)
+# Markdown link "[text](url)" -> just the link text — read aloud, a raw
+# link is "bracket ... bracket paren h t t p s colon slash slash ...".
+_MD_LINK_RE = re.compile(r"\[([^\]\n]+)\]\(([^)\n]+)\)")
+# Underscore-italic "_word_" or "_a phrase_" -> the inner text, no
+# underscores. Requires non-word/non-underscore on both outer edges so it
+# doesn't corrupt snake_case identifiers pasted from code.
+_UNDERSCORE_ITALIC_RE = re.compile(r"(?<![\w_])_([^_\n]+)_(?![\w_])")
+# Sentinel used to protect genuine paragraph breaks ("\n\n") while
+# collapsing word-wrap newlines — see heuristic_enhance().
+_PARA_BREAK_SENTINEL = "\x01"
 
 
 def _protect_speaker_tags(text: str) -> tuple[str, list[str]]:
@@ -71,6 +87,25 @@ def heuristic_enhance(text: str) -> str:
 
     text, tags = _protect_speaker_tags(text)
 
+    # Reflow line-wrapped text FIRST, before any rule that reasons about
+    # "a line" or "a span of non-newline characters" — a book/PDF pasted
+    # in has lines wrapped at ~70-80 chars, so a markdown italic span like
+    # "_took a watch out of its waistcoat-pocket_" can have a literal
+    # newline in the middle of it. Reflowing first means every later rule
+    # only ever sees real paragraph breaks ("\n\n"), never word-wrap
+    # artifacts. Blank-line runs are protected with a sentinel so a
+    # genuine paragraph break survives the reflow.
+    text = _BLANK_LINES_RE.sub("\n\n", text)
+    text = text.replace("\n\n", _PARA_BREAK_SENTINEL)
+    text = _SINGLE_NEWLINE_RE.sub(" ", text)
+    text = text.replace(_PARA_BREAK_SENTINEL, "\n\n")
+
+    # Disabled by request (2026-07-21) — stripping whole-line bracketed
+    # placeholders like "[Illustration]" is fine to hear spoken for now;
+    # uncomment if that changes.
+    # text = _BRACKET_LINE_RE.sub("", text)
+    text = _MD_LINK_RE.sub(r"\1", text)
+    text = _UNDERSCORE_ITALIC_RE.sub(r"\1", text)
     text = _LONE_SYMBOL_LINE_RE.sub("", text)
     text = _DASH_RE.sub(", ", text)
     text = _ELLIPSIS_RE.sub("…", text)
@@ -78,18 +113,22 @@ def heuristic_enhance(text: str) -> str:
     text = _MIXED_REPEATED_PUNCT_RE.sub(lambda m: m.group(0)[0], text)
     text = _INLINE_SPACES_RE.sub(" ", text)
     text = _TRAILING_WS_RE.sub("", text)
-    text = _BLANK_LINES_RE.sub("\n\n", text)
 
-    paragraphs = [p for p in text.split("\n\n")]
+    paragraphs = text.split("\n\n")
     fixed_paragraphs = []
     for p in paragraphs:
-        stripped = p.rstrip()
-        if stripped and not _SENTENCE_END_RE.search(stripped):
+        stripped = p.strip()
+        if not stripped:
+            # Earlier removals (bracket-placeholder lines, lone-symbol
+            # lines) can leave a paragraph empty — drop it rather than
+            # leaving a stray blank-line gap in its place.
+            continue
+        if not _SENTENCE_END_RE.search(stripped):
             stripped += "."
         fixed_paragraphs.append(stripped)
     text = "\n\n".join(fixed_paragraphs)
 
-    text = text.strip("\n")
+    text = text.strip("\n ")
     text = _restore_speaker_tags(text, tags)
     return text
 
