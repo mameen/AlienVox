@@ -84,7 +84,9 @@ class AlienVoxTray:
         menu.addSeparator()
         self._voice_menu = menu.addMenu("Voice")
         menu.addSeparator()
-        menu.addAction("Settings…", self._on_window_toggle)
+        menu.addAction("Main Window", self._on_window_toggle)
+        menu.addSeparator()
+        menu.addAction("Settings…", self._on_manage_voices)
         menu.addAction("Save Settings…", self._on_save_settings)
         menu.addAction("Load Settings…", self._on_load_settings)
         menu.addAction("About",     self._on_about)
@@ -229,6 +231,11 @@ class AlienVoxTray:
     def _on_about(self) -> None:
         from .about import AboutDialog
         AboutDialog().exec()
+
+    def _on_manage_voices(self) -> None:
+        from .manage_voices_dialog import ManageVoicesDialog
+        dlg = ManageVoicesDialog(self._state, self._controller)
+        dlg.exec()
 
     # ── Internal ─────────────────────────────────────────────────────────────
 
