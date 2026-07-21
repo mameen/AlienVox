@@ -32,7 +32,7 @@ DEFAULTS: dict[str, Any] = {
     "pitch": 0,
     "volume": 100,
     "ttl_seconds": 30,
-    "hotkey": "<ctrl>+<esc>",
+    "hotkey": "<alt>+<esc>",
 }
 
 # ── Path helpers ──────────────────────────────────────────────────────────────

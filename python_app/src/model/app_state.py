@@ -60,7 +60,7 @@ class AppState(QObject):
         self._rate: int = cfg.get("rate", 0)
         self._pitch: int = cfg.get("pitch", 0)
         self._volume: int = cfg.get("volume", 100)
-        self._hotkey: str = cfg.get("hotkey", "<ctrl>+<esc>")
+        self._hotkey: str = cfg.get("hotkey", "<alt>+<esc>")
         self._ttl_seconds: int = cfg.get("ttl_seconds", 30)
         self._speaking: bool = False
         self._last_error: str = ""

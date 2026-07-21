@@ -28,7 +28,7 @@ from . import logger as _logger
 from .config import load_effective_config
 from .config import models_root as _models_root
 from .control.app_controller import AppController
-from .control.hotkey import start_listener
+from .control.hotkey import enhanced_variant_of, start_listener
 from .control.telemetry import Telemetry
 from .engines.registry import available_stacks
 from .model.app_state import AppState
@@ -211,10 +211,10 @@ def main() -> int:
             daemon=True,
         ).start()
 
-    hotkey_listener = start_listener(
-        state.hotkey,
-        controller.speak_async,
-    )
+    hotkey_listener = start_listener({
+        state.hotkey: controller.speak_async,
+        enhanced_variant_of(state.hotkey): controller.speak_enhanced_async,
+    })
 
     return app.exec()
 

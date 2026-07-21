@@ -335,6 +335,15 @@ class AppController:
         """Toggle behavior — used by the tray icon click and global hotkey."""
         threading.Thread(target=self.speak, args=(text, False), daemon=True).start()
 
+    def speak_enhanced_async(self, text: str | None = None) -> None:
+        """Toggle behavior with heuristic text enhancement applied — used
+        by the "Play Enhanced" global hotkey (primary hotkey + Shift, see
+        hotkey.enhanced_variant_of). Captures the current selection when
+        text is None, same as speak_async."""
+        threading.Thread(
+            target=self.speak, args=(text, False), kwargs={"enhance": "heuristic"}, daemon=True
+        ).start()
+
     def play_async(self, text: str) -> None:
         """Restart behavior — used by the main window's Play button."""
         threading.Thread(target=self.speak, args=(text, True), daemon=True).start()

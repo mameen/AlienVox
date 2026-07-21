@@ -2,7 +2,7 @@
 # Only the developer may bump major/minor. The agent bumps the build timestamp
 # after every completed medium or large step (see workspace-discipline SKILL.md §4.7).
 
-version: "0.0.20260721042808"
+version: "0.0.20260721043235"
 major: 0
 minor: 0
-build: 20260721042808
+build: 20260721043235

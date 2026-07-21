@@ -218,6 +218,29 @@ def test_play_async_does_not_enhance(monkeypatch):
     assert "enhance" not in kwargs
 
 
+def test_speak_enhanced_async_calls_speak_with_heuristic_enhance_and_toggle_behavior(monkeypatch):
+    """The Play Enhanced global hotkey mirrors speak_async's toggle
+    behavior (restart=False, text=None captures selection) but with
+    enhance='heuristic' — same relationship play_enhanced_async has to
+    play_async, just for the hotkey/tray path instead of the toolbar."""
+    ctrl = _make_controller(monkeypatch)
+    calls: list[tuple] = []
+    monkeypatch.setattr(ctrl, "speak", lambda *a, **kw: calls.append((a, kw)))
+
+    ctrl.speak_enhanced_async()
+    import time as _time
+    for _ in range(50):
+        if calls:
+            break
+        _time.sleep(0.01)
+
+    assert calls, "speak() was never called by speak_enhanced_async's thread"
+    args, kwargs = calls[0]
+    assert args[0] is None
+    assert args[1] is False  # restart=False, toggle behavior
+    assert kwargs.get("enhance") == "heuristic"
+
+
 def test_enhance_text_none_strategy_passes_through(monkeypatch):
     ctrl = _make_controller(monkeypatch)
     text, used = ctrl._enhance_text("foo  bar", "none")
