@@ -193,30 +193,60 @@ def _provision_f5tts_reference_voice(f5tts_dest: Path) -> None:
     """F5-TTS is zero-shot voice cloning — it needs a reference .wav + .txt
     per preset voice (see f5tts_engine.py's _VOICES), which snapshot_download()
     above doesn't provide (those aren't part of the model repo). The pip
-    package itself bundles one usable English reference clip + transcript
-    (infer/examples/basic/basic_ref_en.wav) — copy it in as the "en_female_calm"
-    preset so at least one voice works out of the box. "en_male_warm" still
-    needs its own reference audio sourced separately (not bundled anywhere).
+    package itself bundles usable reference clips for BOTH preset voices —
+    no external assets needed:
+      - en_female_calm: infer/examples/basic/basic_ref_en.wav (has its own
+        published transcript in basic.toml).
+      - en_male_warm: infer/examples/multi/country.flac (from the
+        multi-speaker story example) — verified male via pitch analysis
+        (mean F0 ~114Hz, vs. ~165-255Hz typical female range) since it
+        ships with no transcript; transcribed once with openai-whisper
+        ("base" model) and hardcoded below rather than depending on
+        whisper/torchcodec at every install.
     """
     try:
         import f5_tts
-        bundled_wav = Path(f5_tts.__file__).parent / "infer" / "examples" / "basic" / "basic_ref_en.wav"
-        if not bundled_wav.exists():
-            print("  (f5tts bundled reference audio not found — preset voices need manual setup)")
-            return
+        # f5_tts is a namespace package (no __init__.py) — __file__ is None,
+        # use __path__ instead.
+        pkg_dir = Path(f5_tts.__path__[0])
         voices_dir = f5tts_dest / "voices"
         voices_dir.mkdir(exist_ok=True)
-        dest_wav = voices_dir / "en_female_calm.wav"
-        dest_txt = voices_dir / "en_female_calm.txt"
-        if not dest_wav.exists():
-            import shutil as _shutil
-            _shutil.copy(bundled_wav, dest_wav)
-            dest_txt.write_text(
-                "Some call me nature, others call me mother nature.", encoding="utf-8",
-            )
-            print(f"  ✓ Provisioned en_female_calm reference voice → {dest_wav}")
+
+        presets = [
+            (
+                "en_female_calm",
+                pkg_dir / "infer" / "examples" / "basic" / "basic_ref_en.wav",
+                "Some call me nature, others call me mother nature.",
+            ),
+            (
+                "en_male_warm",
+                pkg_dir / "infer" / "examples" / "multi" / "country.flac",
+                "6 spoons of fresh snow peas, 5 thick slabs of blue cheese "
+                "and maybe a snack for her brother Bob.",
+            ),
+        ]
+
+        for voice_id, bundled_src, transcript in presets:
+            dest_wav = voices_dir / f"{voice_id}.wav"
+            dest_txt = voices_dir / f"{voice_id}.txt"
+            if dest_wav.exists():
+                continue
+            if not bundled_src.exists():
+                print(f"  (f5tts bundled reference for {voice_id} not found — needs manual setup)")
+                continue
+            if bundled_src.suffix != ".wav":
+                # country.flac needs converting to .wav (f5tts_engine.py's
+                # _ref_wav() only looks for {voice_id}.wav).
+                import soundfile as _sf
+                data, sr = _sf.read(str(bundled_src))
+                _sf.write(str(dest_wav), data, sr)
+            else:
+                import shutil as _shutil
+                _shutil.copy(bundled_src, dest_wav)
+            dest_txt.write_text(transcript, encoding="utf-8")
+            print(f"  ✓ Provisioned {voice_id} reference voice -> {dest_wav}")
     except Exception as exc:
-        print(f"  (could not provision f5tts reference voice: {exc})")
+        print(f"  (could not provision f5tts reference voices: {exc})")
 
 
 def _check_and_offer_models(models_root: Path, stacks_yaml: Path, force: bool = False) -> None:
