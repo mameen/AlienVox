@@ -321,6 +321,7 @@ class MainWindow(QMainWindow):
         on_config_saved: Callable[[dict[str, Any]], None] | None = None,
         on_about: Callable | None = None,
         on_stack_changed: Callable[[str], None] | None = None,
+        on_model_changed: "Callable[[str, str], None] | None" = None,
         on_export: "Callable[[str, str, str], None] | None" = None,
         live_voices: dict[str, list[dict]] | None = None,
         current_voice_id: str = "",
@@ -346,6 +347,7 @@ class MainWindow(QMainWindow):
         self._on_config_saved_cb = on_config_saved
         self._on_about_cb = on_about
         self._on_stack_changed_cb = on_stack_changed
+        self._on_model_changed_cb = on_model_changed
         self._on_export_cb = on_export
         self._models_root = models_root
         self._active_stack_id = active_stack_id
@@ -827,11 +829,27 @@ class MainWindow(QMainWindow):
         dlg.exec()
 
     def _on_model_changed(self, stack: StackInfo, model_id: str, voice_combo: QComboBox) -> None:
+        """Handle model dropdown change (ML/AI tab) — reload voices AND
+        notify main.py to swap the active engine.
+
+        Previously this only refilled voice_combo, so the UI showed the new
+        model's voices but main.py's `engine`/`active_model` never actually
+        changed — every synthesis silently kept using whichever engine was
+        loaded at startup, with the new (invalid-for-that-engine) voice_id
+        falling back to that engine's own default voice.
+        """
         model = next((m for m in stack.models if m.id == model_id), None)
+        voice_combo.blockSignals(True)
         voice_combo.clear()
         if model:
             for v in model.voices:
                 voice_combo.addItem(v.get("label", v["id"]), v["id"])
+        voice_combo.blockSignals(False)
+
+        if not model_id or not self._on_model_changed_cb:
+            return
+        first_voice_id = voice_combo.itemData(0) if voice_combo.count() > 0 else ""
+        self._on_model_changed_cb(model_id, first_voice_id or "")
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 

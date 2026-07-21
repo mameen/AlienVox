@@ -299,8 +299,10 @@ def main() -> int:
                 cfg["model"] = model_id
             on_stack_changed(stack_id, voice_id)
         elif model_id and model_id != cfg.get("model"):
-            cfg["model"] = model_id
-            on_voice_changed(voice_id)
+            # Same stack, different ML model — must reload the engine, not
+            # just update cfg["voice"] (that left `engine` stuck on whatever
+            # model was active, silently ignoring the new selection).
+            on_model_changed(model_id, voice_id)
         else:
             on_voice_changed(voice_id)
         tel.emit("config.changed", engine=stack_id, detail="voice")
@@ -341,6 +343,42 @@ def main() -> int:
             _log.info("engine swapped: %s", type(engine).__name__)
         else:
             _log.warn("no engine for stack=%s", active_stack)
+
+        if voice_id:
+            cfg["voice"] = voice_id
+            save_user_override({"voice": voice_id})
+
+        _refresh_tray_voices()
+
+    def on_model_changed(model_id: str, voice_id: str = "") -> None:
+        """Called when the user switches ML model in the main window's
+        ML/AI tab (e.g. Kokoro -> Piper -> Chatterbox).
+
+        Previously nothing called this — the model dropdown only updated
+        which voices were shown in the UI, but main.py's `engine` was never
+        reloaded, so every synthesis kept silently using whichever engine
+        loaded at startup regardless of what model the user picked.
+        """
+        nonlocal engine, active_model
+        if active_stack != "ml" or model_id == active_model:
+            return
+        _log.info("model switch: %s -> %s", active_model, model_id)
+
+        if engine:
+            try:
+                engine.stop()
+            except Exception:
+                pass
+
+        active_model = model_id
+        cfg["model"] = model_id
+        save_user_override({"model": model_id})
+
+        engine = _load_engine(active_stack, active_model)
+        if engine:
+            _log.info("engine swapped: %s", type(engine).__name__)
+        else:
+            _log.warn("no engine for stack=%s model=%s", active_stack, active_model)
 
         if voice_id:
             cfg["voice"] = voice_id
@@ -424,6 +462,7 @@ def main() -> int:
                 on_config_saved=on_config_saved,
                 on_about=open_about,
                 on_stack_changed=on_stack_changed,
+                on_model_changed=on_model_changed,
                 on_export=on_export,
                 live_voices=win_live_voices,
                 current_voice_id=cfg.get("voice", ""),
