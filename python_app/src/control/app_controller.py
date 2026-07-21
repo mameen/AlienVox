@@ -28,12 +28,12 @@ if TYPE_CHECKING:
     from ..engines.base import TtsEngine
 
 from .. import logger as _logger_mod
-from ..model.app_state import AppState
 from ..config import save_user_override, user_yaml_path
 from ..engines.base import SpeakParams
+from ..model.app_state import AppState
+from ..version import version as get_version
 from . import text_enhancer
 from .telemetry import Telemetry
-from ..version import version as get_version
 
 _log = _logger_mod.get_logger("controller")
 
@@ -86,7 +86,6 @@ class AppController:
         state.model_changed.connect(self._on_stack_or_model_changed)
         state.voice_changed.connect(lambda _v: self._persist())
         state.params_changed.connect(lambda _p: self._persist())
-        state.enhance_strategy_changed.connect(lambda _s: self._persist())
 
         self._load_engine_for_current_state()
 
@@ -197,10 +196,6 @@ class AppController:
         """Rate/pitch/volume/ttl_seconds changes from sliders."""
         self.state.set_params(**kwargs)
 
-    def select_enhance_strategy(self, strategy: str) -> None:
-        """User toggled the Auto-enhance control (main window toolbar)."""
-        self.state.set_enhance_strategy(strategy)
-
     def build_current_speak_params(self) -> SpeakParams:
         """SpeakParams for the currently active state — used by Views that
         need to construct a one-shot dialog (e.g. ExportDialog) without
@@ -214,7 +209,7 @@ class AppController:
 
     # ── Speak / stop ──────────────────────────────────────────────────────
 
-    def speak(self, text: str | None = None, restart: bool = False) -> None:
+    def speak(self, text: str | None = None, restart: bool = False, enhance: str = "none") -> None:
         """Speak text — from provided string or captured selection.
 
         restart=False (hotkey/tray click default): acts as a toggle — if
@@ -222,6 +217,11 @@ class AppController:
         restart=True (main window Play button): interrupts any current
         playback and immediately speaks the new text, rather than
         requiring a second click to actually hear it.
+
+        enhance: "none" | "heuristic" | "llm" — applied to this call only,
+        not persisted anywhere on AppState. There is no "enhance mode"
+        toggle; each caller (play_async vs play_enhanced_async) decides
+        per call, matching the two distinct toolbar buttons.
         """
         if not self._speak_lock.acquire(blocking=False):
             self.stop()
@@ -230,7 +230,7 @@ class AppController:
             if not self._speak_lock.acquire(timeout=5.0):
                 return
         try:
-            self._speak_locked(text)
+            self._speak_locked(text, enhance)
         finally:
             self._speak_lock.release()
 
@@ -252,7 +252,7 @@ class AppController:
         _log.warn("unknown enhance_strategy=%r, skipping enhancement", strategy)
         return text, "none"
 
-    def _speak_locked(self, text: str | None) -> None:
+    def _speak_locked(self, text: str | None, enhance: str = "none") -> None:
         tel = self.telemetry
         rid = tel.new_request_id()
         start_ms = time.time_ns() // 1_000_000
@@ -267,15 +267,14 @@ class AppController:
 
         state = self.state
         original_chars, original_bytes = len(text), len(text.encode())
-        strategy = state.enhance_strategy
-        enhanced_text, used_strategy = self._enhance_text(text, strategy)
+        enhanced_text, used_strategy = self._enhance_text(text, enhance)
 
         telemetry_fields: dict[str, Any] = {
             "text_chars": original_chars,
             "text_bytes": original_bytes,
         }
         # Never record the source text itself — only sizes and strategy.
-        if strategy != "none":
+        if enhance != "none":
             telemetry_fields["enhanced_chars"] = len(enhanced_text)
             telemetry_fields["enhanced_bytes"] = len(enhanced_text.encode())
             telemetry_fields["enhance_strategy"] = used_strategy
@@ -339,6 +338,15 @@ class AppController:
     def play_async(self, text: str) -> None:
         """Restart behavior — used by the main window's Play button."""
         threading.Thread(target=self.speak, args=(text, True), daemon=True).start()
+
+    def play_enhanced_async(self, text: str) -> None:
+        """Restart behavior with heuristic text enhancement applied —
+        used by the main window's dedicated "Play Enhanced" button.
+        A one-shot action, not a persisted mode: the regular Play button
+        is unaffected and always speaks text as-is."""
+        threading.Thread(
+            target=self.speak, args=(text, True), kwargs={"enhance": "heuristic"}, daemon=True
+        ).start()
 
     def stop(self) -> None:
         if self.engine:

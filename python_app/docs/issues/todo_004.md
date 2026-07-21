@@ -1,33 +1,41 @@
 # TODO #004: Auto-Enhance Text Before TTS
 
-**Status:** Strategy A (heuristic) shipped — Strategy B (LLM) still open on ADR-012  
+**Status:** Strategy A (heuristic) shipped as a dedicated "Play Enhanced" action — Strategy B (LLM)
+still open on ADR-012  
 **Updated:** 2026-07-21  
-**Scope:** `src/control/text_enhancer.py`, `src/model/app_state.py`, `src/control/app_controller.py`, `src/view/main_window.py`
+**Scope:** `src/control/text_enhancer.py`, `src/control/app_controller.py`, `src/view/main_window.py`
 
 ---
 
 ## Implementation status (2026-07-21)
 
-Strategy A (heuristic) is implemented and wired through the MVC stack, following the
-`AppController`-command convention in `.agents/SKILLS/highlevel_design/SKILL.md` §7.2:
+Strategy A (heuristic) is implemented as a **dedicated one-shot action**, not a persisted mode —
+this differs from the original design below (a toolbar toggle backed by an `AppState` field), which
+was tried first and then deliberately reverted in favor of a simpler shape: a second "Play Enhanced"
+button next to the regular Play button, using `resources/icons/play_enhanced.png`.
 
-- `AppState.enhance_strategy` (`"none" | "heuristic" | "llm"`) — new field, setter, signal,
-  persisted via `to_cfg_patch`/`load_cfg_patch` like every other setting.
-- `AppController.select_enhance_strategy()` — the command; `AppController._enhance_text()` calls
-  `text_enhancer.enhance()` inside `_speak_locked` before building `SpeakParams`, and **falls back
-  to heuristic** (never to raw text) if `strategy == "llm"` raises — currently always, since
+- `AppController.play_enhanced_async(text)` — the command a View calls; spawns the same
+  `speak(text, restart=True, enhance="heuristic")` path as `play_async`, just with `enhance` set.
+  There is no `AppState.enhance_strategy` field — enhancement is a per-call argument to
+  `AppController.speak()`, not state that could drift or need syncing across Views. This is why the
+  MVC controller-command convention (`.agents/SKILLS/highlevel_design/SKILL.md` §7.2) still applies
+  even though there's no new `AppState` field this time: **not every new action needs new state** —
+  a one-shot action just needs a Controller command a View can call.
+- `AppController._enhance_text(text, strategy)` — applies the requested strategy, **falling back to
+  heuristic** (never to raw text) if `strategy == "llm"` raises — currently always, since
   `llm_enhance()` is still a stub. Telemetry records `enhance_strategy` as
-  `"llm_fallback_heuristic"` when this happens, so a real fallback is distinguishable from a
-  deliberate heuristic choice.
-- `MainWindow` toolbar has a checkable "✨" toggle wired to `select_enhance_strategy` and reactive
-  to `enhance_strategy_changed` (only exposes on/off — heuristic — not the unimplemented LLM path).
+  `"llm_fallback_heuristic"` when this happens, distinguishable from a deliberate heuristic choice.
+- `MainWindow` toolbar has two buttons side by side: `_btn_play` (unchanged, speaks as-is) and
+  `_btn_play_enhanced` (uses `play_enhanced.png`, calls `play_enhanced_async`). Regular Play is
+  completely unaffected by the enhanced button existing.
 - `heuristic_enhance()` preserves Dia's `[S1]`/`[S2]` tags via a stash/restore pass before any rule
   runs.
-- Tests: `tests/test_text_enhancer.py` (one per rule + Dia tag preservation), plus `AppState`/
-  `AppController` coverage for the new field and the fallback path.
+- Tests: `tests/test_text_enhancer.py` (one per rule + Dia tag preservation), plus `AppController`
+  coverage for `_enhance_text`, `play_enhanced_async`, and that `play_async` stays un-enhanced.
 
-**Not done:** export path (`audio_exporter.py`) doesn't call `enhance()` yet — only live
-`speak()` does. `llm_enhance()` remains `NotImplementedError` pending ADR-012.
+**Not done:** export path (`audio_exporter.py`) doesn't call `enhance()` yet. `llm_enhance()`
+remains `NotImplementedError` pending ADR-012 — when it lands, `play_enhanced_async` (or a third
+button) would pass `enhance="llm"` instead of hardcoding `"heuristic"`.
 
 ---
 
@@ -81,6 +89,10 @@ engine.speak() / synthesize()
 ---
 
 ## Proposed Solution
+
+*(Original proposal below — superseded by "Implementation status" above: shipped as a dedicated
+"Play Enhanced" button rather than a persisted toggle. Kept for historical context and because the
+Strategy A/B split and cost comparison still hold.)*
 
 ### UI
 
@@ -226,9 +238,10 @@ When `auto_enhance` is on, emit both original and enhanced char counts:
 ## Acceptance Criteria
 
 - [x] `heuristic_enhance()` covered by `tests/test_text_enhancer.py` — one test per rule minimum
-- [x] Toggle visible in toolbar; state survives restart (persisted on `AppState.enhance_strategy`)
-- [x] `enhance()` called in `AppController._speak_locked` before `engine.speak()` when toggle is on
-- [ ] `enhance()` called in `audio_exporter.py` before synthesis when toggle is on
-- [x] Telemetry emits `enhanced_chars`/`enhanced_bytes`/`enhance_strategy` only when strategy != "none"
+- [x] Dedicated "Play Enhanced" button visible in toolbar next to Play (`play_enhanced.png`)
+- [x] `enhance()` called via `AppController.play_enhanced_async` → `speak(enhance="heuristic")` before
+      `engine.speak()` — regular Play stays un-enhanced (`tests/test_app_controller.py`)
+- [ ] `enhance()` called in `audio_exporter.py` before synthesis (export path not wired yet)
+- [x] Telemetry emits `enhanced_chars`/`enhanced_bytes`/`enhance_strategy` only when `enhance != "none"`
 - [x] LLM path raises `NotImplementedError` until ADR-012 is resolved
 - [x] Heuristic does NOT strip or modify `[S1]`/`[S2]` Dia speaker tags

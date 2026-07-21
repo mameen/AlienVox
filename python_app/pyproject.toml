@@ -16,13 +16,14 @@ ignore = ["E501"]
 source = ["src"]
 omit = [
     # UI layer — requires a running Qt display; covered by pytest-qt integration tests (Stage 2)
-    "src/tray.py",
-    "src/about.py",
+    "src/view/tray.py",
+    "src/view/about.py",
     "src/preferences.py",
     "src/main.py",
-    "src/main_window.py",
+    "src/view/main_window.py",
+    "src/view/install_dialog.py",
     # Platform-specific boundaries — require Windows COM / audio hardware / foreground window
-    "src/capture.py",
+    "src/control/capture.py",
     "src/engines/sapi_win.py",
     "src/engines/piper_win.py",
     "src/engines/kokoro_engine.py",
@@ -31,11 +32,9 @@ omit = [
     "src/engines/f5tts_engine.py",
     "src/engines/outetts_engine.py",
     "src/audio_player.py",
-    "src/hotkey.py",
+    "src/control/hotkey.py",
     # Icon generator utility — not application logic
     "src/resources/*",
     # Version string reader — no logic to test
     "src/version.py",
-    # UI-only modules — require a running Qt display
-    "src/install_dialog.py",
 ]

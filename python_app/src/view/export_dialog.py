@@ -10,7 +10,7 @@ import threading
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt, Signal, QObject
+from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -142,8 +142,8 @@ class ExportDialog(QDialog):
             p = Path(current)
             self._path_edit.setText(str(p.with_suffix(ext)))
         else:
-            from pathlib import Path as _P
             import os
+            from pathlib import Path as _P
             default_dir = _P(os.path.expanduser("~/Desktop"))
             self._path_edit.setText(str(default_dir / f"{self._default_name}{ext}"))
 

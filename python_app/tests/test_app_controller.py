@@ -17,9 +17,9 @@ import tempfile
 from pathlib import Path
 
 from src.control.app_controller import AppController, build_speak_params
-from src.model.app_state import AppState
-from src.engines.registry import ModelInfo, StackInfo
 from src.control.telemetry import Telemetry
+from src.engines.registry import ModelInfo, StackInfo
+from src.model.app_state import AppState
 
 
 def _test_telemetry() -> Telemetry:
@@ -177,18 +177,45 @@ def test_load_settings_from_applies_patch_via_state_signals(monkeypatch, tmp_pat
     assert ctrl.engine.name == "ml:chatterbox"
 
 
-def test_select_enhance_strategy_persists(monkeypatch):
+def test_play_enhanced_async_calls_speak_with_heuristic_enhance(monkeypatch):
+    """Play Enhanced is a one-shot action, not a persisted mode — it must
+    request enhance='heuristic' for this call only, via the normal speak()
+    command, not some separate AppState toggle."""
     ctrl = _make_controller(monkeypatch)
-    persisted: list[dict] = []
-    monkeypatch.setattr(
-        "src.control.app_controller.save_user_override",
-        lambda patch, **kw: persisted.append(dict(patch)),
-    )
+    calls: list[tuple] = []
+    monkeypatch.setattr(ctrl, "speak", lambda *a, **kw: calls.append((a, kw)))
 
-    ctrl.select_enhance_strategy("heuristic")
+    ctrl.play_enhanced_async("some text")
+    import time as _time
+    for _ in range(50):
+        if calls:
+            break
+        _time.sleep(0.01)
 
-    assert ctrl.state.enhance_strategy == "heuristic"
-    assert persisted[-1]["enhance_strategy"] == "heuristic"
+    assert calls, "speak() was never called by play_enhanced_async's thread"
+    args, kwargs = calls[0]
+    assert args[0] == "some text"
+    assert args[1] is True  # restart=True
+    assert kwargs.get("enhance") == "heuristic"
+
+
+def test_play_async_does_not_enhance(monkeypatch):
+    """The regular Play button must remain unaffected by Play Enhanced —
+    no enhance kwarg means AppController.speak's own 'none' default."""
+    ctrl = _make_controller(monkeypatch)
+    calls: list[tuple] = []
+    monkeypatch.setattr(ctrl, "speak", lambda *a, **kw: calls.append((a, kw)))
+
+    ctrl.play_async("some text")
+    import time as _time
+    for _ in range(50):
+        if calls:
+            break
+        _time.sleep(0.01)
+
+    assert calls, "speak() was never called by play_async's thread"
+    args, kwargs = calls[0]
+    assert "enhance" not in kwargs
 
 
 def test_enhance_text_none_strategy_passes_through(monkeypatch):

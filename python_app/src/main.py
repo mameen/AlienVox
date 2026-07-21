@@ -25,15 +25,16 @@ from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
 from . import logger as _logger
+from .config import load_effective_config
+from .config import models_root as _models_root
 from .control.app_controller import AppController
-from .model.app_state import AppState
-from .config import load_effective_config, models_root as _models_root
-from .engines.registry import available_stacks
 from .control.hotkey import start_listener
-from .view.main_window import MainWindow
 from .control.telemetry import Telemetry
-from .view.tray import AlienVoxTray
+from .engines.registry import available_stacks
+from .model.app_state import AppState
 from .version import version as get_version
+from .view.main_window import MainWindow
+from .view.tray import AlienVoxTray
 
 _log = _logger.get_logger("main")
 

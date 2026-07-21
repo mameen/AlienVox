@@ -146,7 +146,6 @@ def export_audio(
             "Use an ML engine (Kokoro, Chatterbox, Dia, F5-TTS, OuteTTS) for WAV/MP3 export."
         )
 
-    from .engines.base import SpeakParams as _SP
     inter = intermediate_path(".wav")
     _prog("Generating WAV via SAPI…")
     done = speak_to_wav(text, voice_id, params, inter)

@@ -26,8 +26,8 @@ import sys
 import pytest
 from PySide6.QtWidgets import QApplication
 
-from src.model.app_state import AppState
 from src.engines.registry import ModelInfo, StackInfo
+from src.model.app_state import AppState
 from src.view.main_window import MainWindow
 
 

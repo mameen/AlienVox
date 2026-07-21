@@ -167,6 +167,7 @@ def _check_hardware() -> list[CheckResult]:
     cuda_hidden_by_policy = False  # True if torch sees zero devices but a CUDA_VISIBLE_DEVICES override is set
     try:
         import os as _os
+
         import torch
         # torch.cuda.is_available() can return True with zero visible devices
         # (e.g. CUDA_VISIBLE_DEVICES="" still reports the driver as usable) —

@@ -40,8 +40,8 @@ from .config import (
     load_effective_config,
     save_user_override,
 )
-from .engines.registry import StackInfo
 from .control.telemetry import Telemetry
+from .engines.registry import StackInfo
 
 
 class _Slider(QWidget):

@@ -100,8 +100,9 @@ class PiperEngine(TtsEngine):
             if voice_id in self._loaded_voices:
                 return self._loaded_voices[voice_id]
 
-            from ..config import models_root
             from piper import PiperVoice as _PiperModel
+
+            from ..config import models_root
 
             paths = find_voice_model(models_root(), voice_id)
             if paths is None:

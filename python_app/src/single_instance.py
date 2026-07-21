@@ -28,8 +28,8 @@ class SingleInstanceGuard:
             return  # single-instance enforcement is Windows-only for now
 
         try:
-            import win32event
             import win32api
+            import win32event
             import winerror
 
             self._handle = win32event.CreateMutex(None, False, _MUTEX_NAME)

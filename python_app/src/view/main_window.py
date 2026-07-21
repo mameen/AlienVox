@@ -47,11 +47,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ..control.app_controller import AppController
-from ..model.app_state import AppState
 from ..config import get_controls, get_voices, load_effective_config
+from ..control.app_controller import AppController
 from ..device import cuda_available
 from ..engines.registry import StackInfo
+from ..model.app_state import AppState
 
 _ACCENT = "#0078d4"
 _TOOLBAR_BG = "#f5f5f5"
@@ -377,7 +377,6 @@ class MainWindow(QMainWindow):
         self._state.speaking_changed.connect(self._on_state_speaking_changed)
         self._state.error_changed.connect(self._on_state_error_changed)
         self._state.catalog_changed.connect(self._on_state_catalog_changed)
-        self._state.enhance_strategy_changed.connect(self._on_state_enhance_strategy_changed)
 
     # ── Menu bar ─────────────────────────────────────────────────────────────
 
@@ -482,13 +481,17 @@ class MainWindow(QMainWindow):
         _text_btn("🎵", "Export to WAV / MP3", self._on_export)
         _sep()
         self._btn_play  = _icon_btn(_make_play_icon(),  "Play (speak text)", self._on_play)
+        play_enhanced_icon_path = Path(__file__).parent.parent / "resources" / "icons" / "play_enhanced.png"
+        play_enhanced_icon = (
+            QIcon(str(play_enhanced_icon_path)) if play_enhanced_icon_path.exists() else _make_play_icon()
+        )
+        self._btn_play_enhanced = _icon_btn(
+            play_enhanced_icon,
+            "Play Enhanced (fix up text for speech, then speak it)",
+            self._on_play_enhanced,
+        )
         self._btn_pause = _icon_btn(_make_pause_icon(), "Pause",             self._on_pause)
         self._btn_stop  = _icon_btn(_make_stop_icon(),  "Stop",              self._on_stop)
-        _sep()
-        self._btn_enhance = _text_btn("✨", "Auto-enhance text for speech (off)", self._on_toggle_enhance)
-        self._btn_enhance.setCheckable(True)
-        self._btn_enhance.setChecked(self._state.enhance_strategy != "none")
-        self._update_enhance_button(self._state.enhance_strategy)
 
         # Spacer to push About (and the GPU indicator) to the right
         spacer = QWidget()
@@ -629,12 +632,6 @@ class MainWindow(QMainWindow):
 
     def _on_state_speaking_changed(self, speaking: bool) -> None:
         self._set_status("Speaking…" if speaking else "Ready")
-
-    def _on_state_enhance_strategy_changed(self, strategy: str) -> None:
-        self._btn_enhance.blockSignals(True)
-        self._btn_enhance.setChecked(strategy != "none")
-        self._btn_enhance.blockSignals(False)
-        self._update_enhance_button(strategy)
 
     def _on_state_error_changed(self, message: str) -> None:
         if message:
@@ -947,19 +944,20 @@ class MainWindow(QMainWindow):
         self._set_status("Speaking…")
         self._controller.play_async(text)
 
+    def _on_play_enhanced(self) -> None:
+        """Dedicated action, not a mode toggle: fixes up the current text
+        (heuristic_enhance — whitespace/punctuation prosody cleanup) and
+        speaks the fixed version, this call only. The regular Play button
+        is unaffected and always speaks text as-is."""
+        text = self._editor.to_plain_text().strip()
+        if not text:
+            self._set_status("No text to speak")
+            return
+        self._set_status("Speaking (enhanced)…")
+        self._controller.play_enhanced_async(text)
+
     def _on_pause(self) -> None:
         self._set_status("Paused")  # pause/resume via engine — wired later
-
-    def _on_toggle_enhance(self) -> None:
-        # LLM strategy isn't implemented yet (docs/issues/todo_004.md) — the
-        # toolbar toggle only offers heuristic for now, matching the "ship
-        # Strategy A only for v1" recommendation.
-        strategy = "heuristic" if self._btn_enhance.isChecked() else "none"
-        self._controller.select_enhance_strategy(strategy)
-
-    def _update_enhance_button(self, strategy: str) -> None:
-        label = "on" if strategy != "none" else "off"
-        self._btn_enhance.setToolTip(f"Auto-enhance text for speech ({label})")
 
     def _on_stop(self) -> None:
         self._controller.stop()
