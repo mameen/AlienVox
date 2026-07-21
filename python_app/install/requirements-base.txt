@@ -1,0 +1,31 @@
+# AlienVox — BASE install (no ML, no torch)
+#
+# Gets the tray + main window running with the Windows SAPI5 / Speech
+# Platform engines immediately — no multi-GB downloads. This is what a
+# new user should install first; ML voices (Kokoro, Chatterbox, Dia,
+# F5-TTS, OuteTTS) are a separate, optional layer — see
+# requirements-ml.txt and README.md in this folder.
+#
+# Install with:  pip install -r install/requirements-base.txt
+
+# ── UI / Tray ─────────────────────────────────────────────────────────────────
+PySide6>=6.7.0
+
+# ── Global hotkeys ────────────────────────────────────────────────────────────
+pynput>=1.7.6
+
+# ── Windows platform APIs (SAPI5 COM, UI Automation, clipboard) ───────────────
+pywin32>=306; sys_platform == "win32"
+
+# ── Config ────────────────────────────────────────────────────────────────────
+pyyaml>=6.0
+
+# ── Audio I/O ─────────────────────────────────────────────────────────────────
+sounddevice>=0.4.6
+soundfile>=0.12.1
+numpy>=1.24.0,<2.0.0
+# MP3 export: pure Python LAME encoder, libmp3lame bundled in wheel (no ffmpeg needed)
+lameenc>=1.3.6
+
+# ── Env loading ───────────────────────────────────────────────────────────────
+python-dotenv>=1.0.0

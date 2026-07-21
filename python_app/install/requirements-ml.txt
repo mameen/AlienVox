@@ -1,0 +1,49 @@
+# AlienVox — ML install (optional, on top of requirements-base.txt)
+#
+# Adds local open-source ML voices (Kokoro, Piper, Chatterbox, F5-TTS,
+# OuteTTS) and the LLM text-enhancement strategy. This is the layer that
+# pulls in torch/transformers and is genuinely large (multi-GB of
+# package wheels, before any model *weights* are even downloaded).
+#
+# Model weights themselves are NEVER installed by this file — they
+# download lazily, per model, the first time you select or install that
+# model in the app (see Settings ▸ per-tab "Install Model", or
+# `run.py download`). Installing this file just gets the inference
+# engines ready to run once weights exist.
+#
+# Install with:  pip install -r install/requirements-ml.txt
+# (requires install/requirements-base.txt to already be installed)
+
+# ── Core ML / inference ─────────────────────────────────────────────────────
+torch>=2.0.0
+transformers>=4.30.0
+safetensors>=0.4.0
+accelerate>=0.20.0
+
+# ── Model hub / download ────────────────────────────────────────────────────
+huggingface_hub[hf_xet]>=0.20.0
+
+# ── TTS engines ──────────────────────────────────────────────────────────────
+kokoro>=0.9.0
+piper-tts>=1.2.0
+chatterbox-tts>=0.1.7
+f5-tts>=0.1.0
+outetts>=0.3.0
+# Dia: pip install git+https://github.com/nari-labs/dia.git
+# (no stable PyPI release yet — install manually if you want Dia)
+
+# ── Text enhancement (ADR-012: LLM strategy, in-process via llama.cpp) ────────
+llama-cpp-python>=0.3.0
+
+# ── Pin transitive conflicts ────────────────────────────────────────────────
+# onnx/onnxruntime (piper-tts's inference backend) and google-api-core/wandb
+# (pulled in transitively by chatterbox-tts's deps) all require protobuf>=4.25;
+# without an explicit floor here, pip's resolver can land on an old 3.x that
+# breaks onnxruntime at import time.
+protobuf>=4.25.8
+# resemble-perth (a chatterbox-tts dependency, used to watermark generated
+# audio) still imports pkg_resources, which setuptools>=81 removed entirely.
+# Without this cap, ChatterboxTTS.from_pretrained() crashes with
+# "TypeError: 'NoneType' object is not callable" the moment it tries to
+# construct PerthImplicitWatermarker (silently set to None on ImportError).
+setuptools<81
