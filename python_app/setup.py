@@ -360,6 +360,37 @@ def cmd_download_models(models_root: Path, stacks_yaml: Path, force: bool = Fals
 _TORCH_CUDA_INDEX = "https://download.pytorch.org/whl/cu124"
 
 
+def _check_inno_setup() -> None:
+    """Warn (Windows only) if the Inno Setup Compiler isn't installed.
+
+    Only needed to build the Windows installer exe (install/windows/exe/
+    build_exe.bat) — not for running the app or the portable build. Checked
+    here so a missing dependency shows up during bootstrap instead of only
+    surfacing as a build_exe.bat failure much later.
+    """
+    if not sys.platform.startswith("win"):
+        return
+
+    candidates = [
+        Path(os.environ.get("ProgramFiles(x86)", "")) / "Inno Setup 6" / "ISCC.exe",
+        Path(os.environ.get("ProgramFiles", "")) / "Inno Setup 6" / "ISCC.exe",
+    ]
+    found = any(c.exists() for c in candidates if str(c))
+    if not found:
+        import shutil
+        found = shutil.which("iscc") is not None
+
+    if found:
+        print("Inno Setup Compiler: found (Windows installer build available)")
+    else:
+        print(
+            "Inno Setup Compiler: not found (only needed to build the Windows "
+            "installer exe, not to run AlienVox or build the portable zip).\n"
+            "  Install free from https://jrsoftware.org/isinfo.php if you need "
+            "install/windows/exe/build_exe.bat to produce AlienVoxSetup-<version>.exe."
+        )
+
+
 def _detect_nvidia_gpu() -> bool:
     """True if an NVIDIA GPU + driver is present (nvidia-smi succeeds)."""
     try:
@@ -429,6 +460,7 @@ def main() -> int:
 
     print("AlienVox python_app bootstrap")
     print(f"Python: {sys.version.splitlines()[0]}")
+    _check_inno_setup()
 
     if not VENV_DIR.exists():
         print(f"Creating venv at {VENV_DIR}...")

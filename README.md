@@ -44,6 +44,7 @@ AlienVox is a lightweight **system-tray utility** for Windows that turns any sel
 
 - **Python 3.11+**
 - **Windows 10/11** (SAPI5 engine); macOS/Linux for ML engines only
+- **Inno Setup 6** ([jrsoftware.org](https://jrsoftware.org/isinfo.php), Windows only) — optional, only needed to build the Windows installer exe (`python_app/install/windows/exe/build_exe.bat`); not required to run AlienVox or build the portable zip. `python setup.py` checks for it and warns if missing.
 
 ### Install
 

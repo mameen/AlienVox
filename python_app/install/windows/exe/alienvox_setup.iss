@@ -50,6 +50,8 @@ SolidCompression=yes
 WizardStyle=modern
 SetupIconFile={#DistDir}\_internal\resources\icons\icon.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
+WizardImageFile=wizard_image.bmp,wizard_image_125.bmp
+WizardSmallImageFile=wizard_small.bmp,wizard_small_125.bmp
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"

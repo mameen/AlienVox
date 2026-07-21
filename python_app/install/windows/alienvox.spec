@@ -35,7 +35,7 @@ datas = [
 ]
 
 a = Analysis(
-    [str(SRC / "main.py")],
+    [str(Path(SPECPATH) / "entry_point.py")],
     pathex=[str(APP_ROOT)],
     binaries=[],
     datas=datas,
