@@ -66,7 +66,7 @@ stacks:
           - { id: en_US-amy-medium,                 label: "Amy US F · Medium" }
           - { id: en_US-ryan-high,                  label: "Ryan US M · High" }
           - { id: en_US-kathleen-low,               label: "Kathleen US F · Low" }
-          - { id: en_GB-southern_english_female-medium, label: "Southern GB F · Medium" }
+          - { id: en_GB-southern_english_female-low, label: "Southern GB F · Low" }
           - { id: en_GB-jenny_dioco-medium,         label: "Jenny GB F · Medium" }
           - { id: en_GB-alan-medium,                label: "Alan GB M · Medium" }
         controls:
