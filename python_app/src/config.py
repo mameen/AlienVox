@@ -66,9 +66,13 @@ def user_yaml_path(override: Path | None = None) -> Path:
     Same resolution pattern as stacks_yaml_path() — lives next to the app,
     not in %LOCALAPPDATA%, so settings are easy to find/back up/reset.
 
-    One-time migration: if this path doesn't exist yet but an older
-    AppData-based user.yaml does (from before this moved), copy it over so
-    existing settings aren't silently lost.
+    One-time migration (frozen/installed builds only — see the HARD RULE in
+    models_root()'s docstring, same class of dev/prod separation): if this
+    path doesn't exist yet but an older AppData-based user.yaml does (from
+    before this moved), copy it over so existing settings aren't silently
+    lost. A dev run must never read from %LOCALAPPDATA%/com.alientech.alienvox
+    at all, even just to check whether a legacy file exists there — that
+    folder belongs exclusively to a real installed copy.
     """
     if override is not None:
         return override
@@ -76,7 +80,7 @@ def user_yaml_path(override: Path | None = None) -> Path:
     target = (exe_sibling.parent if exe_sibling.exists()
               else Path(__file__).resolve().parents[1]) / "user.yaml"
 
-    if not target.exists():
+    if getattr(sys, "frozen", False) and not target.exists():
         legacy = app_data_dir() / "user.yaml"
         if legacy.exists():
             try:
@@ -91,24 +95,32 @@ def user_yaml_path(override: Path | None = None) -> Path:
 def models_root(override: Path | None = None) -> Path:
     """Return the directory where model weights live.
 
+    HARD RULE, not negotiable (see docs/issues/issue_001.md's investigation
+    for the real bug this rule replaced): dev ALWAYS uses <repo>/python_app/
+    .models, unconditionally — never %LOCALAPPDATA%, regardless of whether
+    that directory happens to exist. A frozen/installed build ALWAYS uses
+    %LOCALAPPDATA%\\com.alientech.alienvox\\.models — never the install
+    directory itself (which may be read-only/removable media).
+
     Search order:
       1. explicit override (tests)
-      2. frozen (PyInstaller) build: always %LOCALAPPDATA%/.../.models,
-         created on first use — a frozen bundle's own directory isn't a
-         reliable place to write multi-GB downloads (portable installs in
-         particular may sit on read-only or removable media)
-      3. dev, if app-data dir already has models from a previous
-         production install: app-data dir
-      4. dev fallback: <repo>/python_app/.models
+      2. frozen (PyInstaller) build: %LOCALAPPDATA%/.../.models, created on
+         first use
+      3. dev (unconditional, no existence check): <repo>/python_app/.models
+
+    Previously dev mode preferred the app-data dir if it happened to
+    already exist (e.g. from an earlier installed build on the same
+    machine) — that silently split "where the app looks for weights"
+    across two locations depending on unrelated machine history, causing
+    real engines to report missing weights while a human checking the repo
+    folder saw them sitting right there. Removed entirely; dev and prod
+    now have one unambiguous location each.
     """
     if override is not None:
         return override
     if getattr(sys, "frozen", False):
         prod = app_data_dir() / ".models"
         prod.mkdir(parents=True, exist_ok=True)
-        return prod
-    prod = app_data_dir() / ".models"
-    if prod.exists():
         return prod
     return Path(__file__).resolve().parents[1] / ".models"
 

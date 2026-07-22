@@ -1,15 +1,29 @@
 """Single-instance enforcement via a named Windows mutex.
 
-One AlienVox instance total, regardless of --cpu/--gpu — switching device
-mode requires closing the running instance first (a CPU instance and a GPU
-instance both hold the same audio devices / hotkey registration, so running
-both at once is never actually useful, just confusing).
+One AlienVox instance total per identity (dev vs prod — see below),
+regardless of --cpu/--gpu — switching device mode requires closing the
+running instance first (a CPU instance and a GPU instance both hold the
+same audio devices / hotkey registration, so running both at once is never
+actually useful, just confusing).
+
+HARD RULE (not negotiable — same class of bug as docs/issues/issue_002.md):
+dev and prod are separate identities everywhere, including this mutex. A
+single shared mutex name would make running the app from source (dev) and a
+real installed copy (prod) simultaneously falsely block one of them, even
+though they're fully independent processes with independent model/config/
+telemetry storage (see config.py's models_root(), telemetry.py, logger.py —
+all gated the same way). Dev and prod each get their own mutex name so they
+enforce "one instance" independently of each other.
 """
 from __future__ import annotations
 
 import sys
 
-_MUTEX_NAME = "Global\\AlienVox_SingleInstance"
+_MUTEX_NAME = (
+    "Global\\AlienVox_SingleInstance"
+    if getattr(sys, "frozen", False)
+    else "Global\\AlienVox_SingleInstance_Dev"
+)
 
 
 class SingleInstanceGuard:

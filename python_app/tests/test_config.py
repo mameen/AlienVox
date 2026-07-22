@@ -192,6 +192,28 @@ def test_models_root_override_wins(tmp_path):
     assert models_root(tmp_path) == tmp_path
 
 
+def test_models_root_dev_ignores_app_data_dir_even_if_it_exists(monkeypatch, tmp_path):
+    """HARD RULE (not negotiable — see models_root()'s docstring and
+    docs/issues/issue_001.md): dev mode always resolves to
+    <repo>/python_app/.models, unconditionally. Previously dev mode
+    preferred %LOCALAPPDATA%/.../.models if that directory happened to
+    already exist (e.g. leftover from an earlier installed build on the
+    same machine) — silently splitting where the app looks for weights
+    across two locations depending on unrelated machine history. Real
+    engines (chatterbox/f5tts/piper/outetts) genuinely failed to find
+    weights that were sitting right there in the repo folder because of
+    this, the first time it was hit for real."""
+    fake_app_data = tmp_path / "com.alientech.alienvox"
+    fake_app_data_models = fake_app_data / ".models"
+    fake_app_data_models.mkdir(parents=True)  # exists, and is non-empty-capable
+    monkeypatch.setattr("src.config.app_data_dir", lambda: fake_app_data)
+
+    result = models_root()
+
+    assert result != fake_app_data_models
+    assert result == Path(__file__).resolve().parents[1] / ".models"
+
+
 def test_models_root_frozen_always_uses_app_data_dir_and_creates_it(monkeypatch, tmp_path):
     """A frozen (PyInstaller) build must never fall back to a path derived
     from its own bundle location — portable installs in particular may sit

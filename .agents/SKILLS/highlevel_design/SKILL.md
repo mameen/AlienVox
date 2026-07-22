@@ -327,3 +327,41 @@ once the dialog is open, so the extra indirection isn't worth it.
 All significant, long-lived architecture decisions for an AlienVox implementation are recorded as ADRs in that **implementation's** `docs/adr/` folder (e.g. `gemini_poc/docs/adr/`, `python_app/docs/adr/`). Before proposing or implementing a large design change, **consult the existing ADRs** for prior decisions and constraints, and **record new large design decisions** as a new `adr-00N-<slug>.md` following the established format (Status, Date, Context, Decision, Consequences, Related Decisions). Keep ADRs cross-linked.
 
 Outer project ADRs (under `tts/docs/adr/`) are reserved for project-wide, technology-agnostic decisions only. Implementation-specific ADRs (stack selection, deployment model, path resolution, engine architecture) belong inside the implementation folder per the `workspace-discipline` Doc Location Rule.
+
+---
+
+## 8. Dev vs Prod Identity Separation — Non-Negotiable
+
+AlienVox running from source (`python run.py app`, dev) and a real installed/frozen copy (`prod`)
+are **separate identities in every OS-level and filesystem-level way**, always, without exception.
+Running both simultaneously on the same developer machine must work correctly, with each enforcing
+its own single-instance rule independently — one must never falsely block or contaminate the other.
+
+Concretely, gated on `getattr(sys, "frozen", False)`:
+
+| Surface | Dev | Prod (frozen) |
+| :--- | :--- | :--- |
+| Model weights (`config.py`'s `models_root()`) | `<repo>/python_app/.models`, **always**, unconditionally — never checks whether `%LOCALAPPDATA%` has anything | `%LOCALAPPDATA%\com.alientech.alienvox\.models`, always |
+| `stacks.yaml` / `user.yaml` | Next to `setup.py` (repo-relative) | Next to the installed executable |
+| Telemetry sink (`telemetry.py`) | Repo-local `.logs/*.jsonl` **only** | `%LOCALAPPDATA%\...\telemetry\*.jsonl` **only** |
+| Log sink (`logger.py`) | Repo-local `.logs/*.log` **only** | Both repo-local (best-effort, usually a no-op) **and** `%LOCALAPPDATA%\...\logs\*.log` |
+| Single-instance mutex (`single_instance.py`) | `Global\AlienVox_SingleInstance_Dev` | `Global\AlienVox_SingleInstance` |
+| Legacy `user.yaml` AppData migration read | Never runs | One-time read of the legacy AppData path, if the new location is still empty |
+
+**Why this is a hard rule, not a preference:** it was violated in two different, real, previously
+undetected ways (`docs/issues/issue_002.md`), only surfaced while chasing unrelated test failures:
+
+1. `models_root()` used to prefer `%LOCALAPPDATA%\...\.models` over the repo-local dev path
+   *whenever that AppData directory happened to already exist* — which it did, on a machine that
+   had run an installed/frozen build at some earlier point. Every dev-mode weight lookup silently
+   started resolving to the (differently-populated) AppData directory instead, with real engines
+   reporting "weights missing" for weights that were sitting right there in the repo folder.
+2. `telemetry.py` and `logger.py` wrote to **both** the repo-local sink and the AppData sink
+   **unconditionally, regardless of `sys.frozen`** — meaning every single dev run, always, was
+   silently mixing its telemetry/logs into the same folder a real installed copy uses.
+
+**The fix pattern, and the one to follow for any new AppData-touching code:** never decide "which
+location" based on "does the other location happen to exist" — decide based on `sys.frozen` alone,
+every time, with no existence-based fallback preference in either direction. A location existing or
+not existing is `models_root()`-internal, empty-directory-creation plumbing, never a routing signal
+across the dev/prod boundary.

@@ -45,9 +45,19 @@ class Telemetry:
         if sink is not None:
             # Explicit override (tests, custom callers) — this is the only sink.
             self._sinks: list[Path] = [sink]
+        elif getattr(sys, "frozen", False):
+            # Frozen/installed build only — never repo-local (see main.py's
+            # module docstring for why we DON'T ship a python_app checkout
+            # alongside a frozen install).
+            self._sinks = [_appdata_sink(self._session_id)]
         else:
-            # Default: repo-local for dev, LOCALAPPDATA for production/installed.
-            self._sinks = [_dev_sink(self._session_id), _appdata_sink(self._session_id)]
+            # HARD RULE (not negotiable — see docs/issues/issue_002.md):
+            # dev NEVER writes into %LOCALAPPDATA%\com.alientech.alienvox —
+            # that's the real install's data. Previously this wrote to BOTH
+            # sinks unconditionally, meaning every dev run silently mixed
+            # its telemetry into the same folder a real installed copy
+            # uses. Dev-only writes to the repo-local sink.
+            self._sinks = [_dev_sink(self._session_id)]
 
     @property
     def session_id(self) -> str:

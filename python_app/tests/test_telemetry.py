@@ -14,6 +14,33 @@ def tel(tmp_path) -> Telemetry:
     return Telemetry(sink=tmp_path / "telemetry.jsonl")
 
 
+# ── Dev/prod sink separation (HARD RULE — see docs/issues/issue_002.md) ────────
+
+def test_dev_default_sink_never_touches_appdata(monkeypatch):
+    """Without an explicit sink override, a non-frozen (dev) run must use
+    ONLY the repo-local sink — never %LOCALAPPDATA%\\com.alientech.alienvox,
+    which belongs exclusively to a real installed copy. Previously this
+    wrote to BOTH unconditionally, silently mixing dev telemetry into
+    prod's data folder."""
+    import sys
+    monkeypatch.setattr(sys, "frozen", False, raising=False)
+    tel = Telemetry()
+    assert len(tel._sinks) == 1
+    assert "com.alientech.alienvox" not in str(tel._sinks[0])
+    assert ".logs" in str(tel._sinks[0])
+
+
+def test_frozen_default_sink_uses_only_appdata(monkeypatch):
+    """A frozen/installed build must use ONLY the AppData sink — never the
+    repo-local .logs/ dir, which won't exist (or won't be writable) in a
+    real installed layout."""
+    import sys
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    tel = Telemetry()
+    assert len(tel._sinks) == 1
+    assert "com.alientech.alienvox" in str(tel._sinks[0])
+
+
 def _read_events(tel: Telemetry) -> list[dict]:
     sink: Path = tel._sinks[0]  # type: ignore[attr-defined]
     if not sink.exists():

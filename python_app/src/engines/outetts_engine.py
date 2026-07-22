@@ -63,6 +63,18 @@ def resolve_speaker_name(voice_id: str) -> str:
     return _VOICE_TO_SPEAKER[voice_id]
 
 
+def apply_volume(audio: np.ndarray, volume: int) -> np.ndarray:
+    """Scale a real audio buffer by SpeakParams.volume (0..100) — a pure
+    function (no model access) so it's unit-testable directly, same pattern
+    as resolve_speaker_name() above and vibevoice_engine.py's apply_volume().
+    Deliberately NOT tested via two independent real generate() calls
+    compared against each other (see test_outetts.py's
+    test_real_synthesis_volume_scaling) — real generation isn't
+    reproducible enough call-to-call for that comparison to be sound."""
+    volume_scale = max(0.0, min(1.0, volume / 100.0))
+    return audio * volume_scale
+
+
 class OuteTTSEngine(TtsEngine):
     """OuteTTS 0.5B — single class-level model singleton, daemon synth thread."""
 
@@ -142,8 +154,7 @@ class OuteTTSEngine(TtsEngine):
         audio = output.audio[0].detach().cpu().numpy().astype(np.float32)
         if np.abs(audio).max() > 1.0:
             audio = audio / 32768.0
-        volume_scale = max(0.0, min(1.0, params.volume / 100.0))
-        return audio * volume_scale
+        return apply_volume(audio, params.volume)
 
     def _do_speak(self, text: str, voice_id: str, params: SpeakParams) -> None:
         try:

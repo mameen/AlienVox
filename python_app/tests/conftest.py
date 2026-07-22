@@ -45,7 +45,31 @@ _ALL_ML_MODELS = [
     "ml/vibevoice_realtime",
 ]
 
-_REAL_MODELS_ROOT = Path(__file__).resolve().parent.parent / ".models"
+def _real_models_root() -> Path:
+    """Resolve the SAME models_root() every engine actually uses at
+    runtime — not a hardcoded guess.
+
+    Previously hardcoded to <repo>/python_app/.models, which silently
+    diverges from src/config.py's real resolution the moment
+    %LOCALAPPDATA%/.../.models exists (config.models_root() prefers that
+    app-data dir over the repo-relative dev fallback once it exists — see
+    that function's docstring for the full search order). That divergence
+    is exactly what caused real-synthesis tests to report weights as
+    "present" while the engines themselves, calling the real
+    models_root(), looked in a different (empty) directory and returned
+    None — see docs/issues/issue_001.md's investigation for how this
+    actually manifested. Falls back to the old hardcoded guess only if
+    importing the app package outright fails (keeps test collection
+    working even in a broken environment).
+    """
+    try:
+        from src.config import models_root
+        return models_root()
+    except Exception:
+        return Path(__file__).resolve().parent.parent / ".models"
+
+
+_REAL_MODELS_ROOT = _real_models_root()
 
 
 def _weights_present(model_subpath: str) -> bool:

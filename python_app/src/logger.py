@@ -41,19 +41,25 @@ def init(session_id: str) -> Path:
     _session_id = session_id
     filename = f"{session_id}_AlienVox.log"
 
-    # Dev sink: repo-local .logs/ — easy to find during development.
     dev_log_dir = Path(__file__).parent.parent / ".logs"
     _log_path = dev_log_dir / filename
 
-    # Production sink: %LOCALAPPDATA%/com.alientech.alienvox/logs/
-    import os
-    if sys.platform == "win32":
-        base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
-    else:
-        base = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
-    prod_log_path = base / "com.alientech.alienvox" / "logs" / filename
+    # HARD RULE (not negotiable — see docs/issues/issue_002.md): dev and
+    # prod are separate identities everywhere. Previously this wrote to
+    # BOTH the repo-local dir AND %LOCALAPPDATA%\com.alientech.alienvox\logs
+    # unconditionally, meaning every dev run silently mixed its logs into
+    # the same folder a real installed copy uses. Only a frozen/installed
+    # build writes to %LOCALAPPDATA%; dev writes repo-local only.
+    paths = [dev_log_dir / filename]
+    if getattr(sys, "frozen", False):
+        import os
+        if sys.platform == "win32":
+            base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
+        else:
+            base = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
+        paths.append(base / "com.alientech.alienvox" / "logs" / filename)
 
-    for path in (dev_log_dir / filename, prod_log_path):
+    for path in paths:
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
             _log_files.append(path.open("a", encoding="utf-8", buffering=1))

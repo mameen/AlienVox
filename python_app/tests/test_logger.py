@@ -69,3 +69,49 @@ def test_init_log_file_written(tmp_path, monkeypatch):
 
     content = log_path.read_text(encoding="utf-8")
     assert "file write check" in content
+
+
+# ── Dev/prod separation (HARD RULE — see docs/issues/issue_002.md) ─────────────
+
+def test_dev_init_never_writes_into_appdata(tmp_path, monkeypatch):
+    """Non-frozen (dev) init() must open ONLY the repo-local log file —
+    never %LOCALAPPDATA%\\com.alientech.alienvox\\logs, even though
+    LOCALAPPDATA is set here (proving the dev path is skipped due to
+    sys.frozen being unset, not because the env var happens to be
+    invalid). Previously this wrote to both unconditionally."""
+    if sys.platform == "win32":
+        monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    else:
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    monkeypatch.setattr(sys, "frozen", False, raising=False)
+
+    import src.logger as logger_mod
+    logger_mod._log_files = []
+    logger_mod._log_path = None
+
+    logger_mod.init("dev-separation-test")
+
+    appdata_logs = tmp_path / "com.alientech.alienvox" / "logs"
+    assert not appdata_logs.exists()
+    assert len(logger_mod._log_files) == 1
+
+
+def test_frozen_init_writes_into_appdata_too(tmp_path, monkeypatch):
+    """A frozen/installed build's init() must open BOTH the repo-local
+    file (harmless if unwritable in a real install — best-effort) AND the
+    AppData one."""
+    if sys.platform == "win32":
+        monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    else:
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+
+    import src.logger as logger_mod
+    logger_mod._log_files = []
+    logger_mod._log_path = None
+
+    logger_mod.init("frozen-separation-test")
+
+    appdata_logs = tmp_path / "com.alientech.alienvox" / "logs"
+    assert appdata_logs.exists()
+    assert len(logger_mod._log_files) == 2
