@@ -14,7 +14,10 @@ Metrics collected per stack/model/voice:
     5. audio_sample_rate — engine output sample rate (ML only)
     6. memory_mb         — RSS delta before/after synthesis
     7. cpu_percent       — peak CPU during synthesis
-    8. gpu_mb            — GPU memory used (requires pynvml)
+    8. gpu_mb            — GPU memory used, whole-device snapshot (requires pynvml)
+    9. gpu_percent       — GPU compute utilization, whole-device snapshot (requires pynvml)
+    10. device           — "cuda" or "cpu", whatever select_device() picked for this run
+                            (respects run.py's --cpu/--gpu, i.e. CUDA_VISIBLE_DEVICES)
 
 Reports written to .logs/YYYYMMDDHHmmss.{json,html}
 """
@@ -113,8 +116,10 @@ class PerfResult:
     audio_bytes: int = -1          # raw PCM size (int16) = audio_samples * 2
     audio_sample_rate: int = -1    # engine sample rate
     # System
+    device: str = "cpu"            # "cuda" or "cpu" — what select_device() picked for this run
     memory_mb: float = -1.0
     cpu_percent: float = -1.0
+    gpu_percent: float = -1.0      # GPU compute utilization (requires pynvml)
     gpu_mb: float = -1.0
     skipped: bool = False
     skip_reason: str = ""
@@ -137,10 +142,12 @@ def collect_metrics(
     is recorded — so you can actually hear each stack/model/voice for a
     quality check, without polluting the synthesis_ms measurement.
     """
+    from src.device import select_device
     result = PerfResult(
         stack_id=getattr(engine, "stack_id", "unknown"),
         model_id=getattr(engine, "model_id", None),
         voice_id=voice_id,
+        device=select_device(),
     )
 
     from src.engines.base import SpeakParams
@@ -223,16 +230,23 @@ def collect_metrics(
         result.memory_mb = _get_memory_mb() - mem_before
         result.cpu_percent = max(0.0, _get_cpu_percent() - cpu_start)
 
-    # ── GPU metric (optional) ─────────────────────────────────────────────
+    # ── GPU metrics (optional) ────────────────────────────────────────────
+    # Whole-GPU snapshot taken right after synthesis, not a process-scoped
+    # delta (pynvml has no per-process compute-utilization API) — read as
+    # "how busy was the GPU at that moment," same caveat as gpu_mb already
+    # had (whole-device memory used, not this process's share of it).
     try:
         import pynvml  # type: ignore
         pynvml.nvmlInit()
         handle = pynvml.nvmlDeviceGetHandleByIndex(0)
         mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
         result.gpu_mb = mem_info.used / (1024 * 1024)
+        util = pynvml.nvmlDeviceGetUtilizationRates(handle)
+        result.gpu_percent = float(util.gpu)
         pynvml.nvmlShutdown()
     except Exception:
         result.gpu_mb = -1.0
+        result.gpu_percent = -1.0
 
     return result
 
@@ -443,31 +457,37 @@ def render_console_table(results: list[PerfResult]) -> None:
         "model": max(6, max(len(r.model_id or "-") for r in results)),
         "voice": max(5, max(len(r.voice_id) for r in results)),
     }
+    col_w["dev"]   = 6    # device
     col_w["synth"] = 12   # synthesis_ms
     col_w["dur"]   = 9    # audio_duration_s
     col_w["kb"]    = 8    # audio_bytes → KB
     col_w["sr"]    = 8    # sample_rate
     col_w["mem"]   = 9
     col_w["cpu"]   = 7
+    col_w["gpu"]   = 7    # gpu_percent
+    col_w["gpumb"] = 9    # gpu_mb
 
     header_fmt = (
         f"  {{:<{col_w['stack']}}}  "
         f"{{:<{col_w['model']}}}  "
         f"{{:<{col_w['voice']}}}  "
+        f"{{:<{col_w['dev']}}}  "
         f"{{:>{col_w['synth']}}}  "
         f"{{:>{col_w['dur']}}}  "
         f"{{:>{col_w['kb']}}}  "
         f"{{:>{col_w['sr']}}}  "
         f"{{:>{col_w['mem']}}}  "
-        f"{{:>{col_w['cpu']}}}"
+        f"{{:>{col_w['cpu']}}}  "
+        f"{{:>{col_w['gpu']}}}  "
+        f"{{:>{col_w['gpumb']}}}"
     )
 
-    total_width = sum(col_w.values()) + 2 + 8 * 2
+    total_width = sum(col_w.values()) + 2 + 10 * 2
     print(f"\n{'─' * total_width}")
     print(header_fmt.format(
-        "STACK", "MODEL", "VOICE",
+        "STACK", "MODEL", "VOICE", "DEVICE",
         "SYNTH(ms)", "DUR(s)", "SIZE(KB)", "RATE(Hz)",
-        "MEM(MB)", "CPU(%)",
+        "MEM(MB)", "CPU(%)", "GPU(%)", "GPU(MB)",
     ))
     print(f"{'─' * total_width}")
 
@@ -486,6 +506,9 @@ def render_console_table(results: list[PerfResult]) -> None:
     def _fmt_cpu(v: float) -> str:
         return f"{v:.1f} %" if v >= 0 else "N/A"
 
+    def _fmt_gpu_pct(v: float) -> str:
+        return f"{v:.0f} %" if v >= 0 else "N/A"
+
     # Data rows
     for r in results:
         if r.skipped:
@@ -501,12 +524,15 @@ def render_console_table(results: list[PerfResult]) -> None:
             f"{synth_c}{r.stack_id}{c}",
             r.model_id or "-",
             r.voice_id[:col_w["voice"]],
+            r.device,
             f"{synth_c}{r.synthesis_ms:>8.1f} ms{c}",
             _fmt_dur(r.audio_duration_s),
             _fmt_kb(r.audio_bytes),
             _fmt_sr(r.audio_sample_rate),
             f"{mem_c}{_fmt_mb(r.memory_mb)}{c}",
             f"{cpu_c}{_fmt_cpu(r.cpu_percent)}{c}",
+            _fmt_gpu_pct(r.gpu_percent),
+            _fmt_mb(r.gpu_mb),
         ))
 
     # Summary row (timing + audio averages for valid ML runs with audio data)
@@ -519,15 +545,21 @@ def render_console_table(results: list[PerfResult]) -> None:
         avg_mem = sum(r.memory_mb for r in valid_mem) / len(valid_mem) if valid_mem else -1.0
         valid_cpu = [r for r in valid if r.cpu_percent >= 0]
         avg_cpu = sum(r.cpu_percent for r in valid_cpu) / len(valid_cpu) if valid_cpu else -1.0
+        valid_gpu = [r for r in valid if r.gpu_percent >= 0]
+        avg_gpu = sum(r.gpu_percent for r in valid_gpu) / len(valid_gpu) if valid_gpu else -1.0
+        valid_gpu_mb = [r for r in valid if r.gpu_mb >= 0]
+        avg_gpu_mb = sum(r.gpu_mb for r in valid_gpu_mb) / len(valid_gpu_mb) if valid_gpu_mb else -1.0
 
         print(f"{'─' * total_width}")
         print(header_fmt.format(
-            "AVG", "", "",
+            "AVG", "", "", "",
             f"{avg_synth:>8.1f} ms",
             _fmt_dur(avg_dur),
             "", "",
             _fmt_mb(avg_mem),
             _fmt_cpu(avg_cpu),
+            _fmt_gpu_pct(avg_gpu),
+            _fmt_mb(avg_gpu_mb),
         ))
         print(f"{'─' * total_width}")
 
@@ -617,9 +649,9 @@ def generate_html(json_js_path: str) -> str:
 <h2>Raw Results</h2>
 <table id="results-table">
 <thead><tr>
-    <th>Stack</th><th>Model</th><th>Voice</th>
+    <th>Stack</th><th>Model</th><th>Voice</th><th>Device</th>
     <th>Synth (ms)</th><th>Duration (s)</th><th>Size (KB)</th><th>Sample Rate</th>
-    <th>Memory (MB)</th><th>CPU (%)</th>
+    <th>Memory (MB)</th><th>CPU (%)</th><th>GPU (%)</th><th>GPU (MB)</th>
 </tr></thead>
 <tbody id="results-body"></tbody>
 </table>
@@ -712,7 +744,7 @@ const WELCOME_PHRASE = {json.dumps(WELCOME_PHRASE)};
         const tr = tbody.insertRow();
         if (d.skipped) {{
             const td = tr.insertCell();
-            td.colSpan = 9;
+            td.colSpan = 12;
             td.className = 'status-na';
             td.textContent = `${{d.stack_id}}${{d.model_id ? '/' + d.model_id : ''}}/${{d.voice_id}} — skipped: ${{d.skip_reason}}`;
             return;
@@ -721,12 +753,15 @@ const WELCOME_PHRASE = {json.dumps(WELCOME_PHRASE)};
             {{ key: 'stack_id',          fmt: v => v }},
             {{ key: 'model_id',          fmt: v => v ?? '-' }},
             {{ key: 'voice_id',          fmt: v => v }},
+            {{ key: 'device',            fmt: v => v ?? '-' }},
             {{ key: 'synthesis_ms',      fmt: v => v >= 0 ? v.toFixed(1) + ' ms' : 'N/A' }},
             {{ key: 'audio_duration_s',  fmt: v => v >= 0 ? v.toFixed(2) + ' s'  : 'N/A' }},
             {{ key: 'audio_bytes',       fmt: v => v >= 0 ? (v/1024).toFixed(1) + ' KB' : 'N/A' }},
             {{ key: 'audio_sample_rate', fmt: v => v >= 0 ? v.toString()          : 'N/A' }},
             {{ key: 'memory_mb',         fmt: v => v >= 0 ? v.toFixed(1) + ' MB' : 'N/A' }},
             {{ key: 'cpu_percent',       fmt: v => v >= 0 ? v.toFixed(1) + '%'   : 'N/A' }},
+            {{ key: 'gpu_percent',       fmt: v => v >= 0 ? v.toFixed(0) + '%'   : 'N/A' }},
+            {{ key: 'gpu_mb',            fmt: v => v >= 0 ? v.toFixed(1) + ' MB' : 'N/A' }},
         ];
         cols.forEach(({{ key, fmt }}) => {{
             const td = tr.insertCell();

@@ -26,7 +26,13 @@ _current_stream: sd.OutputStream | None = None
 # short right at the end) that isn't accounted for by sd.wait() alone.
 # This settle delay lets that tail actually play out before play_audio()
 # returns and the caller (e.g. a short-lived CLI process) can exit.
-_PLAYBACK_TAIL_SETTLE_S = 0.3
+# Bumped 0.3->0.6 after a real report of VibeVoice audio still cutting off
+# just before the end even with the 0.3s margin — not conclusively proven
+# to be this margin rather than VibeVoice's own generation ending abruptly
+# (real generation is known to be imperfect/non-reproducible call-to-call,
+# see vibevoice_engine.py's apply_volume() docstring), but a bigger margin
+# is a safe, free hedge either way.
+_PLAYBACK_TAIL_SETTLE_S = 0.6
 
 
 def play_audio(data: np.ndarray, sample_rate: int) -> None:

@@ -5,6 +5,13 @@ rem AlienVox ML add-on installer - adds torch/transformers/TTS engine
 rem packages on top of an existing base install (install.bat).
 rem This is a large download (multi-GB of wheels); model *weights* are
 rem separate and download later, per model, from inside the app.
+rem
+rem Installs from the root requirements.txt (same file setup.py uses) -
+rem NOT a separate install/requirements-ml.txt, which used to duplicate
+rem it and had already started drifting out of sync. requirements-base.txt
+rem stays separate on purpose: the Windows packaged-build scripts
+rem (install/windows/) require a venv that genuinely doesn't have ML
+rem packages installed, so it can't be folded the same way.
 
 set "SCRIPT_DIR=%~dp0"
 set "APP_DIR=%SCRIPT_DIR%.."
@@ -22,7 +29,7 @@ if not exist ".venv\Scripts\python.exe" (
 )
 
 echo Installing ML dependencies - this can take a while and download several GB...
-".venv\Scripts\python.exe" -m pip install -r "install\requirements-ml.txt"
+".venv\Scripts\python.exe" -m pip install -r "requirements.txt"
 if errorlevel 1 (
     echo ERROR: pip install failed - see output above.
     popd

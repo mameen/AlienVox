@@ -405,6 +405,11 @@ class MainWindow(QMainWindow):
         manage_voices_action.triggered.connect(self._on_manage_voices)
         settings_menu.addAction(manage_voices_action)
 
+        settings_menu.addSeparator()
+        quit_action = QAction("&Quit", self)
+        quit_action.triggered.connect(self._controller.quit)
+        settings_menu.addAction(quit_action)
+
         self.setMenuBar(mb)
 
     def _on_save_settings(self) -> None:

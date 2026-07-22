@@ -66,6 +66,9 @@ class _FakeController:
     def build_current_speak_params(self):
         return None
 
+    def quit(self) -> None:
+        pass
+
 
 def _ml_stack() -> StackInfo:
     """Fixture stack with two models — order matters: kokoro is listed

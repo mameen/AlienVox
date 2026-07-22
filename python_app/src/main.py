@@ -188,15 +188,9 @@ def main() -> int:
             w.raise_()
             w.activateWindow()
 
-    def quit_app() -> None:
-        controller.quit()
-        hotkey_listener.stop()
-        app.quit()
-
     tray = AlienVoxTray(
         state=state,
         controller=controller,
-        on_quit=quit_app,
         on_window_toggle=toggle_window,
     )
 
@@ -221,6 +215,14 @@ def main() -> int:
     hotkey_listener = start_listener({
         state.hotkey: controller.speak_async,
     })
+
+    # Process-level shutdown (hotkey listener + Qt event loop) reacts to
+    # AppController.quit() having finished its own shutdown work (persist,
+    # telemetry, engine.stop) — same reactive signal pattern every other
+    # AppState change uses, so no View needs a raw quit callback threaded
+    # into it; they all just call controller.quit() like any other command.
+    state.quit_requested.connect(hotkey_listener.stop)
+    state.quit_requested.connect(app.quit)
 
     return app.exec()
 

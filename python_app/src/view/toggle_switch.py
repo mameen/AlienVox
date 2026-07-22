@@ -23,10 +23,10 @@ class ToggleSwitch(QAbstractButton):
         super().__init__(parent)
         self.setCheckable(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedSize(44, 24)
+        self.setFixedSize(22, 12)
 
     def sizeHint(self) -> QSize:
-        return QSize(44, 24)
+        return QSize(22, 12)
 
     def paintEvent(self, event) -> None:  # noqa: N802 (Qt override)
         painter = QPainter(self)

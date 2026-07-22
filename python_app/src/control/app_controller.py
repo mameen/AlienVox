@@ -350,9 +350,22 @@ class AppController:
                 status="submitted",
             )
 
+            # 30s used to be hardcoded here and was too short for real,
+            # legitimately slow (not hung) generations — e.g. Dia measured
+            # ~80.8s for one voice even on GPU in a real perf sweep, and
+            # VibeVoice on CPU (no CUDA) can easily need well over a
+            # minute for a short preview phrase (RTF ~2.5x, see
+            # docs/issues/todo_006.md). Timing out early doesn't just log
+            # a wrong status — _preview_voice()'s `finally: engine.stop()`
+            # then sets _stop_requested on the still-running engine, so
+            # the eventual real completion gets silently discarded and
+            # nothing ever plays, even though generation would have
+            # finished fine given more time. 300s covers every measured
+            # real case with headroom while still catching an engine
+            # that's genuinely stuck forever (see issue_004.md).
             completed = False
             try:
-                completed = engine.wait_until_done(30_000)
+                completed = engine.wait_until_done(300_000)
             except Exception as exc:
                 tel.emit("tts.error", request_id=rid, source=source, status="error",
                          detail=f"WaitUntilDone failed: {exc}")
@@ -363,7 +376,7 @@ class AppController:
                          engine=stack_id, model=model_id, status="complete")
             else:
                 tel.emit("tts.error", request_id=rid, source=source, status="timeout",
-                         detail="WaitUntilDone timed out after 30s")
+                         detail="WaitUntilDone timed out after 300s")
 
             tel.emit("speak.done", request_id=rid, source=source, engine=stack_id,
                      status="ok" if completed else "timeout")
@@ -573,3 +586,4 @@ class AppController:
         self.telemetry.emit("app.quit")
         if self.engine:
             self.engine.stop()
+        self.state.quit_requested.emit()

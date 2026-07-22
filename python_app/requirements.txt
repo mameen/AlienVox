@@ -30,8 +30,16 @@ transformers>=4.30.0
 safetensors>=0.4.0
 accelerate>=0.20.0
 
-# ── Performance testing (optional — used by test_perf.py) ─────────────────────
-psutil>=5.9.0; extra == "perf"
+# ── Performance testing (used by tests/test_perf.py / `run.py perf`) ──────────
+# The `; extra == "perf"` marker this line used to have never actually
+# triggers on a plain `pip install -r requirements.txt` (extras markers only
+# apply to a package's own optional-dependencies metadata, not a bare
+# requirements file) — psutil was silently absent unless some other package
+# happened to pull it in transitively. Declared unconditionally now that
+# `run.py perf`'s device/CPU/memory/GPU columns are a real, documented
+# feature, not a best-effort extra.
+psutil>=5.9.0
+nvidia-ml-py>=12.0.0  # provides the `pynvml` module — GPU %/memory columns
 
 # ── TTS engines ───────────────────────────────────────────────────────────────
 kokoro>=0.9.0
@@ -41,6 +49,17 @@ f5-tts>=0.1.0
 outetts>=0.3.0
 # Dia: pip install git+https://github.com/nari-labs/dia.git
 # (no stable PyPI release yet — install manually or add to setup.py)
+#
+# VibeVoice-Realtime: not listed here either — no stable PyPI release, and
+# its `streamingtts` extra pulls a heavy, mostly-unrelated dependency set
+# (aiortc/gradio/fastapi/uvicorn for the upstream repo's websocket demo/
+# server, none of which AlienVox's in-process generate() call needs).
+# `python setup.py` installs it as its own explicit step, into this same
+# venv, after re-asserting the transformers==4.51.3 pin above — see
+# setup.py's main() and docs/issues/issue_005_transformers_pin.md. Install
+# manually with:
+#   pip install "vibevoice[streamingtts] @ git+https://github.com/microsoft/VibeVoice.git"
+# if you're not using setup.py.
 
 # ── Model hub / download ──────────────────────────────────────────────────────
 huggingface_hub[hf_xet]>=0.20.0
@@ -50,6 +69,16 @@ python-dotenv>=1.0.0
 # Was already present transitively via outetts; pinned explicitly now that
 # src/control/text_enhancer.py depends on it directly.
 llama-cpp-python>=0.3.0
+
+# ── Dev tooling (run.py test / lint / cov) ─────────────────────────────────────
+# Never actually declared anywhere before — only present on dev machines that
+# happened to `pip install` them manually at some point (same class of gap as
+# psutil/nvidia-ml-py above). `python setup.py` is meant to be the one command
+# that gets a fresh dev machine fully working, including `run.py test`/`lint`/
+# `cov` — not just the app itself.
+pytest>=8.0.0
+pytest-cov>=5.0.0
+ruff>=0.6.0
 
 # ── Pin transitive conflicts ────────────────────────────────────────────────────
 # onnx/onnxruntime (piper-tts's inference backend) and google-api-core/wandb

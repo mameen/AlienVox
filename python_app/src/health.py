@@ -50,11 +50,13 @@ _ML_ENGINE_IMPORTS = {
     "vibevoice_realtime": "vibevoice",
 }
 
-# vibevoice isn't installed by requirements-ml.txt's base ML install (or by
-# setup.py's default bootstrap, unlike dia) — see that file's comments for
-# why: no PyPI release, git-only, pulls a heavy unrelated WebRTC/server
-# dependency set. A missing import here is expected/normal (manual opt-in),
-# not a failure — warn instead.
+# vibevoice isn't in requirements.txt itself (no PyPI release, git-only,
+# pulls a heavy unrelated WebRTC/server dependency set — see that file's
+# comments for why) — `python setup.py` does install it automatically now,
+# as its own explicit step, but health.py may still run against an older
+# venv set up before that, or one where that step failed/was skipped. A
+# missing import here is treated as expected/normal, not a failure — warn
+# instead of erroring like a genuinely required engine would.
 _MANUAL_INSTALL_ENGINES = {"vibevoice_realtime"}
 
 # VibeVoice's preset voices are precomputed .pt files fetched separately

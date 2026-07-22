@@ -50,6 +50,7 @@ class AppState(QObject):
     catalog_changed = Signal()                   # stacks/live_voices data replaced wholesale
     voice_enabled_changed = Signal(str, str, str, bool)  # stack_id, model_id, voice_id, enabled
     enhance_strategy_changed = Signal(str)        # new enhance_strategy: "none" | "heuristic" | "llm"
+    quit_requested = Signal()                     # AppController.quit() has finished its shutdown work
 
     _ENHANCE_STRATEGIES = ("none", "heuristic", "llm")
 

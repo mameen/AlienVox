@@ -12,7 +12,7 @@ Simple, standalone TTS apps — high quality, zero friction. Start with **Speak 
 [![PySide6](https://img.shields.io/badge/Qt6-PySide6-41CD52.svg)](https://doc.qt.io/qtforpython-6/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Third-Party Notices](https://img.shields.io/badge/3P-notices-lightgrey.svg)](3P.md)
-[![Download](https://img.shields.io/github/v/release/mameen/AlienVox?label=download&color=success)](https://github.com/mameen/AlienVox/releases/latest)
+[![Download](https://img.shields.io/github/v/release/mameen/AlienVox?include_prereleases&label=download&color=success)](https://github.com/mameen/AlienVox/releases)
 
 </div>
 
@@ -20,7 +20,7 @@ Simple, standalone TTS apps — high quality, zero friction. Start with **Speak 
 
 ## Download
 
-Just want to run it? Grab the latest build from **[Releases](https://github.com/mameen/AlienVox/releases/latest)** — no Python required:
+Just want to run it? Grab the latest build from **[Releases](https://github.com/mameen/AlienVox/releases)** — no Python required:
 
 | | |
 |---|---|

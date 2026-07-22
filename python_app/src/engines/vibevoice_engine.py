@@ -8,13 +8,13 @@ audio at inference time; each voice is a precomputed KV-cache "prompt"
 page), fetched on demand into models_root/ml/vibevoice_realtime/voices/.
 
 Install: pip install "vibevoice[streamingtts] @ git+https://github.com/microsoft/VibeVoice.git"
-Not on PyPI, and not in requirements-ml.txt by default — see that file's
+Not on PyPI, and not in requirements.txt by default — see that file's
 comment for why (heavy WebRTC/server deps unrelated to in-process use).
 
-transformers pin (see requirements-ml.txt's header comment for the full
+transformers pin (see requirements.txt's header comment for the full
 story): the vibevoice package declares transformers<5.0.0, while
 chatterbox-tts's own wheel metadata declares transformers==5.2.0 exactly.
-requirements-ml.txt pins transformers==4.51.3 (vibevoice's own streamingtts
+requirements.txt pins transformers==4.51.3 (vibevoice's own streamingtts
 extra pin) for the whole venv, deliberately overriding chatterbox-tts's
 stated pin — verified for real (real from_pretrained() + real generate()
 against real weights, for every engine in this app, see
@@ -211,7 +211,7 @@ class VibeVoiceEngine(TtsEngine):
                     )
                 except ImportError:
                     # flash_attention_2 requires the separate `flash_attn` package
-                    # (not installed by requirements-ml.txt or vibevoice's own
+                    # (not installed by requirements.txt or vibevoice's own
                     # extras) — matches the upstream demo script's own fallback
                     # behavior rather than hard-requiring a CUDA-only extra dep
                     # just to run on GPU at all.

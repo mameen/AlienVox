@@ -4,9 +4,17 @@
 # Platform engines immediately — no multi-GB downloads. This is what a
 # new user should install first; ML voices (Kokoro, Chatterbox, Dia,
 # F5-TTS, OuteTTS) are a separate, optional layer — see
-# requirements-ml.txt and README.md in this folder.
+# ../requirements.txt (installed by install_ml.bat or `python setup.py`)
+# and README.md in this folder.
 #
 # Install with:  pip install -r install/requirements-base.txt
+#
+# Deliberately kept separate from ../requirements.txt (unlike the old
+# install/requirements-ml.txt, folded away — see README.md's "Why split
+# it this way"): the Windows packaged-build scripts (install/windows/)
+# require a venv that genuinely has no ML packages installed, so this
+# file can't just be "the base section of the full file" — it has to be
+# a real, installable-on-its-own subset.
 
 # ── UI / Tray ─────────────────────────────────────────────────────────────────
 PySide6>=6.7.0

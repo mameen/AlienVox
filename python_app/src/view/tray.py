@@ -62,7 +62,6 @@ class AlienVoxTray:
         self,
         state: AppState,
         controller: AppController,
-        on_quit: Callable[[], None],
         on_window_toggle: Callable[[], None] | None = None,
     ) -> None:
         self._state = state
@@ -87,11 +86,13 @@ class AlienVoxTray:
         menu.addAction("Main Window", self._on_window_toggle)
         menu.addSeparator()
         menu.addAction("Settings…", self._on_manage_voices)
+        menu.addAction("Quit",      controller.quit)
+        menu.addSeparator()
         menu.addAction("Save Settings…", self._on_save_settings)
         menu.addAction("Load Settings…", self._on_load_settings)
         menu.addAction("About",     self._on_about)
         menu.addSeparator()
-        menu.addAction("Quit",      on_quit)
+        menu.addAction("Quit",      controller.quit)
 
         # Use lambda to discard the 'checked' bool that triggered() always passes.
         self._act_speak.triggered.connect(lambda _: controller.speak_async())

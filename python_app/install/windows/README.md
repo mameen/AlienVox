@@ -84,8 +84,9 @@ model weights.
 Not available yet in either the portable zip or the installer — both are base-tier only (see the
 table above for why). The only way to get ML voices today is running from source and adding
 `install\install_ml.bat` on top. An ML-enabled packaged build is possible (freeze from a venv that
-has `install/requirements-ml.txt` installed instead of `requirements-base.txt`) but would be a
-multi-GB download — a separate, explicitly-opt-in build target if it's ever wanted, not the default.
+has the root `requirements.txt` installed instead of `install/requirements-base.txt`) but would be
+a multi-GB download — a separate, explicitly-opt-in build target if it's ever wanted, not the
+default.
 
 ---
 
