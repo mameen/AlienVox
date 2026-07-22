@@ -267,8 +267,14 @@ class AppController:
             _log.warn("preview failed: no engine for stack=%s model=%s", stack_id, model_id)
             return
         try:
-            engine.speak(SAMPLE_TEXT, voice_id, SpeakParams())
-            engine.wait_until_done(30_000)
+            self._run_engine_speak(
+                engine, SAMPLE_TEXT, voice_id, SpeakParams(),
+                stack_id=stack_id, model_id=model_id, source="preview",
+                extra_triggered_fields={
+                    "text_chars": len(SAMPLE_TEXT),
+                    "text_bytes": len(SAMPLE_TEXT.encode()),
+                },
+            )
         except Exception as exc:
             _log.warn("preview_voice failed for %s/%s/%s: %s", stack_id, model_id, voice_id, exc)
         finally:
@@ -277,6 +283,95 @@ class AppController:
                     engine.stop()
                 except Exception:
                     pass
+
+    def _run_engine_speak(
+        self,
+        engine: "TtsEngine",
+        text: str,
+        voice_id: str,
+        params: SpeakParams,
+        *,
+        stack_id: str,
+        model_id: str,
+        source: str,
+        request_id: str | None = None,
+        extra_triggered_fields: dict[str, Any] | None = None,
+    ) -> bool:
+        """Shared engine.speak() + wait_until_done() + telemetry wrapper.
+
+        Every command that triggers real speech (the main speak/hotkey
+        path, Play Sample, and the Manage Voices dialog's per-row preview
+        button) must go through this single place — not because telemetry
+        is precious, but because it was previously duplicated inline in
+        _speak_locked() only, and _preview_voice() called engine.speak()
+        directly with no telemetry at all. That's exactly the kind of gap
+        that's invisible until someone (a user in --debug mode) actually
+        looks for the event and it isn't there. `source` distinguishes
+        which command triggered it ("speak" vs "preview") in the JSONL
+        without needing two near-duplicate sets of event names.
+
+        Returns True if playback completed normally.
+        """
+        tel = self.telemetry
+        rid = request_id or tel.new_request_id()
+        start_ms = time.time_ns() // 1_000_000
+
+        # text_chars/text_bytes are NOT auto-computed from `text` here — for
+        # the real speak path, `text` at this point is already the enhanced
+        # text (post text_enhancer), and text_chars historically means the
+        # ORIGINAL pre-enhancement size (enhanced_chars is the separate,
+        # explicit post-enhancement field). Auto-computing from `text` would
+        # silently make text_chars/enhanced_chars measure the same thing.
+        # Every caller must supply these via extra_triggered_fields.
+        tel.emit(
+            "speak.triggered",
+            request_id=rid,
+            source=source,
+            engine=stack_id,
+            model=model_id,
+            voice=voice_id,
+            rate=params.rate,
+            pitch=params.pitch,
+            volume=params.volume,
+            version=get_version(),
+            **(extra_triggered_fields or {}),
+        )
+
+        try:
+            engine.speak(text, voice_id, params)
+
+            tel.emit(
+                "tts.first_audio",
+                request_id=rid,
+                source=source,
+                engine=stack_id,
+                model=model_id,
+                latency_ms=time.time_ns() // 1_000_000 - start_ms,
+                status="submitted",
+            )
+
+            completed = False
+            try:
+                completed = engine.wait_until_done(30_000)
+            except Exception as exc:
+                tel.emit("tts.error", request_id=rid, source=source, status="error",
+                         detail=f"WaitUntilDone failed: {exc}")
+                return False
+
+            if completed:
+                tel.emit("tts.playback_end", request_id=rid, source=source,
+                         engine=stack_id, model=model_id, status="complete")
+            else:
+                tel.emit("tts.error", request_id=rid, source=source, status="timeout",
+                         detail="WaitUntilDone timed out after 30s")
+
+            tel.emit("speak.done", request_id=rid, source=source, engine=stack_id,
+                     status="ok" if completed else "timeout")
+            return completed
+        except Exception as exc:
+            tel.emit("tts.error", request_id=rid, source=source, status="error", detail=str(exc))
+            tel.emit("speak.done", request_id=rid, source=source, engine=stack_id, status="error")
+            raise
 
     def build_current_speak_params(self) -> SpeakParams:
         """SpeakParams for the currently active state — used by Views that
@@ -349,7 +444,6 @@ class AppController:
     def _speak_locked(self, text: str | None, enhance: str | None = None) -> None:
         tel = self.telemetry
         rid = tel.new_request_id()
-        start_ms = time.time_ns() // 1_000_000
         self.state.set_speaking(True)
 
         if text is None:
@@ -367,7 +461,8 @@ class AppController:
         original_chars, original_bytes = len(text), len(text.encode())
         enhanced_text, used_strategy = self._enhance_text(text, enhance)
 
-        telemetry_fields: dict[str, Any] = {
+        extra_fields: dict[str, Any] = {
+            "hotkey": state.hotkey,
             "text_chars": original_chars,
             "text_bytes": original_bytes,
         }
@@ -378,63 +473,42 @@ class AppController:
         # persisted, and the text still only reaches the local .logs/
         # JSONL sink (same as every other telemetry field).
         if enhance != "none":
-            telemetry_fields["enhanced_chars"] = len(enhanced_text)
-            telemetry_fields["enhanced_bytes"] = len(enhanced_text.encode())
-            telemetry_fields["enhance_strategy"] = used_strategy
+            extra_fields["enhanced_chars"] = len(enhanced_text)
+            extra_fields["enhanced_bytes"] = len(enhanced_text.encode())
+            extra_fields["enhance_strategy"] = used_strategy
         if self._debug:
-            telemetry_fields["text"] = text
+            extra_fields["text"] = text
             if enhance != "none":
-                telemetry_fields["enhanced_text"] = enhanced_text
+                extra_fields["enhanced_text"] = enhanced_text
         text = enhanced_text
-
-        tel.emit(
-            "speak.triggered",
-            request_id=rid,
-            engine=state.active_stack,
-            model=state.active_model,
-            voice=state.voice,
-            rate=state.rate,
-            pitch=state.pitch,
-            volume=state.volume,
-            hotkey=state.hotkey,
-            version=get_version(),
-            **telemetry_fields,
-        )
 
         try:
             if self.engine and text:
                 params = build_speak_params(state, self._extra_cfg)
-                self.engine.speak(text, state.voice, params)
-
-                tel.emit(
-                    "tts.first_audio",
-                    request_id=rid,
-                    engine=state.active_stack,
-                    model=state.active_model,
-                    latency_ms=time.time_ns() // 1_000_000 - start_ms,
-                    status="submitted_to_sapi",
+                completed = self._run_engine_speak(
+                    self.engine, text, state.voice, params,
+                    stack_id=state.active_stack, model_id=state.active_model,
+                    source="speak", request_id=rid, extra_triggered_fields=extra_fields,
                 )
-
-                completed = False
-                try:
-                    completed = self.engine.wait_until_done(30_000)
-                except Exception as exc:
-                    tel.emit("tts.error", request_id=rid, status="error",
-                             detail=f"WaitUntilDone failed: {exc}")
-                    self.state.set_error(str(exc))
-
-                if completed:
-                    tel.emit("tts.playback_end", request_id=rid, engine=state.active_stack,
-                             model=state.active_model, status="complete")
-                else:
-                    tel.emit("tts.error", request_id=rid, status="timeout",
-                             detail="WaitUntilDone timed out after 30s")
-                    self.state.set_error("TTS playback timed out")
+                if not completed:
+                    self.state.set_error("TTS playback failed or timed out")
+            else:
+                tel.emit(
+                    "speak.triggered", request_id=rid, source="speak",
+                    engine=state.active_stack, model=state.active_model, voice=state.voice,
+                    **extra_fields,
+                )
+                tel.emit("speak.done", request_id=rid, source="speak",
+                         engine=state.active_stack, status="skipped_no_engine_or_text")
 
             self.state.set_speaking(False)
-            tel.emit("speak.done", request_id=rid, engine=state.active_stack, status="ok")
         except Exception as exc:
-            tel.emit("tts.error", status="error", detail=str(exc))
+            # Log, not just set_error() — a silent except here previously
+            # masked a real TypeError (duplicate keyword arg) for the
+            # entire "no engine" telemetry fallback path with zero visible
+            # signal beyond AppState.error, which is easy to miss during
+            # manual testing. See docs/issues/issue_003.md.
+            _log.error("_speak_locked failed: %s", exc)
             self.state.set_error(str(exc))
             self.state.set_speaking(False)
 

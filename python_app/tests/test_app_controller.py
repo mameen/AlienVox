@@ -389,6 +389,93 @@ def test_preview_voice_loads_and_discards_temp_engine_for_non_active_target(monk
     assert ctrl._load_calls == [("ml", "kokoro"), ("ml", "chatterbox")]
 
 
+def test_preview_voice_emits_telemetry(monkeypatch):
+    """Regression test: the Manage Voices dialog's per-row "Try Voice"
+    button used to call engine.speak() directly, bypassing telemetry
+    entirely — a user in --debug mode got zero events for preview clicks
+    while getting full events for the normal Play/hotkey path. Both must
+    now go through the same _run_engine_speak() helper and emit the same
+    event shape, distinguished only by source="preview" vs source="speak"."""
+    ctrl = _make_controller(monkeypatch)  # active: ml/kokoro
+    events: list[tuple[str, dict]] = []
+    monkeypatch.setattr(
+        ctrl.telemetry, "emit",
+        lambda event, **kw: events.append((event, kw)),
+    )
+
+    ctrl._preview_voice("ml", "kokoro", "af_heart")
+
+    event_names = [name for name, _ in events]
+    assert "speak.triggered" in event_names
+    assert "tts.first_audio" in event_names
+    assert "tts.playback_end" in event_names
+    assert "speak.done" in event_names
+    assert all(kw.get("source") == "preview" for _, kw in events)
+
+    triggered_kw = dict(events[event_names.index("speak.triggered")][1])
+    assert triggered_kw["engine"] == "ml"
+    assert triggered_kw["model"] == "kokoro"
+    assert triggered_kw["voice"] == "af_heart"
+
+
+def test_speak_locked_text_chars_is_original_not_enhanced_when_engine_present(monkeypatch):
+    """Regression test: a prior refactor of _speak_locked into a shared
+    _run_engine_speak() helper accidentally computed text_chars/text_bytes
+    from the post-enhancement text instead of the original — invisible in
+    every other test here because they all set ctrl.engine = None, which
+    skips _run_engine_speak entirely and takes a different code path that
+    never had the bug. This test keeps the (fake) engine active specifically
+    to exercise the path that broke."""
+    ctrl = _make_controller(monkeypatch)  # engine stays the real fake, not None
+    ctrl.state.set_enhance_strategy("heuristic")
+    events: list[tuple[str, dict]] = []
+    monkeypatch.setattr(
+        ctrl.telemetry, "emit",
+        lambda event, **kw: events.append((event, kw)),
+    )
+
+    raw = "foo   bar"  # heuristic_enhance -> "foo bar." (9 chars -> 8, distinct lengths)
+    ctrl._speak_locked(raw, None)
+
+    triggered_kw = dict(events[[n for n, _ in events].index("speak.triggered")][1])
+    assert triggered_kw["text_chars"] == len(raw)
+    assert triggered_kw["text_bytes"] == len(raw.encode())
+    assert triggered_kw["enhanced_chars"] == len("foo bar.")
+    assert triggered_kw["text_chars"] != triggered_kw["enhanced_chars"]
+
+
+def test_preview_voice_text_chars_matches_sample_text(monkeypatch):
+    ctrl = _make_controller(monkeypatch)
+    events: list[tuple[str, dict]] = []
+    monkeypatch.setattr(
+        ctrl.telemetry, "emit",
+        lambda event, **kw: events.append((event, kw)),
+    )
+
+    ctrl._preview_voice("ml", "kokoro", "af_heart")
+
+    triggered_kw = dict(events[[n for n, _ in events].index("speak.triggered")][1])
+    assert triggered_kw["text_chars"] == len(_SAMPLE_TEXT_FOR_TEST)
+    assert triggered_kw["text_bytes"] == len(_SAMPLE_TEXT_FOR_TEST.encode())
+
+
+def test_speak_and_preview_use_distinct_telemetry_source(monkeypatch):
+    """The normal speak path and the preview path must be distinguishable
+    in the JSONL sink (source field), not just present-or-absent."""
+    ctrl = _make_controller(monkeypatch)
+    events: list[tuple[str, dict]] = []
+    monkeypatch.setattr(
+        ctrl.telemetry, "emit",
+        lambda event, **kw: events.append((event, kw)),
+    )
+
+    ctrl._speak_locked("hello world", "none")
+    ctrl._preview_voice("ml", "kokoro", "af_heart")
+
+    sources = {kw.get("source") for _, kw in events if "source" in kw}
+    assert sources == {"speak", "preview"}
+
+
 def test_enhance_text_none_strategy_passes_through(monkeypatch):
     ctrl = _make_controller(monkeypatch)
     text, used = ctrl._enhance_text("foo  bar", "none")
