@@ -31,6 +31,14 @@ f5-tts>=0.1.0
 outetts>=0.3.0
 # Dia: pip install git+https://github.com/nari-labs/dia.git
 # (no stable PyPI release yet — install manually if you want Dia)
+#
+# VibeVoice-Realtime: pip install "vibevoice[streamingtts] @ git+https://github.com/microsoft/VibeVoice.git"
+# (no PyPI release; not installed by default because the streamingtts extra
+# pulls a genuinely heavy, mostly-unrelated dependency set — aiortc/gradio/
+# fastapi/uvicorn for the upstream repo's websocket demo/server, none of
+# which AlienVox's in-process generate() call needs. Install manually if you
+# want VibeVoice. Measured ~2.5x real-time on CPU — see
+# docs/issues/todo_006.md before relying on the "Realtime" name on CPU.)
 
 # ── Text enhancement (ADR-012: LLM strategy, in-process via llama.cpp) ────────
 llama-cpp-python>=0.3.0

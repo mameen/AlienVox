@@ -66,6 +66,7 @@ _ML_ENGINES: dict[str, tuple[str, str]] = {
     "dia":        ("dia_engine",        "DiaEngine"),
     "f5tts":      ("f5tts_engine",      "F5TTSEngine"),
     "outetts":    ("outetts_engine",    "OuteTTSEngine"),
+    "vibevoice_realtime": ("vibevoice_engine", "VibeVoiceEngine"),
 }
 
 

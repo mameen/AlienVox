@@ -1,8 +1,11 @@
 # TODO #006: Investigate Microsoft VibeVoice for a future engine
 
-**Status:** Open — investigate later, not scoped/estimated yet
+**Status:** Implemented (`src/engines/vibevoice_engine.py`) — CLOSED as an engine build; the
+commercial-use business decision below is still open.
 **Updated:** 2026-07-21
-**Scope:** none yet — this is a research task, not implementation
+**Scope:** `src/engines/vibevoice_engine.py`, `stacks.yaml`, `app_controller.py`'s `_ML_ENGINES`,
+`setup.py`'s `_download_auto`/`_provision_vibevoice_realtime_voices`,
+`install_dialog.py`'s vibevoice branch, `about.py`, `3P.md`, `requirements-ml.txt`.
 
 ---
 
@@ -121,8 +124,42 @@ Sequencing if this moves forward:
    entry exists.
 4. GPU-gate it in the UI (or clearly label expected CPU latency) given the RTF finding above.
 
-## Not started
+## Implementation (2026-07-21, `explore/vibevoice` branch)
 
-No code, no ADR, no engine module in this repo yet — everything above was tested in an isolated
-throwaway venv outside the project. This is still a "look into it" placeholder pending the
-commercial-use decision and the sequencing above.
+Followed the sequencing recommended above:
+
+- `src/engines/vibevoice_engine.py` — `VibeVoiceEngine(TtsEngine)`, class-level model singleton
+  (mirrors `KokoroEngine`/`OuteTTSEngine`), 6 English preset voices (`carter`, `davis`, `frank`,
+  `mike`, `emma`, `grace`), lazy-downloads each voice's `.pt` KV-cache prompt on first use via
+  `urllib.request` (stdlib, no new dependency), uses `select_device()`/`bfloat16`+
+  `flash_attention_2` on CUDA vs `float32`+`sdpa` on CPU per the upstream demo script, and passes
+  `stop_check_fn` to `generate()` for real mid-generation interrupt support (most other engines can
+  only stop *playback*, not generation itself — this model's API happens to support it).
+- `stacks.yaml` — new `vibevoice_realtime` model under the `ml` stack, `auto_download: true`,
+  rate/pitch marked `applies: false` (no equivalent controls), volume + ttl_seconds like the other
+  ML engines.
+- `app_controller.py`'s `_ML_ENGINES` — `"vibevoice_realtime": ("vibevoice_engine", "VibeVoiceEngine")`.
+- `setup.py` — added to `_download_auto`'s HF-repo map, plus
+  `_provision_vibevoice_realtime_voices()` (mirrors the existing F5-TTS/Chatterbox
+  post-download provisioning pattern) to fetch the 6 preset `.pt` files from GitHub after the HF
+  snapshot completes.
+- `install_dialog.py` — new `_build_vibevoice_ui`/`_download_vibevoice` branch alongside the
+  existing Kokoro/Piper ones; downloads weights via `snapshot_download` then the preset voices via
+  `urllib.request`, both with progress signals into the existing progress bar.
+- `about.py` — corrected the "research stage" blurb to note the measured CPU non-real-time finding
+  instead of leaving it as an unqualified aspirational mention.
+- **Manage Voices dialog and the main window's voice dropdown needed no code changes** — both are
+  driven entirely by `stacks.yaml` + `engines/registry.py`'s `available_stacks()`, so the new model
+  appears there automatically once `weights_subpath` exists (or immediately, since
+  `auto_download: true` marks it available regardless) — this is the "seamless" part the existing
+  architecture was already built for.
+- `install/requirements-ml.txt` — documented as **manual/opt-in only** (git URL, not in the base
+  ML install), same treatment as Dia, since the `streamingtts` extra pulls unrelated
+  WebRTC/gradio/fastapi server dependencies.
+
+Verified: `python run.py build` (syntax check) passes on all 38 files.
+
+**Still open:** the commercial-use disclaimer decision (see the Findings section above) is a
+business call for AlienTech.Software, not something this implementation resolves — the engine
+being wired in doesn't mean it should be *promoted* to users without that decision being made
+explicitly.

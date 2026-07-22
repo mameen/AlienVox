@@ -159,7 +159,7 @@ class AboutDialog(QDialog):
                     ("Kokoro-82M", "Primary local neural TTS. Open weights, Apache 2.0, ~82 M parameters."),
                     ("Native OS TTS", "Windows SAPI 5 — always available as the reliability floor."),
                     ("Piper", "Small offline neural TTS (MIT). Stable fallback."),
-                    ("VibeVoice-Realtime-0.5B", "Streaming local TTS experiment (MIT, research stage)."),
+                    ("VibeVoice-Realtime-0.5B", "Streaming TTS (MIT, Microsoft research-stage model). Not real-time on CPU — GPU recommended."),
                     ("Dia", "Expressive dialogue generation (Apache 2.0, GPU-oriented)."),
                 ],
             ),

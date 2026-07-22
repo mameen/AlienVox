@@ -49,6 +49,7 @@ _CHATTERBOX_HF_REPO = "ResembleAI/chatterbox"
 _DIA_HF_REPO = "nari-labs/Dia-1.6B-0626"  # dia package (git HEAD) requires the new config schema
 _F5TTS_HF_REPO = "SWivid/F5-TTS"
 _OUTETTS_HF_REPO = "OuteAI/OuteTTS-0.3-500M"
+_VIBEVOICE_REALTIME_HF_REPO = "microsoft/VibeVoice-Realtime-0.5B"
 
 # HF token from .env (for gated repos)
 _HF_TOKEN = os.environ.get("HUGGINGFACE_TOKEN", "")
@@ -165,6 +166,7 @@ def _download_auto(models_root: Path, model_id: str, force: bool = False) -> Non
         "dia": (_DIA_HF_REPO, "~3.5 GB"),
         "f5tts": (_F5TTS_HF_REPO, "~1.2 GB"),
         "outetts": (_OUTETTS_HF_REPO, "~1 GB"),
+        "vibevoice_realtime": (_VIBEVOICE_REALTIME_HF_REPO, "~2 GB"),
     }
     if model_id not in downloads:
         print(f"  ⊘ No download strategy for '{model_id}'.")
@@ -189,6 +191,46 @@ def _download_auto(models_root: Path, model_id: str, force: bool = False) -> Non
         _provision_f5tts_reference_voice(dest)
     elif model_id == "chatterbox":
         _provision_chatterbox_reference_voices(dest)
+    elif model_id == "vibevoice_realtime":
+        _provision_vibevoice_realtime_voices(dest, force=force)
+
+
+_VIBEVOICE_VOICE_PT_FILES = {
+    "carter": "en-Carter_man.pt",
+    "davis":  "en-Davis_man.pt",
+    "frank":  "en-Frank_man.pt",
+    "mike":   "en-Mike_man.pt",
+    "emma":   "en-Emma_woman.pt",
+    "grace":  "en-Grace_woman.pt",
+}
+_VIBEVOICE_VOICE_PT_BASE_URL = (
+    "https://raw.githubusercontent.com/microsoft/VibeVoice/main/"
+    "demo/voices/streaming_model/"
+)
+
+
+def _provision_vibevoice_realtime_voices(vibevoice_dest: Path, force: bool = False) -> None:
+    """VibeVoice-Realtime's preset voices are precomputed KV-cache prompts
+    (.pt files) that Microsoft ships in the GitHub repo's demo/voices/
+    directory — NOT part of the HF model repo snapshot_download() above
+    just fetched. See vibevoice_engine.py's module docstring for why (the
+    encoder needed to compute these live isn't even in the released
+    checkpoint — voices are shipped precomputed).
+    """
+    import urllib.request
+
+    voices_dir = vibevoice_dest / "voices"
+    voices_dir.mkdir(exist_ok=True)
+    for voice_id, filename in _VIBEVOICE_VOICE_PT_FILES.items():
+        dest_pt = voices_dir / filename
+        if not force and dest_pt.exists():
+            continue
+        print(f"  Downloading VibeVoice preset voice: {filename}...")
+        try:
+            urllib.request.urlretrieve(_VIBEVOICE_VOICE_PT_BASE_URL + filename, str(dest_pt))
+        except Exception as exc:
+            print(f"  ✗ failed to download {filename}: {exc}")
+    print(f"  ✓ VibeVoice preset voices ready → {voices_dir}")
 
 
 def _provision_f5tts_reference_voice(f5tts_dest: Path) -> None:

@@ -37,6 +37,13 @@ _ACCENT = "#0078d4"
 _PIPER_HF_REPO = "rhasspy/piper-voices"
 # Kokoro model repo
 _KOKORO_HF_REPO = "hexgrad/Kokoro-82M"
+# VibeVoice-Realtime model repo + its preset-voice .pt files (shipped in the
+# GitHub repo, not the HF model page — see vibevoice_engine.py's docstring)
+_VIBEVOICE_HF_REPO = "microsoft/VibeVoice-Realtime-0.5B"
+_VIBEVOICE_VOICE_PT_BASE_URL = (
+    "https://raw.githubusercontent.com/microsoft/VibeVoice/main/"
+    "demo/voices/streaming_model/"
+)
 
 
 class _DownloadWorker(QObject):
@@ -102,6 +109,8 @@ class InstallDialog(QDialog):
             self._build_kokoro_ui(layout)
         elif self._active_model_id == "piper":
             self._build_piper_ui(layout)
+        elif self._active_model_id == "vibevoice_realtime":
+            self._build_vibevoice_ui(layout)
         else:
             layout.addWidget(QLabel(
                 f"Automatic install is not yet supported for '{self._active_model_id}'.\n"
@@ -220,6 +229,29 @@ class InstallDialog(QDialog):
                     self._voice_list.addItem(item)
         layout.addWidget(self._voice_list)
 
+    def _build_vibevoice_ui(self, layout: QVBoxLayout) -> None:
+        desc = QLabel(
+            "VibeVoice-Realtime-0.5B (~2 GB) plus 6 preset voices (~4 MB each).\n"
+            "Note: measured ~2.5x real-time on CPU (i.e. NOT real-time) — Microsoft's "
+            "own docs only validate real-time performance on GPU."
+        )
+        desc.setWordWrap(True)
+        desc.setStyleSheet("font-size:11px; color:#444;")
+        layout.addWidget(desc)
+
+        voices_lbl = QLabel("<b>Included voices:</b>")
+        voices_lbl.setStyleSheet("font-size:11px;")
+        layout.addWidget(voices_lbl)
+
+        voice_list = QListWidget()
+        voice_list.setMaximumHeight(140)
+        voice_list.setStyleSheet("font-size:11px;")
+        for model in self._stack.models:
+            if model.id == "vibevoice_realtime":
+                for v in model.voices:
+                    voice_list.addItem(QListWidgetItem(v.get("label", v["id"])))
+        layout.addWidget(voice_list)
+
     # ── Download logic ────────────────────────────────────────────────────────
 
     def _on_download(self) -> None:
@@ -231,6 +263,8 @@ class InstallDialog(QDialog):
 
         if self._active_model_id == "kokoro":
             task = self._download_kokoro
+        elif self._active_model_id == "vibevoice_realtime":
+            task = self._download_vibevoice
         elif self._active_model_id == "piper":
             selected = [
                 self._voice_list.item(i).data(Qt.ItemDataRole.UserRole)
@@ -271,6 +305,47 @@ class InstallDialog(QDialog):
             tqdm_class=None,
         )
         _log.info("Kokoro-82M download complete → %s", dest)
+
+    def _download_vibevoice(self) -> None:
+        import urllib.request
+
+        from huggingface_hub import snapshot_download
+
+        dest = self._models_root / "ml" / "vibevoice_realtime"
+        dest.mkdir(parents=True, exist_ok=True)
+        _log.info("downloading VibeVoice-Realtime-0.5B to %s", dest)
+
+        def _progress_cb(transferred: int, total: int) -> None:
+            self._worker.progress.emit(
+                transferred, total,
+                f"VibeVoice weights  {transferred // 1_048_576} / {total // 1_048_576} MB",
+            )
+
+        snapshot_download(
+            repo_id=_VIBEVOICE_HF_REPO,
+            local_dir=str(dest),
+            tqdm_class=None,
+        )
+        _log.info("VibeVoice weights download complete → %s", dest)
+
+        voices_dir = dest / "voices"
+        voices_dir.mkdir(exist_ok=True)
+        voice_files = {
+            "carter": "en-Carter_man.pt", "davis": "en-Davis_man.pt",
+            "frank": "en-Frank_man.pt", "mike": "en-Mike_man.pt",
+            "emma": "en-Emma_woman.pt", "grace": "en-Grace_woman.pt",
+        }
+        for i, (voice_id, filename) in enumerate(voice_files.items()):
+            self._worker.progress.emit(i, len(voice_files), f"Downloading preset voice {filename}…")
+            dest_pt = voices_dir / filename
+            if dest_pt.exists():
+                continue
+            try:
+                urllib.request.urlretrieve(_VIBEVOICE_VOICE_PT_BASE_URL + filename, str(dest_pt))
+            except Exception as exc:
+                _log.error("failed to download %s: %s", filename, exc)
+                raise
+        _log.info("VibeVoice preset voices ready → %s", voices_dir)
 
     def _download_piper_voices(self, voice_ids: list[str]) -> None:
         from huggingface_hub import hf_hub_download
