@@ -1,10 +1,39 @@
 # TODO #001: AlienVox — Main Window & UI
 
-**Status:** Open  
-**Updated:** 2026-07-20  
-**Scope:** `src/main_window.py`, `src/about.py`, `src/tray.py`, `src/preferences.py`
+**Status:** Partially superseded — see 2026-07-22 housekeeping note below before acting on anything
+in this file.
+**Updated:** 2026-07-20 (content), 2026-07-22 (housekeeping pass)
+**Scope:** `src/view/main_window.py` (moved from `src/main_window.py` — see note), `src/view/about.py`,
+`src/view/tray.py`, `src/preferences.py` (dead code — see note)
 
 Reference design: `gemini_poc/frontend/index.html` (Rust/Tauri — full HTML/CSS/JS)
+
+---
+
+## 2026-07-22 housekeeping note
+
+This file predates the MVC refactor (`adr-004-mvc-architecture.md`) — file paths above are stale
+(`src/*.py` → `src/view/*.py` etc.) and the "Known UX Bugs" section describes a bug *class*
+(`cfg` going stale relative to what's actually spoken) that the `AppState`/`AppController` split
+structurally eliminated, not something still open to fix. Verified current state of each remaining
+"Open" item before touching this file further:
+
+- **Resolved by the MVC refactor** (no longer applicable, don't re-open): "Voice selection doesn't
+  apply", "Speech Platform tab shows (loading voices…)" — both were symptoms of `main.py`-owned
+  `cfg` staleness; `AppState` is now the single source of truth every View reads from.
+- **Done, just not checked off here**: "Speech Platform Tab" (exists), "Install Model Dialog"
+  (`src/view/install_dialog.py`), Model Availability via the Manage Voices dialog's per-voice
+  enable/disable toggles (`src/view/manage_voices_dialog.py`) — a different, more capable UI than
+  the LED-prepend idea originally proposed, superseding rather than fulfilling that literal item.
+- **Confirmed still genuinely not implemented** (verified via grep, real gaps): Piper Extra
+  Controls Strip (`noise_scale`/`noise_w`/`sentence_silence` sliders), window geometry persistence,
+  cursor position in status bar, Open/Save text file toolbar buttons, "Start with Windows" registry
+  toggle. These remain open if anyone picks this up.
+- **`src/preferences.py` (272 lines) is confirmed dead code** — not imported anywhere in `src/`.
+  The original "delete dead code" item still stands; flagging here rather than deleting
+  unilaterally as part of a docs-only housekeeping pass.
+
+---
 
 ---
 

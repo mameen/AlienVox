@@ -1,7 +1,9 @@
 # TODO #005: CLI Surface Sharing AppController with the GUI
 
-**Status:** Open  
-**Updated:** 2026-07-21  
+**Status:** Open — confirmed still accurate as of 2026-07-22 housekeeping pass (`run.py`'s
+`COMMANDS` dict still has no `speak`/`stop`/`set-voice` entries; only `app`/`health`/`download`/
+`build`/`lint`/`test`/`cov`/`perf`/`all`).
+**Updated:** 2026-07-21 (content), 2026-07-22 (confirmed still open)  
 **Scope:** `run.py`, `src/control/app_controller.py`
 
 ---

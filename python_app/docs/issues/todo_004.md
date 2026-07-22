@@ -1,8 +1,10 @@
 # TODO #004: Auto-Enhance Text Before TTS
 
-**Status:** Strategy A (heuristic) and Strategy B (LLM, ADR-012 resolved) both shipped, as a
-**global, persisted toggle** — third design iteration, see "Design history" below  
-**Updated:** 2026-07-21  
+**Status:** Closed (core feature) — Strategy A (heuristic) and Strategy B (LLM, ADR-012 resolved)
+both shipped, as a **global, persisted toggle** — third design iteration, see "Design history"
+below. One sub-item remains genuinely open: see "Still open" below — a product decision, not a
+code blocker, so this doesn't block closing the file.
+**Updated:** 2026-07-21 (content), 2026-07-22 (housekeeping — closed)  
 **Scope:** `src/model/app_state.py`, `src/control/app_controller.py`, `src/view/main_window.py`,
 `src/view/toggle_switch.py`, `src/control/text_enhancer.py`, `src/resources/prompts/enhance_for_tts.txt`
 

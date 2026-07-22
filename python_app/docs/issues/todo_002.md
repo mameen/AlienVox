@@ -1,8 +1,23 @@
 # TODO #002: AlienVox — Engine Functionality
 
-**Status:** Open  
-**Updated:** 2026-07-20  
+**Status:** Closed — every engine listed below as 🔴 is now implemented; see 2026-07-22 note.
+**Updated:** 2026-07-20 (content), 2026-07-22 (closed)
 **Scope:** `src/engines/`, `src/main.py`, `stacks.yaml`, `src/audio_win.py`
+
+---
+
+## 2026-07-22 housekeeping note
+
+Verified against the current `src/engines/` directory — every model this file marked 🔴 now has a
+real, working, tested engine module: `piper_win.py`, `dia_engine.py`, `chatterbox_engine.py`,
+`f5tts_engine.py`, `outetts_engine.py`, and `vibevoice_engine.py` (added 2026-07-21/22, see
+`todo_006.md` and `issue_001.md`/`issue_002.md`). "ML Model Install Flow" is also done —
+`setup.py`'s `download` subcommand plus each engine's `install_dialog.py` branch. Stage 5
+Packaging is done too — `install/windows/` has the PyInstaller spec and both build scripts,
+verified working end-to-end (real portable zip + real installer exe built and tested this session).
+Closing this file rather than leaving it as a stale open list.
+
+---
 
 ---
 

@@ -1,8 +1,21 @@
 # TODO #003: Performance Testing Harness
 
-**Status:** Open  
-**Created:** 2026-07-20  
+**Status:** Closed — implemented as specified; see 2026-07-22 note.
+**Created:** 2026-07-20 · **Closed:** 2026-07-22
 **Scope:** `tests/test_perf.py`, `python_app/.logs/`
+
+---
+
+## 2026-07-22 housekeeping note
+
+`tests/test_perf.py` implements every requirement below: `collect_metrics`, `write_json_report`,
+`generate_css`/`generate_html`, `write_html_report`, `render_console_table` as separate functions;
+timestamped JSON+HTML reports in `.logs/`; color-coded `THRESHOLDS`; SAPI5 enumerated per-voice;
+ML engines skipped gracefully when weights are missing. Also gained a capability beyond the
+original spec: `python run.py perf --stack <id> --model <id> --voice <id>` for a single-case run
+instead of the full sweep (see `run.py`'s `cmd_perf` docstring). Closing rather than leaving open.
+
+---
 
 ---
 
