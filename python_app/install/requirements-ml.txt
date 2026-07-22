@@ -16,6 +16,19 @@
 
 # ── Core ML / inference ─────────────────────────────────────────────────────
 torch>=2.0.0
+# Pinned exactly, not a floor: chatterbox-tts's own wheel metadata hard-pins
+# transformers==5.2.0, while vibevoice (installed by setup.py right after
+# this file, see the VibeVoice-Realtime note below) declares
+# transformers<5.0.0 (==4.51.3 for its streamingtts extra) — an unresolvable
+# conflict between the two if left to pip's resolver / a floor here.
+# 4.51.3 wins: verified for real (real from_pretrained() + real generate()
+# against real weights, every ML engine in this file — not just import
+# checks) that every engine here actually works fine under 4.51.3 despite
+# chatterbox-tts's stricter declared pin — see
+# docs/issues/issue_005_transformers_pin.md for the full investigation.
+# setup.py installs this file normally (chatterbox-tts pulls 5.2.0 in the
+# process) then re-asserts transformers==4.51.3 as a later step, same
+# pattern already used below for numpy/protobuf.
 transformers>=4.30.0
 safetensors>=0.4.0
 accelerate>=0.20.0
@@ -36,9 +49,11 @@ outetts>=0.3.0
 # (no PyPI release; not installed by default because the streamingtts extra
 # pulls a genuinely heavy, mostly-unrelated dependency set — aiortc/gradio/
 # fastapi/uvicorn for the upstream repo's websocket demo/server, none of
-# which AlienVox's in-process generate() call needs. Install manually if you
-# want VibeVoice. Measured ~2.5x real-time on CPU — see
-# docs/issues/todo_006.md before relying on the "Realtime" name on CPU.)
+# which AlienVox's in-process generate() call needs. `python setup.py`
+# installs it automatically, in THIS SAME venv, as its last step — see
+# setup.py's main(). Install manually with the line above if you're not
+# using setup.py. Measured ~2.5x real-time on CPU — see
+# docs/issues/todo_006.md before relying on the "Realtime" name on CPU.
 
 # ── Text enhancement (ADR-012: LLM strategy, in-process via llama.cpp) ────────
 llama-cpp-python>=0.3.0

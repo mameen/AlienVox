@@ -15,9 +15,12 @@ from pathlib import Path
 # Load .env (HUGGINGFACE_TOKEN, CUDA_VISIBLE_DEVICES, ...) before anything
 # that might import torch. Loaded here directly (not just by run.py) so
 # `python -m src.main` works standalone too, e.g. under a debugger.
+# override=False: run.py's --cpu already sets CUDA_VISIBLE_DEVICES="" in the
+# subprocess env to force CPU-only; override=True here would clobber that
+# back to .env's CUDA_VISIBLE_DEVICES=0 and silently re-enable the GPU.
 try:
     from dotenv import load_dotenv
-    load_dotenv(Path(__file__).resolve().parent.parent / ".env", override=True)
+    load_dotenv(Path(__file__).resolve().parent.parent / ".env", override=False)
 except ImportError:
     pass
 

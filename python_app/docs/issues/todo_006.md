@@ -163,3 +163,12 @@ Verified: `python run.py build` (syntax check) passes on all 38 files.
 business call for AlienTech.Software, not something this implementation resolves — the engine
 being wired in doesn't mean it should be *promoted* to users without that decision being made
 explicitly.
+
+## 2026-07-22 addendum: transformers version pin
+
+`vibevoice` declares `transformers<5.0.0`, which conflicts with `chatterbox-tts`'s own
+`transformers==5.2.0` pin. `setup.py` now pins the whole main venv to `transformers==4.51.3`
+(overriding chatterbox-tts's stricter pin — verified safe for every engine, not just VibeVoice) and
+installs `vibevoice` into that same venv as its last step. Full investigation, real-testing
+evidence, and the two related "hang" reports this caused mid-investigation:
+`issue_005_transformers_pin.md`, `issue_004.md`.

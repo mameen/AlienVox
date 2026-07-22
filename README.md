@@ -141,6 +141,25 @@ python run.py perf --stack ml --model kokoro --voice af_heart
 python run.py perf --stack ml --model vibevoice_realtime --voice carter
 ```
 
+## Known Issues
+
+**VibeVoice-Realtime forces `transformers==4.51.3` for the whole venv, overriding chatterbox-tts's own pin.**
+chatterbox-tts's wheel metadata hard-pins `transformers==5.2.0`; the `vibevoice` package (installed by
+`setup.py` for the VibeVoice-Realtime engine) declares `transformers<5.0.0` — an unresolvable conflict if
+left to pip's resolver. `setup.py` installs `requirements.txt` normally (which pulls in 5.2.0 via
+chatterbox-tts), then re-asserts `transformers==4.51.3` as a later step. This has been verified for real —
+not just import checks — for every ML engine in this app: real `from_pretrained()` + real `generate()`
+against real downloaded weights, on GPU, for Kokoro, Chatterbox, OuteTTS, and VibeVoice all produced normal
+audio under 4.51.3 despite chatterbox-tts's stricter declared pin. See
+`python_app/docs/issues/issue_005_transformers_pin.md` for the full investigation.
+
+**VibeVoice logs a "newly initialized" weights warning at model load — this is expected, not a bug.**
+`Some weights ... were not initialized from the model checkpoint ... and are newly initialized` for every
+`model.acoustic_tokenizer.encoder.*` key. That submodule only encodes *raw reference audio* into tokens.
+AlienVox's VibeVoice engine never uses that path — every voice is a precomputed KV-cache "prompt" (`.pt`
+file), not a raw reference clip cloned at inference time. Verified via real generation that output audio is
+normal (non-silent, sane amplitude) despite the warning.
+
 ## Architecture Decisions
 
 Key design decisions are documented as ADRs in `docs/adr/`:

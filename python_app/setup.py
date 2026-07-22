@@ -535,6 +535,28 @@ def main() -> int:
     print("\nRe-asserting numpy/protobuf pins (Dia's deps can override them)...")
     run([python, "-m", "pip", "install", "numpy<2.0.0", "protobuf>=4.25.8"])
 
+    # chatterbox-tts's own wheel metadata hard-pins transformers==5.2.0,
+    # which requirements.txt just installed — but VibeVoice (installed next)
+    # declares transformers<5.0.0, an unresolvable conflict with that exact
+    # pin. Downgrading is safe: verified for real (real from_pretrained() +
+    # real generate() against real weights, every ML engine in this app,
+    # not just imports) that everything actually works fine under 4.51.3
+    # despite chatterbox-tts's stricter declared pin — see
+    # docs/issues/issue_005_transformers_pin.md. Re-assert as the last
+    # transformers-touching step, same pattern as the numpy/protobuf
+    # reassertion above.
+    print("\nDowngrading transformers to 4.51.3 for VibeVoice compatibility")
+    print("(chatterbox-tts's own transformers==5.2.0 pin is overridden — verified")
+    print("compatible for real, see docs/issues/issue_005_transformers_pin.md)...")
+    run([python, "-m", "pip", "install", "transformers==4.51.3"])
+
+    print("\nInstalling VibeVoice-Realtime (no stable PyPI release)...")
+    print("(pulls a genuinely heavy, mostly-unrelated dependency set — aiortc/")
+    print("gradio/fastapi/uvicorn for the upstream repo's websocket demo/server,")
+    print("none of which AlienVox's in-process generate() call needs)")
+    run([python, "-m", "pip", "install",
+         "vibevoice[streamingtts] @ git+https://github.com/microsoft/VibeVoice.git"])
+
     # ── Auto-detect missing models and offer download ───────────────────────
     models_root = ROOT / ".models"
     models_root.mkdir(exist_ok=True)

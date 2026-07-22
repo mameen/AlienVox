@@ -11,6 +11,25 @@ Install: pip install "vibevoice[streamingtts] @ git+https://github.com/microsoft
 Not on PyPI, and not in requirements-ml.txt by default — see that file's
 comment for why (heavy WebRTC/server deps unrelated to in-process use).
 
+transformers pin (see requirements-ml.txt's header comment for the full
+story): the vibevoice package declares transformers<5.0.0, while
+chatterbox-tts's own wheel metadata declares transformers==5.2.0 exactly.
+requirements-ml.txt pins transformers==4.51.3 (vibevoice's own streamingtts
+extra pin) for the whole venv, deliberately overriding chatterbox-tts's
+stated pin — verified for real (real from_pretrained() + real generate()
+against real weights, for every engine in this app, see
+docs/issues/issue_005_transformers_pin.md) that every engine actually
+works fine under 4.51.3 despite what their metadata declares.
+
+Known benign warning at model load: "Some weights ... were not initialized
+from the model checkpoint ... newly initialized" for every
+model.acoustic_tokenizer.encoder.* key. That submodule only encodes RAW
+reference audio into tokens — this engine never calls that path, since
+every voice is a precomputed KV-cache prompt (see above), not a raw
+reference clip. Confirmed via real generation that output audio is normal
+(non-silent, non-exploded amplitude) despite the warning — see
+docs/issues/issue_005_transformers_pin.md.
+
 Performance note (see docs/issues/todo_006.md for the full writeup):
 measured RTF ~2.5x on CPU (i.e. NOT real-time) — Microsoft's own docs only
 validate real-time performance on NVIDIA T4 / Mac M4 Pro. Runs fine on
@@ -85,7 +104,7 @@ def apply_volume(audio: np.ndarray, volume: int) -> np.ndarray:
     pattern as outetts_engine.py's resolve_speaker_name(). Deliberately
     NOT tested via two separate real generate() calls compared against
     each other (see test_vibevoice.py's test_real_synthesis_volume_scaling
-    docstring) — VibeVoice's real autoregressive GPU generation isn't
+    docstring) — VibeVoice's real autoregressive generation isn't
     reproducible enough call-to-call for that comparison to be meaningful;
     this function is what actually needs to be correct."""
     volume_scale = max(0.0, min(1.0, volume / 100.0))
