@@ -112,3 +112,16 @@ stacks:
           pitch:       { applies: false }
           volume:      { min: 0, max: 100, default: 100, applies: true }
           ttl_seconds: { min: 0, max: 300, default: 30,  applies: true }
+
+      - id: vibevoice_realtime
+        name: VibeVoice-Realtime 0.5B
+        weights_subpath: ml/vibevoice_realtime
+        auto_download: true
+        voices:
+          - { id: carter, label: "Carter (M)" }
+          - { id: emma,   label: "Emma (F)" }
+        controls:
+          rate:        { applies: false }
+          pitch:       { applies: false }
+          volume:      { min: 0, max: 100, default: 100, applies: true }
+          ttl_seconds: { min: 0, max: 300, default: 30,  applies: true }

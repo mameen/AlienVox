@@ -47,15 +47,38 @@ _ML_ENGINE_IMPORTS = {
     "f5tts": "f5_tts",
     "outetts": "outetts",
     "dia": "dia",
+    "vibevoice_realtime": "vibevoice",
 }
 
+# vibevoice isn't installed by requirements-ml.txt's base ML install (or by
+# setup.py's default bootstrap, unlike dia) — see that file's comments for
+# why: no PyPI release, git-only, pulls a heavy unrelated WebRTC/server
+# dependency set. A missing import here is expected/normal (manual opt-in),
+# not a failure — warn instead.
+_MANUAL_INSTALL_ENGINES = {"vibevoice_realtime"}
 
-def _check_import(module_name: str) -> CheckResult:
+# VibeVoice's preset voices are precomputed .pt files fetched separately
+# from the HF weight snapshot (see vibevoice_engine.py's docstring) — the
+# generic "any file present" weights check below wouldn't catch a partial
+# download (e.g. weights present but only 2 of 6 voices).
+_VIBEVOICE_EXPECTED_VOICE_FILES = [
+    "en-Carter_man.pt", "en-Davis_man.pt", "en-Frank_man.pt",
+    "en-Mike_man.pt", "en-Emma_woman.pt", "en-Grace_woman.pt",
+]
+
+
+def _check_import(module_name: str, is_optional: bool = False) -> CheckResult:
     try:
         mod = importlib.import_module(module_name)
         version = getattr(mod, "__version__", "")
         return CheckResult(module_name, True, version)
     except Exception as exc:
+        if is_optional:
+            return CheckResult(
+                module_name, True,
+                f"not installed (manual/opt-in — {type(exc).__name__}: {exc})",
+                is_warning=True,
+            )
         return CheckResult(module_name, False, f"{type(exc).__name__}: {exc}")
 
 
@@ -124,6 +147,33 @@ def _check_model_weights(stacks_yaml: Path, models_root: Path) -> list[CheckResu
                     f"missing at .models/{wsub} — run `python run.py download`",
                 ))
     return results
+
+
+def _check_vibevoice_preset_voices(models_root: Path) -> list[CheckResult]:
+    """VibeVoice's 6 preset voices are precomputed .pt files fetched
+    separately from the HF weight snapshot (via ensure_voice_downloaded()
+    or install_dialog.py's Download button) — verify all 6 are actually
+    present, not just that the weights directory has *some* content."""
+    voices_dir = models_root / "ml" / "vibevoice_realtime" / "voices"
+    if not voices_dir.exists():
+        return [CheckResult(
+            "voices/vibevoice_realtime", True,
+            "not downloaded yet — fetched automatically on first use, or via "
+            "Settings ▸ vibevoice_realtime ▸ Download",
+            is_warning=True,
+        )]
+    missing = [f for f in _VIBEVOICE_EXPECTED_VOICE_FILES if not (voices_dir / f).exists()]
+    if missing:
+        return [CheckResult(
+            "voices/vibevoice_realtime", True,
+            f"{len(_VIBEVOICE_EXPECTED_VOICE_FILES) - len(missing)}/{len(_VIBEVOICE_EXPECTED_VOICE_FILES)} "
+            f"present — missing: {', '.join(missing)}",
+            is_warning=True,
+        )]
+    return [CheckResult(
+        "voices/vibevoice_realtime", True,
+        f"all {len(_VIBEVOICE_EXPECTED_VOICE_FILES)} preset voices present",
+    )]
 
 
 # ── Hardware ─────────────────────────────────────────────────────────────────
@@ -309,7 +359,10 @@ def run() -> int:
     print(f"Python: {sys.version.splitlines()[0]}")
 
     import_results = [_check_import(m) for m in _REQUIRED_IMPORTS]
-    import_results += [_check_import(m) for m in _ML_ENGINE_IMPORTS.values()]
+    import_results += [
+        _check_import(module_name, is_optional=(engine_id in _MANUAL_INSTALL_ENGINES))
+        for engine_id, module_name in _ML_ENGINE_IMPORTS.items()
+    ]
     _print_section("Package imports", import_results)
 
     version_results = [_check_numpy_version(), _check_protobuf_version()]
@@ -317,7 +370,9 @@ def run() -> int:
 
     from .config import models_root as _models_root
     stacks_yaml = ROOT / "stacks.yaml"
-    weight_results = _check_model_weights(stacks_yaml, _models_root())
+    mr = _models_root()
+    weight_results = _check_model_weights(stacks_yaml, mr)
+    weight_results += _check_vibevoice_preset_voices(mr)
     _print_section("Model weights (.models/)", weight_results)
 
     hardware_results = _check_hardware()

@@ -26,6 +26,28 @@ metadata:
 
 ---
 
+## 2.1 Device Testing — CPU Default, GPU Runs For Real When Present
+
+CPU is the default runtime device (`run.py`'s `_resolve_device()`); GPU is opt-in via `--gpu`/
+`--cuda`. Tests must mirror this, not hardcode a device string:
+
+- Never write `.to("cuda")` or `torch_dtype=torch.bfloat16` unconditionally in a test or in engine
+  code reached by a test — always go through the same `select_device()` (`src/device.py`) the app
+  itself uses, so a test exercises the actual resolution logic, not a stand-in for it.
+- GPU-only test paths are marked `@requires_gpu` (`tests/conftest.py`) — this **skips** on a
+  CPU-only machine, but on a machine with a real CUDA GPU it **runs for real**, against the actual
+  device, not a mocked `torch.cuda.is_available()`. Do not assume your dev/CI machine is CPU-only
+  and write GPU code paths that only get theoretical coverage — if a GPU is present, the test suite
+  must actually prove the GPU path works, because it will run there.
+- This matters concretely, not just in theory: VibeVoice's engine (`vibevoice_engine.py`) shipped
+  with two real device-placement bugs — a hardcoded `flash_attention_2` attention implementation
+  that isn't installed by default, and a cached KV-prompt loaded via `map_location="cpu"` never
+  moved to the model's actual device — that were **invisible on a CPU-only run** and only surfaced
+  once the real test suite ran on a machine with an actual GPU (`@requires_gpu` picked it up
+  automatically, no test code changes needed to catch it). Assuming "CPU works, therefore GPU
+  probably works too" is exactly the gap that produced two separate `RuntimeError`s in production
+  code that had already passed CPU testing.
+
 ## 3. Test Data — Fixtures over Mimics
 
 - Use **real YAML fixture files** for config tests, stored under `tests/fixtures/`. These are genuine, valid config files (not artificially constructed dicts) and may be reused across tests.

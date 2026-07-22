@@ -42,6 +42,7 @@ _ALL_ML_MODELS = [
     "ml/dia",
     "ml/f5tts",
     "ml/outetts",
+    "ml/vibevoice_realtime",
 ]
 
 _REAL_MODELS_ROOT = Path(__file__).resolve().parent.parent / ".models"

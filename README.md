@@ -128,8 +128,17 @@ cd python_app
 python run.py test          # Run all tests (≥80% coverage enforced)
 python run.py cov           # Coverage report
 python run.py lint          # Ruff linter
-python run.py perf          # Performance benchmarks
+python run.py perf          # Performance benchmarks (full sweep, all installed stacks/models/voices)
 python run.py all           # Test + lint + cov + perf
+```
+
+Run the full perf sweep against every installed stack/model/voice, or target just one case (skips the
+pytest unit benchmarks too — fast path for "did my change to this one voice help or hurt?"):
+
+```bat
+python run.py perf --stack sapi5 --voice "Microsoft Zira Desktop - English (United States)"
+python run.py perf --stack ml --model kokoro --voice af_heart
+python run.py perf --stack ml --model vibevoice_realtime --voice carter
 ```
 
 ## Architecture Decisions

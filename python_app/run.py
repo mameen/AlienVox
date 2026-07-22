@@ -19,6 +19,14 @@ Usage:
     python run.py cov        -- run pytest + open HTML coverage report
     python run.py perf       -- run instrumentation benchmarks (CPU-only by default)
     python run.py perf --cpu / --gpu  -- same device override, for perf comparisons
+    python run.py perf --stack <id> --model <id> --voice <id>
+                              -- run ONE stack/model/voice case instead of the full
+                                 sweep (skips the pytest unit benchmarks too) — fast
+                                 path for "did my change to this one voice help or
+                                 hurt?" e.g.:
+                                 python run.py perf --stack sapi5 --voice "Microsoft Zira Desktop - English (United States)"
+                                 python run.py perf --stack ml --model kokoro --voice af_heart
+                                 python run.py perf --stack ml --model vibevoice_realtime --voice carter
     python run.py all        -- lint -> build -> test -> cov -> perf
 
 CPU-only is the safe default for app/health/perf — pass --gpu/--cuda to opt
@@ -199,10 +207,36 @@ def cmd_cov() -> int:
     return rc
 
 
+def _parse_single_case_flags() -> list[str]:
+    """Extract --stack/--model/--voice from argv, forwarded as-is to
+    tests/test_perf.py's own argparse (see single_case_benchmark())."""
+    args = sys.argv[2:]
+    forwarded = []
+    for flag in ("--stack", "--model", "--voice"):
+        if flag in args:
+            i = args.index(flag)
+            if i + 1 < len(args):
+                forwarded += [flag, args[i + 1]]
+    return forwarded
+
+
 def cmd_perf() -> int:
     env, early_exit = _resolve_device()
     if early_exit is not None:
         return early_exit
+
+    single_case_args = _parse_single_case_flags()
+    if single_case_args:
+        # Single stack/model/voice: skip the full pytest unit sweep, just
+        # run that one case — this is the fast path for "did my change to
+        # this one engine/voice help or hurt?" instead of a multi-minute
+        # sweep across every installed stack.
+        _header("Perf — single case")
+        return _run(
+            _venv_python(), "-m", "tests.test_perf", "_benchmark", *single_case_args,
+            env=env,
+        )
+
     _header("Perf — instrumentation benchmarks")
 
     # ── Unit benchmarks via pytest (config/registry/telemetry) ─────────────

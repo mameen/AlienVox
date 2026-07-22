@@ -79,11 +79,74 @@ def ensure_voice_downloaded(voice_id: str, models_root_override=None):
     return dest
 
 
+def apply_volume(audio: np.ndarray, volume: int) -> np.ndarray:
+    """Scale a real audio buffer by SpeakParams.volume (0..100) — a pure
+    function (no model access) so it's unit-testable directly, same
+    pattern as outetts_engine.py's resolve_speaker_name(). Deliberately
+    NOT tested via two separate real generate() calls compared against
+    each other (see test_vibevoice.py's test_real_synthesis_volume_scaling
+    docstring) — VibeVoice's real autoregressive GPU generation isn't
+    reproducible enough call-to-call for that comparison to be meaningful;
+    this function is what actually needs to be correct."""
+    volume_scale = max(0.0, min(1.0, volume / 100.0))
+    return audio * volume_scale
+
+
+def _move_to_device(obj, device: str):
+    """Recursively move every tensor inside a cached_prompt dict to the
+    given device — including nested HF ModelOutput-like values.
+
+    cached_prompt's structure (lm/tts_lm/neg_lm/neg_tts_lm) holds a mix of
+    raw tensors and HF ModelOutput dict-subclass objects (which expose
+    attribute access like `.past_key_values` but do NOT implement `.to()`
+    themselves), and .pt files are always loaded to CPU first (see
+    _get_cached_prompt) — this must run whenever the model itself is on a
+    non-CPU device, or generate() fails with a "tensors on different
+    devices" RuntimeError mixing the prompt's CPU KV-cache with the
+    model's CUDA-resident new tokens.
+
+    A plain isinstance(obj, dict) check to recurse would also match those
+    ModelOutput subclasses and flatten them into a genuine plain dict via
+    the comprehension, silently losing the attribute access generate()
+    relies on ("'dict' object has no attribute 'past_key_values'"). So:
+    recurse into any dict-like object's values, but reconstruct the
+    original type afterward for anything that isn't an exact plain dict.
+    """
+    if isinstance(obj, dict):
+        moved = {k: _move_to_device(v, device) for k, v in obj.items()}
+        if type(obj) is dict:
+            return moved
+        try:
+            return type(obj)(**moved)  # ModelOutput-style dataclass reconstruction
+        except TypeError:
+            return moved
+    if type(obj) in (list, tuple):
+        return type(obj)(_move_to_device(v, device) for v in obj)
+    to_method = getattr(obj, "to", None)
+    if callable(to_method) and not isinstance(obj, (str, int, float, bool)):
+        try:
+            return obj.to(device)
+        except TypeError:
+            pass
+    # Fallback for HF Cache-like objects (e.g. DynamicCache): this
+    # transformers version's Cache class has no working .to() — its real
+    # state lives in plain-list attributes (key_cache/value_cache) on the
+    # instance, invisible to the dict/list branches above since the Cache
+    # object itself is neither. Mutate its __dict__ in place so every
+    # tensor nested inside those lists actually moves.
+    obj_dict = getattr(obj, "__dict__", None)
+    if obj_dict:
+        for k, v in list(obj_dict.items()):
+            obj_dict[k] = _move_to_device(v, device)
+    return obj
+
+
 class VibeVoiceEngine(TtsEngine):
     """VibeVoice-Realtime-0.5B — class-level model singleton, daemon synth thread."""
 
     _model = None
     _processor = None
+    _device = "cpu"
     _model_lock = threading.Lock()
 
     def __init__(self) -> None:
@@ -109,15 +172,40 @@ class VibeVoiceEngine(TtsEngine):
                 device = select_device()
                 dtype = torch.bfloat16 if device == "cuda" else torch.float32
                 attn_impl = "flash_attention_2" if device == "cuda" else "sdpa"
-                _log.info("loading VibeVoice-Realtime-0.5B from %s (device=%s)", _HF_REPO, device)
-                VibeVoiceEngine._processor = VibeVoiceStreamingProcessor.from_pretrained(_HF_REPO)
-                model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
-                    _HF_REPO, torch_dtype=dtype, attn_implementation=attn_impl,
-                )
+
+                # Weights live under .models (models_root), like every other
+                # ML engine's weights_subpath in stacks.yaml — NOT the global
+                # HF cache. snapshot_download() is idempotent (skips files
+                # already present), so this is a no-op after the first run or
+                # after install_dialog.py's Download button already fetched
+                # the same target directory.
+                local_dir = models_root() / "ml" / "vibevoice_realtime"
+                local_dir.mkdir(parents=True, exist_ok=True)
+                from huggingface_hub import snapshot_download
+                snapshot_download(repo_id=_HF_REPO, local_dir=str(local_dir), tqdm_class=None)
+
+                _log.info("loading VibeVoice-Realtime-0.5B from %s (device=%s)", local_dir, device)
+                VibeVoiceEngine._processor = VibeVoiceStreamingProcessor.from_pretrained(str(local_dir))
+                try:
+                    model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
+                        str(local_dir), torch_dtype=dtype, attn_implementation=attn_impl,
+                    )
+                except ImportError:
+                    # flash_attention_2 requires the separate `flash_attn` package
+                    # (not installed by requirements-ml.txt or vibevoice's own
+                    # extras) — matches the upstream demo script's own fallback
+                    # behavior rather than hard-requiring a CUDA-only extra dep
+                    # just to run on GPU at all.
+                    _log.warn("flash_attention_2 unavailable (flash_attn not installed) — falling back to sdpa")
+                    attn_impl = "sdpa"
+                    model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
+                        str(local_dir), torch_dtype=dtype, attn_implementation=attn_impl,
+                    )
                 model.eval()
                 if device == "cuda":
                     model = model.to(device)
                 VibeVoiceEngine._model = model
+                VibeVoiceEngine._device = device
                 _log.info("VibeVoice model ready (device=%s)", device)
             return VibeVoiceEngine._model, VibeVoiceEngine._processor
 
@@ -126,7 +214,14 @@ class VibeVoiceEngine(TtsEngine):
             return self._prompt_cache[voice_id]
         import torch
         pt_path = ensure_voice_downloaded(voice_id)
+        # Always load to CPU first (map_location) — generate() needs the
+        # cached prompt's tensors/KV-caches on the SAME device as the model
+        # itself, which _move_to_device() below then handles explicitly.
+        # Loading straight to a device string here would break on a machine
+        # where the .pt file's tensors were saved from a different device
+        # than what select_device() picks now.
         cached_prompt = torch.load(str(pt_path), map_location="cpu", weights_only=False)
+        cached_prompt = _move_to_device(cached_prompt, VibeVoiceEngine._device)
         self._prompt_cache[voice_id] = cached_prompt
         return cached_prompt
 
@@ -178,6 +273,20 @@ class VibeVoiceEngine(TtsEngine):
         inputs = processor.process_input_with_cached_prompt(
             text=text, cached_prompt=cached_prompt, return_tensors="pt",
         )
+        # The processor builds these tensors CPU-side regardless of where
+        # cached_prompt's own tensors live (see _move_to_device's docstring)
+        # — must move them to the model's device too, or generate() fails
+        # mixing CPU input embeddings with a CUDA-resident model.
+        inputs = _move_to_device(dict(inputs), VibeVoiceEngine._device)
+        # generate() mutates all_prefilled_outputs' KV-cache in place
+        # (appends each new token's key/value states) — passing the same
+        # cached, reused voice-prompt object across multiple calls corrupts
+        # it on the second call (stale/grown cache -> shape mismatch in
+        # scaled_dot_product_attention). The upstream demo script guards
+        # against exactly this with copy.deepcopy() before every generate()
+        # call; self._prompt_cache must stay untouched across calls.
+        import copy
+        prefilled = copy.deepcopy(cached_prompt)
         with torch.no_grad():
             out = model.generate(
                 input_ids=inputs.get("input_ids"),
@@ -186,7 +295,7 @@ class VibeVoiceEngine(TtsEngine):
                 speech_input_mask=inputs.get("speech_input_mask"),
                 attention_mask=inputs.get("attention_mask"),
                 tts_lm_attention_mask=inputs.get("tts_lm_attention_mask"),
-                all_prefilled_outputs=cached_prompt,
+                all_prefilled_outputs=prefilled,
                 generation_config={"do_sample": False},
                 cfg_scale=1.0,
                 tokenizer=processor.tokenizer,
@@ -195,9 +304,12 @@ class VibeVoiceEngine(TtsEngine):
             )
         if not getattr(out, "speech_outputs", None):
             return None
-        audio = out.speech_outputs[0].squeeze().detach().cpu().numpy().astype(np.float32)
-        volume_scale = max(0.0, min(1.0, params.volume / 100.0))
-        return audio * volume_scale
+        # .float() before .numpy() — numpy has no bfloat16 dtype, and
+        # generate() returns bfloat16 output on CUDA (see the dtype chosen
+        # in _get_model_and_processor); a bare .numpy() on that tensor
+        # raises "Got unsupported ScalarType BFloat16".
+        audio = out.speech_outputs[0].squeeze().float().detach().cpu().numpy().astype(np.float32)
+        return apply_volume(audio, params.volume)
 
     def _do_speak(self, text: str, voice_id: str, params: SpeakParams) -> None:
         try:

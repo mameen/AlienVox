@@ -81,6 +81,88 @@ Local, zero-dependency speech via the platform's built-in engine is the fastest 
 - "Call other TTS models from inside the app" means in-process native inference — never a subprocess spawning an external interpreter.
 - The model-integration layer follows the Bridge & suffix isolation rules of Section 2 like any other subsystem.
 
+### 4.5 Adding a New Local ML Engine — Checklist (python_app)
+
+A new engine touches the **same fixed set of surfaces** every time — treat this as a checklist,
+not a menu; skipping one leaves a real gap (a UI entry with no engine behind it, an untested code
+path, weights that install to the wrong directory). Reference implementation: VibeVoice-Realtime-0.5B
+(`src/engines/vibevoice_engine.py`, `docs/issues/todo_006.md` for the research/decision trail behind it).
+
+**0. Research before building — a model card is not a green light.** Before writing the engine,
+actually install the package, download real weights, and run real inference in a **throwaway venv
+outside the repo** (never into the dev venv or `.models/` speculatively). Verify, don't assume:
+license terms from the actual `LICENSE` file text (not just a badge or a README blurb), real
+install complexity (PyPI vs. git-only, hidden heavy dependencies), and real performance (measure
+wall-clock latency / RTF — a "Realtime" name or a marketing claim is not evidence). Write the
+findings into a `docs/issues/todo_NNN.md` before touching any application code. If the license
+carries a non-binding "not recommended for X" disclaimer, surface it explicitly as a business
+decision — don't silently adopt or silently ignore it.
+
+**1. Engine module** — `src/engines/<name>_engine.py`, subclassing `TtsEngine` (`engines/base.py`).
+Follow the existing shape: class-level model singleton behind a `threading.Lock()`, a daemon thread
+per `speak()` call, `synthesize()` returning `(float32 array, sample_rate)` for export/perf-test
+support, volume scaling applied post-synthesis, `stop()`/`wait_until_done()` using
+`threading.Event()`s. Weights and any per-voice extra assets (presets, reference clips) load from
+`models_root() / "ml" / "<name>"` (`src/config.py`) — **never** the bare global HF cache via a plain
+`from_pretrained(repo_id)` — every other model's weights live under `.models/`, and a new engine that
+doesn't follow suit breaks the "one place to look" invariant `python run.py health` and the install
+dialog both depend on.
+
+**2. `stacks.yaml`** — new model entry under the `ml` stack: `id`, `name`, `weights_subpath`,
+`auto_download`, `voices` (id + label pairs), `controls` (mark unsupported controls
+`applies: false` — see §5.4's UI Hint Schema). This one entry is what makes the model appear in
+the Manage Voices dialog and the main window's voice dropdown — **no UI code changes are needed**
+for those two surfaces; they're both driven entirely by this catalog + `engines/registry.py`.
+
+**3. `src/control/app_controller.py`** — one line in `_ML_ENGINES`: `"<model_id>": ("<name>_engine", "<ClassName>")`.
+
+**4. `setup.py`** — add to `_download_auto`'s HF-repo map for weight download, plus a
+`_provision_<name>_voices()` step (mirror `_provision_f5tts_reference_voice`/
+`_provision_chatterbox_reference_voices`) if the model needs extra per-voice assets beyond the base
+HF snapshot.
+
+**5. `install_dialog.py`** — a `_build_<name>_ui`/`_download_<name>` branch alongside the existing
+Kokoro/Piper ones, wired into `_build_ui`'s dispatch and `_on_download`'s task selection.
+
+**6. `about.py`'s Tech Stack blurb** — add or correct the one-line mention. If step 0 surfaced a
+real caveat (license disclaimer, measured non-real-time performance, GPU requirement), state it
+here plainly — don't leave an aspirational-sounding blurb standing once real numbers exist.
+
+**7. `3P.md`** — new entry in §2 (ML Models) with license (code + weights separately verified),
+source URL, and an explicit callout of any responsible-use disclaimer found in step 0.
+
+**8. `install/requirements-*.txt`** — if the package isn't a clean `pip install <name>>=X` from
+PyPI (git-only, or pulls unrelated heavy dependencies), document it as **manual/opt-in only** — a
+comment with the exact install command, not an auto-installed line — same treatment as Dia and
+VibeVoice. Don't let one engine's dependency bloat force itself onto every ML user.
+
+**9. Tests — real, not mocked (see `testing` SKILL, this is not optional):**
+   - `tests/fixtures/stacks.yaml` — mirror the new `stacks.yaml` entry (a *separate* fixture
+     catalog from the bundled one — perf tooling and `available_stacks()` tests read this one, not
+     the real `stacks.yaml`).
+   - `tests/conftest.py`'s `_ALL_ML_MODELS` — add the new `ml/<name>` weights subpath so
+     `requires_weights()` gating covers it.
+   - `tests/test_<name>.py` — mirror `test_outetts.py`'s shape: pure-logic voice-roster tests (no
+     gating needed), then `@requires_weights("ml/<name>")`-gated real-synthesis tests covering: a
+     default voice, **at least one additional distinct voice** (e.g. a female preset when the
+     roster has one — don't only ever test voice #1), volume scaling, invalid-voice fallback, and
+     `speak()` → `play_audio()` wiring (with `play_audio` itself stubbed — the OS/hardware edge is
+     the one acceptable mock boundary per the `testing` SKILL, the buffer feeding it must be real).
+   - `tests/test_perf.py`'s `_load_ml_engine()` — add the new model's dispatch branch so
+     `python run.py perf` (full sweep) and `python run.py perf --stack ml --model <name> --voice
+     <id>` (single-case — see `run.py`'s `cmd_perf` docstring) both pick it up.
+
+**10. `src/health.py`** — add to `_ML_ENGINE_IMPORTS`; if the package is manual/opt-in (step 8),
+add its `id` to `_MANUAL_INSTALL_ENGINES` so a missing import warns instead of failing
+`python run.py health`. If the model needs extra per-voice assets beyond the base weights (step
+4's provisioning step), add a dedicated presence check (see `_check_vibevoice_preset_voices` for
+the pattern) — the generic "does the weights directory have *any* file in it" check will not catch
+a partial download (weights present, only 2 of 6 voice presets fetched).
+
+A new engine is not done until **every** step above has landed — a "Download" button with no engine
+behind it, or an engine with no `stacks.yaml` entry, is a dead end for the next person (or agent)
+who finds it.
+
 ---
 
 ## 5. Configuration — One-Way Data Flow

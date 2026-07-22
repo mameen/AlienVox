@@ -332,6 +332,73 @@ def welcome_phrase_benchmark() -> list[PerfResult]:
     return results
 
 
+def single_case_benchmark(stack_id: str, model_id: str | None, voice_id: str) -> list[PerfResult]:
+    """Run WELCOME_PHRASE on exactly one stack/model/voice combination.
+
+    Mirrors welcome_phrase_benchmark()'s engine-loading logic but for a
+    single case instead of iterating everything — for a fast targeted
+    check ("did my change to this one engine/voice help or hurt?") instead
+    of a multi-minute full sweep across every installed stack.
+
+    Returns a single-element list (skipped=True with skip_reason on any
+    failure, so callers/renderers don't need a separate error path).
+    """
+    from src.config import models_root as _config_models_root
+    from src.engines.registry import available_stacks
+
+    stacks_yaml = FIXTURES / "stacks.yaml"
+    models_root = _config_models_root()
+
+    if stack_id in ("sapi5", "speech_platform"):
+        if sys.platform != "win32":
+            r = PerfResult(stack_id=stack_id, model_id=model_id, voice_id=voice_id)
+            r.skipped, r.skip_reason = True, f"{stack_id}: not on Windows"
+            return [r]
+        try:
+            from src.engines.sapi_win import SapiEngine
+            engine = SapiEngine()
+            engine.stack_id = stack_id
+            r = collect_metrics(WELCOME_PHRASE, engine, voice_id)
+            r.voice_id = r.voice_id.split("\\")[-1] if "\\" in r.voice_id else r.voice_id
+            return [r]
+        except Exception as exc:
+            r = PerfResult(stack_id=stack_id, model_id=model_id, voice_id=voice_id)
+            r.skipped, r.skip_reason = True, str(exc)
+            return [r]
+
+    # ── ML stacks ────────────────────────────────────────────────────────
+    if not model_id:
+        r = PerfResult(stack_id=stack_id, model_id=model_id, voice_id=voice_id)
+        r.skipped, r.skip_reason = True, "--model is required for non-SAPI stacks"
+        return [r]
+
+    stack_entry = next((s for s in available_stacks(stacks_yaml, models_root) if s.id == stack_id), None)
+    model_entry = next((m for m in (stack_entry.models if stack_entry else []) if m.id == model_id), None)
+    if model_entry is None:
+        r = PerfResult(stack_id=stack_id, model_id=model_id, voice_id=voice_id)
+        r.skipped, r.skip_reason = True, f"{stack_id}/{model_id}: not found in catalog"
+        return [r]
+    if not model_entry.available:
+        r = PerfResult(stack_id=stack_id, model_id=model_id, voice_id=voice_id)
+        r.skipped, r.skip_reason = True, f"{stack_id}/{model_id}: weights not installed"
+        return [r]
+
+    try:
+        engine = _load_ml_engine(stack_id, model_entry)
+        if engine is None:
+            r = PerfResult(stack_id=stack_id, model_id=model_id, voice_id=voice_id)
+            r.skipped, r.skip_reason = True, f"{stack_id}/{model_id}: engine load failed"
+            return [r]
+        engine.stack_id, engine.model_id = stack_id, model_id
+        r = collect_metrics(WELCOME_PHRASE, engine, voice_id)
+        r.voice_id = r.voice_id.split("\\")[-1] if "\\" in r.voice_id else r.voice_id
+        return [r]
+    except Exception as exc:
+        r = PerfResult(stack_id=stack_id, model_id=model_id, voice_id=voice_id)
+        r.skipped, r.skip_reason = True, str(exc)
+        return [r]
+
+
 def _load_ml_engine(stack_id: str, model_info: Any) -> Any | None:
     """Load an ML engine instance. Returns None on failure."""
     try:
@@ -354,6 +421,9 @@ def _load_ml_engine(stack_id: str, model_info: Any) -> Any | None:
         elif model_id == "outetts":
             from src.engines.outetts_engine import OuteTTSEngine
             return OuteTTSEngine()
+        elif model_id == "vibevoice_realtime":
+            from src.engines.vibevoice_engine import VibeVoiceEngine
+            return VibeVoiceEngine()
     except Exception:
         pass
     return None
@@ -821,10 +891,29 @@ if __name__ == "__main__":
         pass
 
     if "_benchmark" in sys.argv:
-        print("\n  Running welcome-phrase benchmark on all available stacks/models/voices...\n")
-        results = welcome_phrase_benchmark()
+        import argparse
+        parser = argparse.ArgumentParser()
+        parser.add_argument("_benchmark", nargs="?")
+        parser.add_argument("--stack", default=None, help="Run a single stack/model/voice instead of the full sweep")
+        parser.add_argument("--model", default=None, help="Required for non-SAPI stacks (e.g. kokoro, vibevoice_realtime)")
+        parser.add_argument("--voice", default=None, help="Voice ID within --stack/--model (see stacks.yaml)")
+        args = parser.parse_args()
+
+        if args.stack:
+            if not args.voice:
+                print("ERROR: --voice is required when --stack is given.")
+                sys.exit(1)
+            print(f"\n  Running single case: stack={args.stack} model={args.model or '-'} voice={args.voice}...\n")
+            results = single_case_benchmark(args.stack, args.model, args.voice)
+        else:
+            print("\n  Running welcome-phrase benchmark on all available stacks/models/voices...\n")
+            results = welcome_phrase_benchmark()
+
         render_console_table(results)
         json_path, html_path = generate_reports(results)
         print(f"\n  JSON report: {json_path}")
         print(f"  HTML report: {html_path}")
         print()
+
+        if results and results[0].skipped and args.stack:
+            sys.exit(1)
