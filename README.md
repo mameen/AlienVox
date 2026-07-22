@@ -6,13 +6,13 @@ Simple, standalone TTS apps — high quality, zero friction. Start with **Speak 
 
 ![AlienVox Banner](docs/img/banner.png)
 
-![AlienVox Screenshot](docs/img/Screenshot.png)
-
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![PySide6](https://img.shields.io/badge/Qt6-PySide6-41CD52.svg)](https://doc.qt.io/qtforpython-6/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Third-Party Notices](https://img.shields.io/badge/3P-notices-lightgrey.svg)](3P.md)
 [![Download](https://img.shields.io/github/v/release/mameen/AlienVox?include_prereleases&label=download&color=success)](https://github.com/mameen/AlienVox/releases)
+
+![AlienVox Screenshot](docs/img/Screenshot.png)
 
 </div>
 
