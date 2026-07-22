@@ -48,6 +48,38 @@ CPU is the default runtime device (`run.py`'s `_resolve_device()`); GPU is opt-i
   probably works too" is exactly the gap that produced two separate `RuntimeError`s in production
   code that had already passed CPU testing.
 
+## 2.2 Root-Cause Investigation & Sweep for Similar Instances
+
+When a bug is reported (by the user hearing/seeing it, a failing test, or a crash), don't stop at
+the first plausible-looking fix — two separate steps, always:
+
+1. **Find the actual root cause, not the nearest symptom.** "The audio sounded cut short" could be
+   the model generating too little audio, `apply_volume()` zeroing it out, a truncated buffer, or
+   playback ending early — these have completely different fixes. Trace the real data (buffer
+   length vs. reported audio duration, timing logs, etc.) before writing a fix, the same way
+   `docs/issues/issue_001.md`/`issue_002.md`'s investigations did — each fix in those was reached
+   by chasing a *specific* error message or a *specific* measured discrepancy, never a guess.
+2. **Before considering the fix complete, check whether the same class of bug exists anywhere
+   else with the same shape.** Concretely: when `audio_player.py`'s `play_audio()` was found to
+   clip the tail end of long real synthesis output (`sd.wait()` returns once samples are handed to
+   the OS mixer, not once the hardware has actually finished rendering them — a real, audible bug,
+   not hypothesized), the right next question wasn't "is this fixed for VibeVoice" but "does every
+   other engine's playback path go through this same function, or does one of them call
+   `sounddevice` directly and need its own fix?" (Answer, verified by grep: every ML engine —
+   Kokoro, Piper, Chatterbox, Dia, F5-TTS, OuteTTS, VibeVoice — routes through the same shared
+   `play_audio()`, so the one fix covered all seven; if even one had bypassed it with its own
+   `sd.play()` call, that one would still be broken.) A fix that only addresses the specific
+   instance that got reported, while leaving three duplicated copies of the same bug untouched
+   elsewhere in the codebase, is an incomplete fix.
+
+This is also why the "Adding a New Local ML Engine" checklist (`highlevel_design/SKILL.md` §4.5)
+insists on routing every engine through shared helpers (`audio_player.py`, `device.py`,
+`models_root()`) rather than each engine reimplementing its own version — a shared helper means a
+bug found in one place, fixed in one place, is fixed everywhere; duplicated logic means every
+future bug-sweep has to re-check every copy by hand.
+
+---
+
 ## 3. Test Data — Fixtures over Mimics
 
 - Use **real YAML fixture files** for config tests, stored under `tests/fixtures/`. These are genuine, valid config files (not artificially constructed dicts) and may be reused across tests.
