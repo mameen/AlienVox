@@ -56,6 +56,8 @@ _log = _logger_mod.get_logger("manage_voices")
 
 _VOICE_ROW_ROLE = Qt.ItemDataRole.UserRole
 _ACCENT = "#0078d4"
+_LIVE = "#107c10"
+_OFFLINE = "#0067b8"
 
 # Piper is the only model without a shared weights blob — see module
 # docstring's "Install/uninstall granularity" section.
@@ -242,17 +244,42 @@ class ManageVoicesDialog(QDialog):
                     lambda _c=False, s=stack_id, m=model_id, v=voice_id:
                         self._start_install(s, m, voice_id=v)
                 )
-            self._tree.setItemWidget(item, 3, btn)
+        preview_cell = QWidget()
+        preview_layout = QHBoxLayout(preview_cell)
+        preview_layout.setContentsMargins(0, 0, 0, 0)
+        preview_layout.setSpacing(4)
 
-        preview_btn = QPushButton("▶")
-        preview_btn.setFixedWidth(28)
-        preview_btn.setStyleSheet("font-size: 16px; padding: 0;")
-        preview_btn.setToolTip(f"Preview {label}")
-        preview_btn.clicked.connect(
-            lambda _checked=False, s=stack_id, m=model_id, v=voice_id:
-                self._controller.preview_voice_async(s, m, v)
-        )
-        self._tree.setItemWidget(item, 4, preview_btn)
+        sample_path = self._controller.sample_asset_path(stack_id, model_id, voice_id)
+        live_available = bool(model and model.weights_present)
+
+        if live_available:
+            live_btn = QPushButton("Live")
+            live_btn.setFixedWidth(52)
+            live_btn.setToolTip(f"Play a live preview of {label}")
+            live_btn.setStyleSheet(
+                "font-size:11px; padding:2px 6px; color:white; background:#107c10; border:none; border-radius:3px;"
+            )
+            live_btn.clicked.connect(
+                lambda _checked=False, s=stack_id, m=model_id, v=voice_id:
+                    self._controller.preview_voice_async(s, m, v)
+            )
+            preview_layout.addWidget(live_btn)
+
+        if sample_path and sample_path.exists():
+            sample_btn = QPushButton("Sample")
+            sample_btn.setFixedWidth(62)
+            sample_btn.setToolTip(f"Play the bundled offline sample for {label}")
+            sample_btn.setStyleSheet(
+                "font-size:11px; padding:2px 6px; color:white; background:#0067b8; border:none; border-radius:3px;"
+            )
+            sample_btn.clicked.connect(
+                lambda _checked=False, s=stack_id, m=model_id, v=voice_id:
+                    self._controller.preview_sample_async(s, m, v)
+            )
+            preview_layout.addWidget(sample_btn)
+
+        preview_layout.addStretch()
+        self._tree.setItemWidget(item, 4, preview_cell)
 
     # ── Install ───────────────────────────────────────────────────────────
 

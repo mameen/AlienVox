@@ -31,6 +31,7 @@ SRC = APP_ROOT / "src"
 
 datas = [
     (str(APP_ROOT / "stacks.yaml"), "."),
+    (str(APP_ROOT / "install" / "assets"), "install/assets"),
     (str(SRC / "resources"), "resources"),
 ]
 

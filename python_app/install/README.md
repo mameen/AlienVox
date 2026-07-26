@@ -68,3 +68,13 @@ this split that isn't just a convenience duplicate.
 
 AlienVox is a product of [AlienTech.Software](https://alientech.software/), © 2026. Licensed under
 the MIT License — see [LICENSE](../../LICENSE) in the repository root.
+
+## Preview audio assets
+
+Bundled voice previews live under `install/assets/audio/` and are shipped as small install assets, not model weights.
+
+Regenerate them from the canonical voice catalog with:
+
+```bat
+python setup.py --generate-audio --sample-format mp3
+```

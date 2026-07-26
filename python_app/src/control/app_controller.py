@@ -22,6 +22,7 @@ import re
 import sys
 import threading
 import time
+from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -253,6 +254,48 @@ class AppController:
         threading.Thread(
             target=self._preview_voice, args=(stack_id, model_id, voice_id), daemon=True
         ).start()
+
+    @staticmethod
+    @lru_cache(maxsize=1)
+    def _preview_manifest() -> dict[tuple[str, str, str], Path]:
+        import yaml
+        manifest = Path(__file__).resolve().parents[2] / "install" / "assets" / "audio" / "manifest.yaml"
+        mapping: dict[tuple[str, str, str], Path] = {}
+        if not manifest.exists():
+            return mapping
+        try:
+            data = yaml.safe_load(manifest.read_text(encoding="utf-8")) or {}
+        except Exception:
+            return mapping
+        for row in data.get("samples", []):
+            sid = row.get("stack_id", "")
+            mid = row.get("model_id") or ""
+            vid = row.get("voice_id", "")
+            file_rel = row.get("file", "")
+            if sid and vid and file_rel:
+                mapping[(sid, mid, vid)] = manifest.parent / file_rel
+        return mapping
+
+    def sample_asset_path(self, stack_id: str, model_id: str, voice_id: str) -> Path | None:
+        return self._preview_manifest().get((stack_id, model_id or "", voice_id))
+
+    def preview_sample_async(self, stack_id: str, model_id: str, voice_id: str) -> None:
+        threading.Thread(
+            target=self._preview_sample, args=(stack_id, model_id, voice_id), daemon=True
+        ).start()
+
+    def _preview_sample(self, stack_id: str, model_id: str, voice_id: str) -> None:
+        path = self.sample_asset_path(stack_id, model_id, voice_id)
+        if not path or not path.exists():
+            _log.warn("offline sample missing: %s/%s/%s", stack_id, model_id, voice_id)
+            return
+        try:
+            import soundfile as sf
+            data, sr = sf.read(str(path), dtype="float32", always_2d=False)
+            from ..audio_player import play_audio
+            play_audio(data, sr)
+        except Exception as exc:
+            _log.warn("offline sample playback failed for %s/%s/%s: %s", stack_id, model_id, voice_id, exc)
 
     def _preview_voice(self, stack_id: str, model_id: str, voice_id: str) -> None:
         if stack_id == self.state.active_stack and model_id == self.state.active_model and self.engine:

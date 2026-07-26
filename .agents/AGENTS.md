@@ -13,6 +13,7 @@ This repository uses `.agents/` to control AI assistant behavior and ensure safe
 
 - `workspace-discipline`: enforces repo boundary isolation, non-destructive VCS behavior, and reflect/self-check before responding.
 - `highlevel_design`: enforces bridge patterns, platform isolation, anti-mocking philosophies, and the single standalone-binary production model.
+- `dev-vs-prod`: defines the AlienVox dev/prod boundary, config locations, install assets, and packaging rules for source vs shipped state.
 - `ui_ux_design`: defines the classic Win32/WPF functional aesthetic, layout hierarchy, menu bar, system tray behavior, and iconography for AlienVox surfaces.
 
 ## Read before you act

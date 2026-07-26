@@ -65,6 +65,10 @@ def run(cmd: list[str]) -> int:
     return subprocess.run(cmd, cwd=ROOT).returncode
 
 
+def _install_assets_audio_dir() -> Path:
+    return ROOT / "install" / "assets" / "audio"
+
+
 def _has_content(path: Path) -> bool:
     """True if path exists and contains at least one file (already downloaded)."""
     return path.exists() and any(path.rglob("*"))
@@ -193,6 +197,39 @@ def _download_auto(models_root: Path, model_id: str, force: bool = False) -> Non
         _provision_chatterbox_reference_voices(dest)
     elif model_id == "vibevoice_realtime":
         _provision_vibevoice_realtime_voices(dest, force=force)
+
+
+def _generate_preview_audio(sample_format: str = "mp3", *, force: bool = False) -> None:
+    """Generate shipped preview audio into install/assets/audio.
+
+    This reuses the real benchmark sweep so the sample set stays aligned with
+    the canonical catalog and the actual installed engine outputs.
+    """
+    dest = _install_assets_audio_dir()
+    dest.mkdir(parents=True, exist_ok=True)
+
+    from tests.test_perf import welcome_phrase_benchmark
+
+    print(f"\nGenerating preview audio assets ({sample_format.upper()}) at {dest}...")
+    results = welcome_phrase_benchmark(save_dir=dest, sample_format=sample_format)
+    generated = sum(1 for r in results if not r.skipped)
+    print(f"  ✓ Generated {generated} preview files")
+
+    manifest = []
+    for r in results:
+        if r.skipped:
+            continue
+        rel = f"{r.stack_id}/{(r.model_id + '/' if r.model_id else '')}{r.voice_id}.{sample_format}"
+        manifest.append({
+            "stack_id": r.stack_id,
+            "model_id": r.model_id,
+            "voice_id": r.voice_id,
+            "file": rel.replace("//", "/"),
+        })
+
+    import yaml
+    (dest / "manifest.yaml").write_text(yaml.safe_dump({"samples": manifest}, sort_keys=False), encoding="utf-8")
+    print(f"  ✓ Wrote manifest -> {dest / 'manifest.yaml'}")
 
 
 _VIBEVOICE_VOICE_PT_FILES = {
@@ -492,6 +529,17 @@ def main() -> int:
         action="store_true",
         help="Re-download model weights even if already present in .models/",
     )
+    parser.add_argument(
+        "--generate-audio",
+        action="store_true",
+        help="Generate installer preview audio assets under install/assets/audio/",
+    )
+    parser.add_argument(
+        "--sample-format",
+        choices=("wav", "mp3"),
+        default="mp3",
+        help="Format for --generate-audio preview samples (default: mp3)",
+    )
     args = parser.parse_args()
 
     if args.command == "download" or args.download_models:
@@ -561,6 +609,9 @@ def main() -> int:
     models_root = ROOT / ".models"
     models_root.mkdir(exist_ok=True)
     _check_and_offer_models(models_root, ROOT / "stacks.yaml", force=args.force)
+
+    if args.generate_audio:
+        _generate_preview_audio(sample_format=args.sample_format, force=args.force)
 
     print("\nBootstrap complete.")
     print(f"Activate venv:  {VENV_DIR}\\Scripts\\activate")
