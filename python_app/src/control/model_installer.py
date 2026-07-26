@@ -135,6 +135,11 @@ def _download_piper_voice(voice_id: str, models_root: Path, on_progress: Progres
             raise
 
 
+def piper_voice_installed(voice_id: str, models_root: Path) -> bool:
+    dest = models_root / "ml" / "piper"
+    return bool(dest.exists() and list(dest.rglob(f"{voice_id}.onnx")))
+
+
 def uninstall_model(stack_id: str, model_id: str, models_root: Path) -> None:
     """Delete a model's entire weights directory — every voice sharing that
     model's weights goes with it (Kokoro/Chatterbox/Dia/F5-TTS/OuteTTS/
@@ -148,8 +153,9 @@ def uninstall_model(stack_id: str, model_id: str, models_root: Path) -> None:
 
 def uninstall_piper_voice(voice_id: str, models_root: Path) -> None:
     dest = models_root / "ml" / "piper"
-    for suffix in (".onnx", ".onnx.json"):
-        f = dest / f"{voice_id}{suffix}"
-        if f.exists():
+    if not dest.exists():
+        return
+    for f in dest.rglob(f"{voice_id}.onnx*"):
+        if f.is_file():
             _log.info("removing %s", f)
             f.unlink()

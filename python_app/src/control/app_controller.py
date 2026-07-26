@@ -349,6 +349,10 @@ class AppController:
         from . import model_installer
         model_installer.uninstall_piper_voice(voice_id, models_root)
 
+    def piper_voice_installed(self, voice_id: str, models_root: Path) -> bool:
+        from . import model_installer
+        return model_installer.piper_voice_installed(voice_id, models_root)
+
     def refresh_catalog(self) -> None:
         """Re-scan stacks.yaml + models_root and push the result into
         AppState — call after an install/uninstall so ModelInfo.available/
