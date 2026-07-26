@@ -13,6 +13,9 @@ build/
 .coverage
 htmlcov/
 .pytest_cache/
+
+# Generated, non-source artifacts (e.g. `run.py perf --save-samples` WAVs)
+.generated/
 .ruff_cache/
 perf_results*.json
 

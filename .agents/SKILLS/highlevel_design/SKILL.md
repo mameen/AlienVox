@@ -228,6 +228,31 @@ the engine and the frontend.
 - **Diffing is straightforward**: `git diff` on the config folder shows exactly what changed between runs.
 - **Testing is decoupled**: engine and renderer tests take a YAML fixture instead of mocking IPC.
 
+### 5.6 Catalog Growth Is One-Directional — Never Remove Without Explicit Approval
+
+**Never delete or remove a stack, model, or voice entry from `stacks.yaml` (or any equivalent
+catalog file in a future implementation) without the developer's explicit, turn-by-turn
+approval** — not as a cleanup pass, not because it looks unused, not because weights aren't
+installed, not to "simplify" a dialog or reduce clutter. This applies to catalog *entries*
+(the declared stack/model/voice metadata) — separate from a user's own runtime choice to
+uninstall a specific model's *weights* via Manage Voices, which is expected, reversible, and
+always fine.
+
+**Why:** AlienVox is deliberately casting the net wide — the goal is the largest practical
+coverage of available TTS technology, not a curated minimal set. The roadmap explicitly
+includes layering third-party tools on top of this catalog (cloud APIs, additional platforms,
+more models) and building out a broader accessibility/library stack (e.g. NVDA integration) in
+the near future. A stack/model/voice that looks redundant or unused today is still inventory for
+that expansion — removing it destroys real research/integration work (see `docs/issues/todo_006.md`
+for the kind of investigation that goes into adding just one model) that would have to be redone
+from scratch if needed again.
+
+**How to apply:** If a catalog entry seems genuinely obsolete, broken beyond repair, or
+duplicative, flag it and ask — don't silently drop it as part of an unrelated change (e.g. a UI
+refactor, a dependency cleanup, a "while I'm in here" pass). This mirrors §1's "Surface
+Assumptions" principle, applied specifically to the one class of change that's hardest to
+reverse cheaply once real work has been re-derived on top of the removed entry.
+
 ---
 
 ## 7. Python App — UI Architecture Pattern (MVC)

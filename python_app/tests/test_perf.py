@@ -26,6 +26,7 @@ from __future__ import annotations
 import json
 import os
 import platform
+import re
 import shutil
 import sys
 import tempfile
@@ -130,17 +131,26 @@ def collect_metrics(
     engine: Any,
     voice_id: str,
     listen: bool = True,
+    save_path: Path | None = None,
 ) -> PerfResult:
     """Run one synthesis cycle and collect timing, audio, and system metrics.
 
     For ML engines that implement synthesize(), measures audio characteristics
     (samples, duration, bytes, sample rate) and synthesis wall-clock time.
     Falls back to speak()+wait_until_done() for SAPI engines (which always
-    plays audio as part of the speak() call itself).
+    plays audio as part of the speak() call itself) — unless save_path is
+    given, in which case the SAPI fallback uses speak_to_wav() instead (see
+    below), since plain speak() has no way to capture the audio at all.
 
     If listen=True (default), ML engine audio is played back *after* timing
     is recorded — so you can actually hear each stack/model/voice for a
     quality check, without polluting the synthesis_ms measurement.
+
+    If save_path is given, the generated audio is also written there as a
+    WAV file (parent directories created as needed) — used by
+    generate_perf_samples() to capture one reference sample per stack/
+    model/voice, independent of whatever this call's timing/skip result
+    ends up being.
     """
     from src.device import select_device
     result = PerfResult(
@@ -201,6 +211,15 @@ def collect_metrics(
 
         result.completion_ms = result.synthesis_ms
 
+        # ── Save sample (independent of listen/timing) ──────────────────
+        if save_path is not None:
+            try:
+                import soundfile as sf
+                save_path.parent.mkdir(parents=True, exist_ok=True)
+                sf.write(str(save_path), audio_arr, sr)
+            except Exception as exc:
+                print(f"    (save failed for {result.stack_id}/{result.model_id}: {exc})")
+
         # ── Playback (after timing, so it doesn't skew synthesis_ms) ────
         if listen:
             try:
@@ -208,6 +227,23 @@ def collect_metrics(
                 play_audio(audio_arr, sr)
             except Exception as exc:
                 print(f"    (playback failed for {result.stack_id}/{result.model_id}: {exc})")
+
+    elif save_path is not None and hasattr(engine, "speak_to_wav"):
+        # ── Fallback: speak_to_wav() straight to save_path (SAPI-style
+        # engines have no synthesize() to capture audio from — speak_to_wav
+        # is the only way to get a file out of them at all) ─────────────
+        t0 = time.perf_counter()
+        try:
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+            engine.speak_to_wav(phrase, voice_id, params, save_path)
+        except Exception as exc:
+            result.skipped = True
+            result.skip_reason = f"speak_to_wav() failed: {exc}"
+            return result
+        completion_end = time.perf_counter()
+        result.latency_ms = (completion_end - t0) * 1000
+        result.synthesis_ms = result.latency_ms
+        result.completion_ms = result.latency_ms
 
     else:
         # ── Fallback: speak() + wait_until_done() (SAPI, or any engine
@@ -253,10 +289,24 @@ def collect_metrics(
 
 # ── Welcome phrase benchmark ──────────────────────────────────────────────────
 
-def welcome_phrase_benchmark() -> list[PerfResult]:
+def _safe_filename(name: str) -> str:
+    """Sanitize a voice_id (some SAPI voice IDs are full registry paths with
+    backslashes/parens/spaces) into a filesystem-safe filename stem."""
+    name = name.split("\\")[-1] if "\\" in name else name
+    return re.sub(r'[<>:"/\\|?*]', "_", name).strip() or "voice"
+
+
+def welcome_phrase_benchmark(save_dir: Path | None = None) -> list[PerfResult]:
     """Speak WELCOME_PHRASE on every available stack/model/voice combination.
 
     Returns a list of PerfResults. Skips unavailable stacks/models gracefully.
+
+    If save_dir is given, also writes one WAV file per voice under
+    save_dir/<stack_id>/[<model_id>/]<voice_id>.wav — the same layout the
+    Manage Voices dialog groups voices in (SAPI5/Speech Platform are flat
+    under the stack; ML stacks nest under their model). Used by
+    `run.py perf --save-samples` to capture a reference sample set for
+    deciding what's small enough to bundle vs. host externally.
     """
     results: list[PerfResult] = []
     skipped: list[str] = []
@@ -290,7 +340,11 @@ def welcome_phrase_benchmark() -> list[PerfResult]:
                     continue
 
                 for voice in voices:
-                    r = collect_metrics(WELCOME_PHRASE, engine, voice.id)
+                    save_path = (
+                        save_dir / stack_id / f"{_safe_filename(voice.id)}.wav"
+                        if save_dir is not None else None
+                    )
+                    r = collect_metrics(WELCOME_PHRASE, engine, voice.id, save_path=save_path)
                     # Truncate registry path to last segment for display
                     r.voice_id = r.voice_id.split("\\")[-1] if "\\" in r.voice_id else r.voice_id
                     results.append(r)
@@ -329,7 +383,11 @@ def welcome_phrase_benchmark() -> list[PerfResult]:
 
                 voices = engine.list_voices()
                 for voice in voices:
-                    r = collect_metrics(WELCOME_PHRASE, engine, voice.id)
+                    save_path = (
+                        save_dir / stack_id / model.id / f"{_safe_filename(voice.id)}.wav"
+                        if save_dir is not None else None
+                    )
+                    r = collect_metrics(WELCOME_PHRASE, engine, voice.id, save_path=save_path)
                     # Truncate registry path to last segment for display
                     r.voice_id = r.voice_id.split("\\")[-1] if "\\" in r.voice_id else r.voice_id
                     results.append(r)
@@ -610,7 +668,7 @@ body {
 h1 { color: #00d4ff; text-align: center; }
 h2 { color: #7b68ee; margin-top: 30px; }
 #info { background: #16213e; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-#chart-container { width: 100%; height: 400px; }
+#chart-container { width: 100%; min-height: 400px; }
 table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #16213e; border-radius: 8px; overflow: hidden; }
 th { background: #0f3460; color: #00d4ff; padding: 10px; text-align: left; }
 td { padding: 8px 10px; border-bottom: 1px solid #1a1a3e; }
@@ -620,8 +678,27 @@ tr:hover { background: #1f2b4d; }
 .status-error { color: #ff4444; }
 .status-na { color: #666; }
 .legend { display: flex; gap: 20px; margin-top: 10px; font-size: 14px; }
-.legend-item { display: flex; align-items: center; gap: 5px; }
+.legend-item { display: flex; align-items: center; gap: 5px; cursor: pointer; user-select: none;
+    padding: 2px 8px; border-radius: 4px; transition: background 0.15s; }
+.legend-item:hover { background: #1f2b4d; }
+.legend-item.inactive { opacity: 0.35; }
 .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
+.legend-hint { font-size: 11px; color: #888; margin-top: 2px; }
+.chart-bar { cursor: pointer; transition: opacity 0.15s; }
+#chart-tooltip {
+    position: fixed;
+    display: none;
+    background: #0f3460;
+    color: #e0e0e0;
+    border: 1px solid #00d4ff;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 12px;
+    pointer-events: none;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+#chart-tooltip b { color: #00d4ff; }
 """
 
 
@@ -646,6 +723,7 @@ def generate_html(json_js_path: str) -> str:
 <div id="info">Rendering report...</div>
 <h2>Metrics by Stack/Model/Voice</h2>
 <div id="chart-container"></div>
+<div id="chart-tooltip"></div>
 <h2>Raw Results</h2>
 <table id="results-table">
 <thead><tr>
@@ -669,11 +747,20 @@ const WELCOME_PHRASE = {json.dumps(WELCOME_PHRASE)};
         '<b>Runs:</b> ' + data.results.length;
 
     // ── Bar chart: synthesis time vs audio duration (both in ms) ──
+    // Interactive: click a legend entry to show only that series (click
+    // again to restore both); hover or click a bar to see its exact value
+    // in a floating tooltip (click pins it — useful on touch, harmless on
+    // desktop since hover already shows the same tooltip).
     const chartable = data.results.filter(d => !d.skipped);
     const container = document.getElementById('chart-container');
+    const tooltip = document.getElementById('chart-tooltip');
     const margin = {{top: 20, right: 30, bottom: 80, left: 60}};
     const width = container.clientWidth - margin.left - margin.right;
     const height = 400 - margin.top - margin.bottom;
+
+    const seriesKeys = ['synthesis_ms', 'audio_duration_ms'];
+    const seriesLabels = {{ synthesis_ms: 'Synthesis Time', audio_duration_ms: 'Audio Duration' }};
+    let activeSeries = new Set(seriesKeys);  // both visible by default
 
     const svg = d3.select('#chart-container')
         .append('svg')
@@ -688,13 +775,17 @@ const WELCOME_PHRASE = {json.dumps(WELCOME_PHRASE)};
         .paddingInner(0.1);
 
     const x1 = d3.scaleBand()
-        .domain(['synthesis_ms', 'audio_duration_ms'])
+        .domain(seriesKeys)
         .range([0, x0.bandwidth()])
         .padding(0.05);
 
     const seriesValue = (d, key) => key === 'audio_duration_ms'
         ? Math.max(0, d.audio_duration_s) * 1000
         : Math.max(0, d.synthesis_ms);
+
+    const seriesDisplay = (d, key) => key === 'audio_duration_ms'
+        ? `${{Math.max(0, d.audio_duration_s).toFixed(2)}} s`
+        : `${{Math.max(0, d.synthesis_ms).toFixed(1)}} ms`;
 
     const y = d3.scaleLinear()
         .domain([0, d3.max(chartable, d => Math.max(seriesValue(d, 'synthesis_ms'), seriesValue(d, 'audio_duration_ms'))) * 1.1 || 100])
@@ -711,31 +802,79 @@ const WELCOME_PHRASE = {json.dumps(WELCOME_PHRASE)};
     svg.append('g').call(d3.axisLeft(y));
 
     const color = d3.scaleOrdinal()
-        .domain(['synthesis_ms', 'audio_duration_ms'])
+        .domain(seriesKeys)
         .range(['#00d4ff', '#7b68ee']);
 
-    chartable.forEach(d => {{
+    function showTooltip(evt, d, series) {{
+        tooltip.innerHTML =
+            `<b>${{seriesLabels[series]}}</b><br>` +
+            `${{d.stack_id}}${{d.model_id ? '/' + d.model_id : ''}}/${{d.voice_id}}<br>` +
+            seriesDisplay(d, series);
+        tooltip.style.display = 'block';
+        tooltip.style.left = (evt.clientX + 14) + 'px';
+        tooltip.style.top = (evt.clientY + 14) + 'px';
+    }}
+    function hideTooltip() {{ tooltip.style.display = 'none'; }}
+
+    const bars = svg.selectAll('.chart-bar-group')
+        .data(chartable)
+        .enter()
+        .append('g');
+
+    bars.each(function(d) {{
         const key = d.stack_id + (d.model_id ? '/' + d.model_id : '') + '/' + d.voice_id;
-        ['synthesis_ms', 'audio_duration_ms'].forEach(series => {{
+        seriesKeys.forEach(series => {{
             const v = seriesValue(d, series);
-            svg.append('rect')
+            d3.select(this).append('rect')
+                .attr('class', 'chart-bar')
+                .attr('data-series', series)
                 .attr('x', x0(key) + x1(series))
                 .attr('y', y(v))
                 .attr('width', x1.bandwidth())
                 .attr('height', height - y(v))
                 .attr('fill', color(series))
-                .attr('rx', 2);
+                .attr('rx', 2)
+                .style('display', activeSeries.has(series) ? null : 'none')
+                .on('mousemove', (evt) => showTooltip(evt, d, series))
+                .on('mouseleave', hideTooltip)
+                .on('click', (evt) => {{ evt.stopPropagation(); showTooltip(evt, d, series); }});
         }});
     }});
 
-    // ── Legend ──
-    const legend = d3.select('#chart-container').append('div').attr('class', 'legend');
-    const legendLabels = {{ synthesis_ms: 'Synthesis Time', audio_duration_ms: 'Audio Duration' }};
-    ['synthesis_ms', 'audio_duration_ms'].forEach(metric => {{
-        const item = legend.append('div').attr('class', 'legend-item');
+    // Clicking anywhere else on the page dismisses a click-pinned tooltip.
+    document.addEventListener('click', hideTooltip);
+
+    // ── Legend (clickable — filters the chart to just that series) ──
+    const legendWrap = d3.select('#chart-container').append('div');
+    legendWrap.append('div').attr('class', 'legend-hint')
+        .text('Click a series below to isolate it — click again to show both.');
+    const legend = legendWrap.append('div').attr('class', 'legend');
+    const legendItems = {{}};
+    seriesKeys.forEach(series => {{
+        const item = legend.append('div')
+            .attr('class', 'legend-item')
+            .on('click', () => {{
+                if (activeSeries.size === seriesKeys.length) {{
+                    // Both active -> isolate the clicked series.
+                    activeSeries = new Set([series]);
+                }} else if (activeSeries.has(series) && activeSeries.size === 1) {{
+                    // Already isolated -> clicking it again restores both.
+                    activeSeries = new Set(seriesKeys);
+                }} else {{
+                    // The other series is isolated -> switch isolation to this one.
+                    activeSeries = new Set([series]);
+                }}
+                seriesKeys.forEach(s => {{
+                    legendItems[s].classed('inactive', !activeSeries.has(s));
+                }});
+                svg.selectAll('.chart-bar').style('display', function() {{
+                    return activeSeries.has(this.getAttribute('data-series')) ? null : 'none';
+                }});
+            }});
         item.append('div').attr('class', 'legend-dot')
-            .style('background', color(metric));
-        item.append('span').text(legendLabels[metric]);
+            .style('background', color(series));
+        item.append('span').text(seriesLabels[series]);
+        legendItems[series] = item;
     }});
 
     // ── Table rows ──
@@ -932,6 +1071,15 @@ if __name__ == "__main__":
         parser.add_argument("--stack", default=None, help="Run a single stack/model/voice instead of the full sweep")
         parser.add_argument("--model", default=None, help="Required for non-SAPI stacks (e.g. kokoro, vibevoice_realtime)")
         parser.add_argument("--voice", default=None, help="Voice ID within --stack/--model (see stacks.yaml)")
+        parser.add_argument(
+            "--save-samples", action="store_true",
+            help="Also save one WAV per stack/model/voice under .generated/perf_samples/ "
+                 "(gitignored) — full sweep only, ignored with --stack",
+        )
+        parser.add_argument(
+            "--samples-dir", default=None,
+            help="Override the --save-samples output dir (default: <repo>/.generated/perf_samples)",
+        )
         args = parser.parse_args()
 
         if args.stack:
@@ -941,8 +1089,12 @@ if __name__ == "__main__":
             print(f"\n  Running single case: stack={args.stack} model={args.model or '-'} voice={args.voice}...\n")
             results = single_case_benchmark(args.stack, args.model, args.voice)
         else:
+            save_dir = None
+            if args.save_samples:
+                save_dir = Path(args.samples_dir) if args.samples_dir else ROOT / ".generated" / "perf_samples"
+                print(f"\n  Saving one WAV per voice to {save_dir}\n")
             print("\n  Running welcome-phrase benchmark on all available stacks/models/voices...\n")
-            results = welcome_phrase_benchmark()
+            results = welcome_phrase_benchmark(save_dir=save_dir)
 
         render_console_table(results)
         json_path, html_path = generate_reports(results)

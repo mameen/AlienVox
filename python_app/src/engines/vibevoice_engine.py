@@ -196,8 +196,9 @@ class VibeVoiceEngine(TtsEngine):
                 # ML engine's weights_subpath in stacks.yaml — NOT the global
                 # HF cache. snapshot_download() is idempotent (skips files
                 # already present), so this is a no-op after the first run or
-                # after install_dialog.py's Download button already fetched
-                # the same target directory.
+                # after Manage Voices' Install button already fetched the
+                # same target directory (see manage_voices_dialog.py /
+                # model_installer.py).
                 local_dir = models_root() / "ml" / "vibevoice_realtime"
                 local_dir.mkdir(parents=True, exist_ok=True)
                 from huggingface_hub import snapshot_download

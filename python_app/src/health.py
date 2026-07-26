@@ -154,8 +154,8 @@ def _check_model_weights(stacks_yaml: Path, models_root: Path) -> list[CheckResu
 def _check_vibevoice_preset_voices(models_root: Path) -> list[CheckResult]:
     """VibeVoice's 6 preset voices are precomputed .pt files fetched
     separately from the HF weight snapshot (via ensure_voice_downloaded()
-    or install_dialog.py's Download button) — verify all 6 are actually
-    present, not just that the weights directory has *some* content."""
+    or Manage Voices' Install button) — verify all 6 are actually present,
+    not just that the weights directory has *some* content."""
     voices_dir = models_root / "ml" / "vibevoice_realtime" / "voices"
     if not voices_dir.exists():
         return [CheckResult(

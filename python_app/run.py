@@ -220,6 +220,20 @@ def _parse_single_case_flags() -> list[str]:
     return forwarded
 
 
+def _parse_save_samples_flags() -> list[str]:
+    """Extract --save-samples/--samples-dir from argv, forwarded as-is to
+    tests/test_perf.py's own argparse (full sweep only)."""
+    args = sys.argv[2:]
+    forwarded = []
+    if "--save-samples" in args:
+        forwarded.append("--save-samples")
+    if "--samples-dir" in args:
+        i = args.index("--samples-dir")
+        if i + 1 < len(args):
+            forwarded += ["--samples-dir", args[i + 1]]
+    return forwarded
+
+
 def cmd_perf() -> int:
     env, early_exit = _resolve_device()
     if early_exit is not None:
@@ -251,7 +265,7 @@ def cmd_perf() -> int:
     # ── Real-speech benchmark (standalone — SAPI COM requires STA threading) ─
     _header("Perf — welcome phrase benchmark")
     rc_perf = _run(
-        _venv_python(), "-m", "tests.test_perf", "_benchmark",
+        _venv_python(), "-m", "tests.test_perf", "_benchmark", *_parse_save_samples_flags(),
         env=env,
     )
     return rc or rc_perf or 0

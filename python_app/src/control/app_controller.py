@@ -23,7 +23,7 @@ import sys
 import threading
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:
     from ..engines.base import TtsEngine
@@ -283,6 +283,36 @@ class AppController:
                     engine.stop()
                 except Exception:
                     pass
+
+    # ── Model install / uninstall (Manage Voices dialog) ────────────────────
+    # Thin wrappers over model_installer.py's pure functions — the actual
+    # download/delete logic lives there (importable/testable without Qt),
+    # matching the same split AppController already uses for text_enhancer.
+
+    def download_model(
+        self, stack_id: str, model_id: str, models_root: Path,
+        on_progress: Callable[[int, int, str], None], voice_id: str | None = None,
+    ) -> None:
+        """Blocking — call from a background thread (ManageVoicesDialog does,
+        via its own QThread, for Qt-safe progress signal delivery)."""
+        from . import model_installer
+        model_installer.download_model(stack_id, model_id, models_root, on_progress, voice_id)
+
+    def uninstall_model(self, stack_id: str, model_id: str, models_root: Path) -> None:
+        from . import model_installer
+        model_installer.uninstall_model(stack_id, model_id, models_root)
+
+    def uninstall_piper_voice(self, voice_id: str, models_root: Path) -> None:
+        from . import model_installer
+        model_installer.uninstall_piper_voice(voice_id, models_root)
+
+    def refresh_catalog(self) -> None:
+        """Re-scan stacks.yaml + models_root and push the result into
+        AppState — call after an install/uninstall so ModelInfo.available/
+        weights_present reflect what's actually on disk now (see
+        AppState.refresh_catalog's docstring)."""
+        from ..engines.registry import available_stacks
+        self.state.refresh_catalog(available_stacks())
 
     def _run_engine_speak(
         self,

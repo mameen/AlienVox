@@ -93,6 +93,14 @@ class AppState(QObject):
         self._live_voices[stack_id] = voices
         self.catalog_changed.emit()
 
+    def refresh_catalog(self, stacks: list[StackInfo]) -> None:
+        """Replace the whole stack/model catalog — used after an
+        install/uninstall changes which models have weights on disk, since
+        registry.available_stacks()'s ModelInfo.weights_present is only
+        computed once at startup otherwise."""
+        self._stacks = stacks
+        self.catalog_changed.emit()
+
     def stack_info(self, stack_id: str) -> StackInfo | None:
         return next((s for s in self._stacks if s.id == stack_id), None)
 

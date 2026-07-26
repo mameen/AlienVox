@@ -89,6 +89,16 @@ class ModelInfo:
     name: str
     available: bool
     voices: list[dict[str, str]] = field(default_factory=list)
+    # `available` folds in auto_download=true (usable even before first
+    # download, since the engine fetches transparently on first use) — that
+    # makes it unsuitable for deciding whether to show an Install vs.
+    # Uninstall button, which needs to know whether weights are ACTUALLY on
+    # disk right now. weights_subpath/approx_size_mb are exposed too so
+    # callers (ManageVoicesDialog) don't need to re-parse stacks.yaml
+    # themselves just to know where a model lives or how big it is.
+    weights_present: bool = False
+    weights_subpath: str = ""
+    approx_size_mb: float | None = None
 
 
 @dataclass
@@ -145,12 +155,24 @@ def available_stacks(
             mid = m.get("id", "")
             weights = m.get("weights_subpath", "")
             auto_dl = m.get("auto_download", False)
-            weights_ok = auto_dl or (bool(weights) and (mr / weights).exists())
+            weights_dir = mr / weights if weights else None
+            # "present" = directory exists on disk, regardless of
+            # auto_download — that's the real question an Install/Uninstall
+            # button needs answered (see ModelInfo.weights_present's
+            # docstring). Deliberately just .exists(), not a content check
+            # (e.g. any(rglob("*"))) — matches the original weights_ok
+            # check exactly, so `available`'s semantics don't shift as a
+            # side effect of adding this field.
+            present = bool(weights_dir and weights_dir.exists())
+            weights_ok = auto_dl or present
             model_infos.append(ModelInfo(
                 id=mid,
                 name=m.get("name", mid),
                 available=platform_ok and weights_ok,
                 voices=m.get("voices", []),
+                weights_present=present,
+                weights_subpath=weights,
+                approx_size_mb=m.get("approx_size_mb"),
             ))
 
         stack_available = platform_ok and any(m.available for m in model_infos)

@@ -234,8 +234,9 @@ class AlienVoxTray:
         AboutDialog().exec()
 
     def _on_manage_voices(self) -> None:
+        from ..config import models_root as _models_root
         from .manage_voices_dialog import ManageVoicesDialog
-        dlg = ManageVoicesDialog(self._state, self._controller)
+        dlg = ManageVoicesDialog(self._state, self._controller, _models_root())
         dlg.exec()
 
     # ── Internal ─────────────────────────────────────────────────────────────

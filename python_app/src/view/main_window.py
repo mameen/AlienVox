@@ -437,8 +437,11 @@ class MainWindow(QMainWindow):
             self._set_status(f"Load settings failed: {exc}")
 
     def _on_manage_voices(self) -> None:
+        from ..config import models_root as _models_root
         from .manage_voices_dialog import ManageVoicesDialog
-        dlg = ManageVoicesDialog(self._state, self._controller, parent=self)
+        dlg = ManageVoicesDialog(
+            self._state, self._controller, self._models_root or _models_root(), parent=self,
+        )
         dlg.exec()
 
     # ── Toolbar ───────────────────────────────────────────────────────────────
@@ -927,7 +930,8 @@ class MainWindow(QMainWindow):
         self._status_engine_lbl.setStyleSheet("font-size:11px; color:#555; min-width:100px;")
         layout.addWidget(self._status_engine_lbl)
 
-        install_btn = QPushButton("Install" if not has_models else "Install Model")
+        install_btn = QPushButton("Manage Voices…")
+        install_btn.setToolTip("Enable/disable voices, preview, and install/uninstall model weights")
         install_btn.setStyleSheet(_btn_style())
         install_btn.setFixedHeight(28)
         install_btn.clicked.connect(lambda: self._open_install_dialog(stack))
@@ -1087,25 +1091,11 @@ class MainWindow(QMainWindow):
         self._controller.select_stack(stack_id, voice_id)
 
     def _open_install_dialog(self, stack: StackInfo) -> None:
-        from ..config import models_root as _models_root
-        from .install_dialog import InstallDialog
-
-        # Resolve the currently selected model for this stack
-        active_model_id = ""
-        if stack.models:
-            active_model_id = stack.models[0].id
-            for combo, sid in getattr(self, "_model_combos", []):
-                if sid == stack.id:
-                    active_model_id = combo.currentData() or active_model_id
-                    break
-
-        dlg = InstallDialog(
-            stack=stack,
-            models_root=self._models_root or _models_root(),
-            active_model_id=active_model_id,
-            parent=self,
-        )
-        dlg.exec()
+        # InstallDialog was folded into Manage Voices — one dialog for
+        # enable/disable, preview, size, and install/uninstall instead of
+        # two. `stack` isn't needed to target it: Manage Voices shows every
+        # stack/model already expanded, so there's nothing extra to select.
+        self._on_manage_voices()
 
     def _on_model_combo_changed(self, stack: StackInfo, model_id: str) -> None:
         """User picked a different model in the ML/AI tab's dropdown.
