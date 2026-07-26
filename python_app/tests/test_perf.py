@@ -214,9 +214,12 @@ def collect_metrics(
         # ── Save sample (independent of listen/timing) ──────────────────
         if save_path is not None:
             try:
-                import soundfile as sf
+                from src.control.audio_exporter import write_mp3, write_wav
                 save_path.parent.mkdir(parents=True, exist_ok=True)
-                sf.write(str(save_path), audio_arr, sr)
+                if save_path.suffix.lower() == ".mp3":
+                    write_mp3(audio_arr, sr, save_path)
+                else:
+                    write_wav(audio_arr, sr, save_path)
             except Exception as exc:
                 print(f"    (save failed for {result.stack_id}/{result.model_id}: {exc})")
 
@@ -235,7 +238,17 @@ def collect_metrics(
         t0 = time.perf_counter()
         try:
             save_path.parent.mkdir(parents=True, exist_ok=True)
-            engine.speak_to_wav(phrase, voice_id, params, save_path)
+            if save_path.suffix.lower() == ".mp3":
+                from src.control.audio_exporter import convert_wav_to_mp3
+                tmp_wav = save_path.with_suffix(".wav")
+                engine.speak_to_wav(phrase, voice_id, params, tmp_wav)
+                convert_wav_to_mp3(tmp_wav, save_path)
+                try:
+                    tmp_wav.unlink(missing_ok=True)
+                except Exception:
+                    pass
+            else:
+                engine.speak_to_wav(phrase, voice_id, params, save_path)
         except Exception as exc:
             result.skipped = True
             result.skip_reason = f"speak_to_wav() failed: {exc}"
@@ -296,13 +309,13 @@ def _safe_filename(name: str) -> str:
     return re.sub(r'[<>:"/\\|?*]', "_", name).strip() or "voice"
 
 
-def welcome_phrase_benchmark(save_dir: Path | None = None) -> list[PerfResult]:
+def welcome_phrase_benchmark(save_dir: Path | None = None, sample_format: str = "wav") -> list[PerfResult]:
     """Speak WELCOME_PHRASE on every available stack/model/voice combination.
 
     Returns a list of PerfResults. Skips unavailable stacks/models gracefully.
 
-    If save_dir is given, also writes one WAV file per voice under
-    save_dir/<stack_id>/[<model_id>/]<voice_id>.wav — the same layout the
+    If save_dir is given, also writes one audio file per voice under
+    save_dir/<stack_id>/[<model_id>/]<voice_id>.<sample_format> — the same layout the
     Manage Voices dialog groups voices in (SAPI5/Speech Platform are flat
     under the stack; ML stacks nest under their model). Used by
     `run.py perf --save-samples` to capture a reference sample set for
@@ -341,7 +354,7 @@ def welcome_phrase_benchmark(save_dir: Path | None = None) -> list[PerfResult]:
 
                 for voice in voices:
                     save_path = (
-                        save_dir / stack_id / f"{_safe_filename(voice.id)}.wav"
+                        save_dir / stack_id / f"{_safe_filename(voice.id)}.{sample_format}"
                         if save_dir is not None else None
                     )
                     r = collect_metrics(WELCOME_PHRASE, engine, voice.id, save_path=save_path)
@@ -384,7 +397,7 @@ def welcome_phrase_benchmark(save_dir: Path | None = None) -> list[PerfResult]:
                 voices = engine.list_voices()
                 for voice in voices:
                     save_path = (
-                        save_dir / stack_id / model.id / f"{_safe_filename(voice.id)}.wav"
+                        save_dir / stack_id / model.id / f"{_safe_filename(voice.id)}.{sample_format}"
                         if save_dir is not None else None
                     )
                     r = collect_metrics(WELCOME_PHRASE, engine, voice.id, save_path=save_path)
@@ -1073,8 +1086,14 @@ if __name__ == "__main__":
         parser.add_argument("--voice", default=None, help="Voice ID within --stack/--model (see stacks.yaml)")
         parser.add_argument(
             "--save-samples", action="store_true",
-            help="Also save one WAV per stack/model/voice under .generated/perf_samples/ "
+            help="Also save one sample per stack/model/voice under .generated/perf_samples/ "
                  "(gitignored) — full sweep only, ignored with --stack",
+        )
+        parser.add_argument(
+            "--sample-format",
+            choices=("wav", "mp3"),
+            default="wav",
+            help="Audio format to use with --save-samples (default: wav)",
         )
         parser.add_argument(
             "--samples-dir", default=None,
@@ -1092,9 +1111,9 @@ if __name__ == "__main__":
             save_dir = None
             if args.save_samples:
                 save_dir = Path(args.samples_dir) if args.samples_dir else ROOT / ".generated" / "perf_samples"
-                print(f"\n  Saving one WAV per voice to {save_dir}\n")
+                print(f"\n  Saving one {args.sample_format.upper()} per voice to {save_dir}\n")
             print("\n  Running welcome-phrase benchmark on all available stacks/models/voices...\n")
-            results = welcome_phrase_benchmark(save_dir=save_dir)
+            results = welcome_phrase_benchmark(save_dir=save_dir, sample_format=args.sample_format)
 
         render_console_table(results)
         json_path, html_path = generate_reports(results)
