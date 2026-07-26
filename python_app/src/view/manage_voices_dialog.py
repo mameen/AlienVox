@@ -59,8 +59,10 @@ _ACCENT = "#0078d4"
 _LIVE = "#107c10"
 _OFFLINE = "#0067b8"
 _BUTTON_STYLE = "font-size:11px; padding:2px 8px; min-height:24px; border-radius:3px;"
-_INSTALL_STYLE = "font-size:11px; padding:2px 10px; min-height:24px; min-width:84px; border:none; border-radius:3px; color:white; background:#0067b8;"
-_UNINSTALL_STYLE = "font-size:11px; padding:2px 10px; min-height:24px; min-width:84px; border:none; border-radius:3px; color:white; background:#a80000;"
+_INSTALL_STYLE = "font-size:15px; font-weight:700; padding:0; min-height:24px; min-width:28px; border:none; border-radius:3px; color:white; background:#0067b8;"
+_UNINSTALL_STYLE = "font-size:15px; font-weight:700; padding:0; min-height:24px; min-width:28px; border:none; border-radius:3px; color:white; background:#a80000;"
+_TRIANGLE_STYLE = "font-size:14px; line-height:14px; padding:0; min-height:24px; min-width:42px; border:none; border-radius:3px; color:white; background:#107c10;"
+_OFFLINE_STYLE = "font-size:14px; line-height:14px; padding:0; min-height:24px; min-width:42px; border:none; border-radius:3px; color:white; background:#0067b8;"
 
 # Piper is the only model without a shared weights blob — see module
 # docstring's "Install/uninstall granularity" section.
@@ -218,14 +220,14 @@ class ManageVoicesDialog(QDialog):
         model_item.setText(1, _fmt_size_mb(model.approx_size_mb))
 
         if model.weights_present:
-            btn = QPushButton("Uninstall")
+            btn = QPushButton("-")
             btn.setStyleSheet(_UNINSTALL_STYLE)
             btn.setToolTip("Uninstall model")
         else:
-            btn = QPushButton("Install")
+            btn = QPushButton("+")
             btn.setStyleSheet(_INSTALL_STYLE)
             btn.setToolTip("Install model")
-        btn.setFixedSize(88, 24)
+        btn.setFixedSize(30, 24)
         if model.weights_present:
             btn.clicked.connect(lambda _c=False, s=stack_id, m=model.id: self._confirm_uninstall_model(s, m))
         else:
@@ -253,39 +255,46 @@ class ManageVoicesDialog(QDialog):
         )
         self._tree.setItemWidget(item, 2, toggle)
 
-        # Every voice row gets its own action button.
-        # Piper uses per-voice files, while shared ML models use the voice
-        # enable/disable state as the voice-level action.
+        # Every voice row gets a visible status/action cell.
+        # Piper uses per-voice files; shared ML voices mirror their parent
+        # model's real install state; SAPI voices are runtime-only.
         if model_id in _PER_VOICE_INSTALL_MODELS:
             item.setText(1, _voice_size_display(model, voice))
             present = self._controller.piper_voice_installed(voice_id, self._models_root)
             if present:
-                btn = QPushButton("Uninstall")
+                btn = QPushButton("-")
                 btn.setStyleSheet(_UNINSTALL_STYLE)
                 btn.setToolTip("Uninstall voice")
                 btn.clicked.connect(lambda _c=False, v=voice_id: self._confirm_uninstall_piper_voice(v, label))
             else:
-                btn = QPushButton("Install")
+                btn = QPushButton("+")
                 btn.setStyleSheet(_INSTALL_STYLE)
                 btn.setToolTip("Install voice")
                 btn.clicked.connect(
                     lambda _c=False, s=stack_id, m=model_id, v=voice_id:
                         self._start_install(s, m, voice_id=v)
                 )
-            btn.setFixedSize(88, 24)
+            btn.setFixedSize(30, 24)
+            self._tree.setItemWidget(item, 3, btn)
+        elif stack_id == "ml":
+            item.setText(1, _voice_size_display(model, voice))
+            present = bool(model and model.weights_present)
+            btn = QPushButton("-" if present else "+")
+            btn.setStyleSheet(_UNINSTALL_STYLE if present else _INSTALL_STYLE)
+            btn.setToolTip("Uninstall model" if present else "Install model")
+            btn.setFixedSize(30, 24)
+            if present:
+                btn.clicked.connect(lambda _c=False, s=stack_id, m=model_id: self._confirm_uninstall_model(s, m))
+            else:
+                btn.clicked.connect(lambda _c=False, s=stack_id, m=model_id: self._start_install(s, m))
             self._tree.setItemWidget(item, 3, btn)
         else:
-            item.setText(1, _voice_size_display(model, voice))
-            voice_enabled = self._state.is_voice_enabled(stack_id, model_id, voice_id)
-            btn = QPushButton("Uninstall" if voice_enabled else "Install")
-            btn.setStyleSheet(_UNINSTALL_STYLE if voice_enabled else _INSTALL_STYLE)
-            btn.setToolTip("Remove this voice from the enabled list" if voice_enabled else "Restore this voice to the enabled list")
-            btn.setFixedSize(78, 22)
-            btn.clicked.connect(
-                lambda _c=False, s=stack_id, m=model_id, v=voice_id, enabled=voice_enabled:
-                    self._controller.set_voice_enabled(s, m, v, not enabled)
-            )
-            self._tree.setItemWidget(item, 3, btn)
+            runtime_btn = QPushButton("Runtime")
+            runtime_btn.setEnabled(False)
+            runtime_btn.setFixedSize(70, 24)
+            runtime_btn.setStyleSheet("font-size:11px; padding:2px 8px; min-height:24px; border-radius:3px; color:#666; background:#eee; border:1px solid #ccc;")
+            runtime_btn.setToolTip("SAPI / Speech Platform voices are provided by Windows and are not installed or uninstalled by AlienVox.")
+            self._tree.setItemWidget(item, 3, runtime_btn)
         preview_cell = QWidget()
         preview_layout = QHBoxLayout(preview_cell)
         preview_layout.setContentsMargins(0, 0, 0, 0)
@@ -299,10 +308,10 @@ class ManageVoicesDialog(QDialog):
         live_available = stack_id != "ml" or bool(model and model.weights_present)
 
         if live_available:
-            live_btn = QPushButton("Live")
-            live_btn.setFixedSize(52, 24)
-            live_btn.setToolTip(f"Play a live preview of {label}")
-            live_btn.setStyleSheet(f"color:white; background:{_LIVE}; border:none; {_BUTTON_STYLE}")
+            live_btn = QPushButton("▶")
+            live_btn.setFixedSize(42, 24)
+            live_btn.setToolTip(f"Play live preview of {label}")
+            live_btn.setStyleSheet(f"color:white; background:{_LIVE}; border:none; {_TRIANGLE_STYLE}")
             live_btn.clicked.connect(
                 lambda _checked=False, s=stack_id, m=model_id, v=voice_id:
                     self._controller.preview_voice_async(s, m, v)
@@ -310,10 +319,10 @@ class ManageVoicesDialog(QDialog):
             preview_layout.addWidget(live_btn)
 
         if sample_path and sample_path.exists():
-            sample_btn = QPushButton("Sample")
-            sample_btn.setFixedSize(64, 24)
-            sample_btn.setToolTip(f"Play the bundled offline sample for {label}")
-            sample_btn.setStyleSheet(f"color:white; background:{_OFFLINE}; border:none; {_BUTTON_STYLE}")
+            sample_btn = QPushButton("▶")
+            sample_btn.setFixedSize(42, 24)
+            sample_btn.setToolTip(f"Play offline sample for {label}")
+            sample_btn.setStyleSheet(_OFFLINE_STYLE)
             sample_btn.clicked.connect(
                 lambda _checked=False, s=stack_id, m=model_id, v=voice_id:
                     self._controller.preview_sample_async(s, m, v)
