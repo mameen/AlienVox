@@ -32,7 +32,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QObject, Qt, QThread, Signal
+from PySide6.QtCore import QObject, Qt, QThread, Signal, Slot
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
@@ -166,6 +166,14 @@ class ManageVoicesDialog(QDialog):
         self._state.catalog_changed.connect(self._populate)
         self._populate()
 
+    def closeEvent(self, event) -> None:
+        if self._thread is not None and self._thread.isRunning():
+            self._status_lbl.setText("Wait for the active download to finish before closing.")
+            self._status_lbl.show()
+            event.ignore()
+            return
+        super().closeEvent(event)
+
     # ── Population ────────────────────────────────────────────────────────
 
     def _populate(self) -> None:
@@ -244,6 +252,7 @@ class ManageVoicesDialog(QDialog):
                     lambda _c=False, s=stack_id, m=model_id, v=voice_id:
                         self._start_install(s, m, voice_id=v)
                 )
+            self._tree.setItemWidget(item, 3, btn)
         preview_cell = QWidget()
         preview_layout = QHBoxLayout(preview_cell)
         preview_layout.setContentsMargins(0, 0, 0, 0)
@@ -297,6 +306,8 @@ class ManageVoicesDialog(QDialog):
         self._worker = _DownloadWorker(self._controller, stack_id, model_id, self._models_root, voice_id)
         self._thread = QThread()
         self._worker.moveToThread(self._thread)
+        self._thread.finished.connect(self._thread.deleteLater)
+        self._worker.finished.connect(self._worker.deleteLater)
         self._thread.started.connect(self._worker.run)
         self._worker.progress.connect(self._on_progress)
         self._worker.finished.connect(self._on_install_finished)
@@ -314,12 +325,19 @@ class ManageVoicesDialog(QDialog):
     def _on_install_finished(self, success: bool, message: str) -> None:
         self._status_lbl.setText(message)
         self._progress_bar.hide()
-        self._thread = None
-        self._worker = None
         if success:
             self._controller.refresh_catalog()
         else:
             QMessageBox.warning(self, "Install failed", message)
+        if self._thread is not None and self._thread.isRunning():
+            self._thread.finished.connect(self._on_install_thread_finished)
+        else:
+            self._on_install_thread_finished()
+
+    @Slot()
+    def _on_install_thread_finished(self) -> None:
+        self._thread = None
+        self._worker = None
 
     # ── Uninstall ─────────────────────────────────────────────────────────
 
