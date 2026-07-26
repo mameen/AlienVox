@@ -5,8 +5,10 @@ Turns the app into something a non-developer can run: no Python, no `pip`, no ve
 Both outputs below are **base tier** — Windows SAPI5/Speech Platform voices, no ML, no torch —
 same reasoning as `install/requirements-base.txt` one level up: a frozen build that bundled
 torch/transformers/every TTS engine package would be multi-GB before a single model checkpoint is
-even downloaded. ML support isn't available in either packaged build right now; running from source
-with `install/install_ml.bat` is the only way to get it today (see "ML in a packaged build" below).
+even downloaded. The packaged build does ship the default `stacks.yaml`, the seeded `user.yaml`,
+and the offline preview audio assets so the UI starts with a complete base catalog. ML support
+isn't available in either packaged build right now; running from source with
+`install/install_ml.bat` is the only way to get it today (see "ML in a packaged build" below).
 
 | | What you get | Build with |
 |---|---|---|
@@ -68,7 +70,9 @@ Verified sizes from an actual build: **~120MB unpacked, ~50MB zipped.**
 Both packaged builds use the exact same path-resolution logic as running from source
 (`src/config.py`):
 
-- `stacks.yaml` / `user.yaml` — next to the installed app (or the extracted portable folder).
+- `stacks.yaml` / `user.yaml` — next to the installed app (or the extracted portable folder). The
+  installer ships the default copies so a fresh install starts with the same catalog and voice
+  settings as the source tree.
 - Model weights (`.models/`) — always `%LOCALAPPDATA%\com.alientech.alienvox\.models`, created on
   first use. A frozen build's own install directory isn't a reliable place for multi-GB downloads
   (a portable install in particular might be sitting on read-only or removable media) — see the
