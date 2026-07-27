@@ -164,8 +164,9 @@ For the short list, decide:
 
 Write the final decision back into:
 
-- `python_app/docs/issues/`
-- the relevant roadmap / status doc
+- `docs/SOTA_models.md` — update the "Candidates Under Evaluation" section with Green/Yellow/Red verdicts
+- `docs/tts_technology_options.md` — promote any confirmed candidates to the ADR queue
+- `python_app/docs/issues/todo_008_model_landscape_evaluation.md` — mark this todo done
 - any future `stacks.yaml` work queue
 
 ---
@@ -207,5 +208,8 @@ By the end of the evaluation pass, we should have:
 
 ## Done means
 
-This todo is done when the candidate landscape is documented well enough that the next implementation task can start with no further upstream research.
+This todo is done when:
 
+- `docs/SOTA_models.md` contains a Green/Yellow/Red verdict for every candidate listed above
+- `docs/tts_technology_options.md` ADR queue reflects any newly promoted candidates
+- the next implementation task can start with no further upstream research

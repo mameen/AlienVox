@@ -1,13 +1,19 @@
 # AlienVox Technology Options: Free and Local TTS
 
-**Updated:** 2026-07-18  
+**Updated:** 2026-07-27  
 **Project constraint:** Core TTS must be free to use or run locally. Paid cloud APIs must not be required.
 
-This document defines the implementation options for AlienVox. The product goal is a lightweight cross-platform "read selected text" utility with a dependable local speech path.
+This document defines the implementation options for AlienVox across all implementations. The product goal
+is a lightweight cross-platform "read selected text" utility with a dependable local speech path.
+
+See [`docs/SOTA_models.md`](SOTA_models.md) for the full model landscape, per-model verdicts, and
+candidates currently under evaluation.
+
+---
 
 ## Architecture Decision
 
-AlienVox should use a provider-based TTS interface:
+AlienVox uses a provider-based TTS interface:
 
 ```text
 Selection Capture
@@ -20,125 +26,201 @@ Selection Capture
   -> Audio Playback / Stop Control
 ```
 
-The application must work without an API key, billing account, or active internet connection after local dependencies are installed.
+The application must work without an API key, billing account, or active internet connection after local
+dependencies are installed.
 
-## Option 1: Native OS TTS
+---
 
-### Windows
+## 1. What has been built (python_app)
 
-- **Primary API:** `Windows.Media.SpeechSynthesis`.
-- **Fallback API:** SAPI 5 `ISpVoice`.
-- **Why it fits:** Built in, free, offline, fast, and suitable for the MVP latency target.
-- **Tradeoff:** Voice quality depends on installed Windows voices and may sound less natural than neural models.
+| Engine | Stack | Model | Size | Quality | On-device | Status |
+|--------|-------|-------|------|---------|-----------|--------|
+| SAPI 5 | `sapi5` | OS voices | — | Medium | ✅ | **Implemented** |
+| Speech Platform | `speech_platform` | MS Server v11 | — | Medium | ✅ | **Implemented** |
+| Kokoro-82M | `ml/kokoro` | hexgrad/Kokoro-82M | 82 M | High | ✅ | **Implemented** |
+| Piper | `ml/piper` | rhasspy/piper-voices | 30–150 MB/voice | Good | ✅ | Stub (engine TBD) |
+| Chatterbox 0.5B | `ml/chatterbox` | ResembleAI/chatterbox | ~500 M | Very High | ✅ | **Implemented** |
+| Dia 1.6B | `ml/dia` | nari-labs/Dia-1.6B | 1.6 B | Very High | ✅ | **Implemented** |
+| F5-TTS | `ml/f5tts` | SWivid/F5-TTS | ~335 M | Very High | ✅ | **Implemented** |
+| OuteTTS 0.5B | `ml/outetts` | OuteAI/OuteTTS-0.3-500M | 500 M | Good | ✅ | **Implemented** |
 
-### macOS
+---
 
-- **Primary API:** `AVSpeechSynthesizer`.
-- **Personal Voice:** Possible future enhancement on supported macOS versions after explicit user authorization.
-- **Why it fits:** Built in, free, offline, and aligned with the native "speak selection" behavior AlienVox is trying to match.
+## 2. Candidate options not yet evaluated
 
-### Linux
+### 2a. Accessibility / OS integrations
 
-- **Primary API:** Speech Dispatcher.
-- **Why it fits:** Standard Linux speech interface and compatible with accessibility tooling.
-- **Tradeoff:** Voice quality and setup vary by distribution.
+#### NVDA (NonVisual Desktop Access)
+- **What it is:** Open-source Windows screen reader; exposes a speech API via COM.
+- **Integration path:** `nvda-controller` Python library OR direct COM `nvdaController_speakText()`.
+- **Pros:** Native Windows, very low latency, voices already configured by user.
+- **Cons:** NVDA must be running; cannot be used standalone; accessibility-specific voices may not match
+  general TTS quality expectations.
+- **On-device:** ✅ (NVDA runs locally)
+- **Verdict:** Low priority — use case is niche. Worth a separate ADR if accessibility becomes a priority.
+- **Package:** `pip install nvda-controller` (unofficial) or direct DLL injection via `ctypes`.
 
-## Option 2: Rust `tts` Crate
+#### Windows Narrator / OneCore voices
+- **What it is:** Windows 10+ built-in TTS voices ("natural" voices like Aria Online).
+- **Integration path:** SAPI5 already exposes these; `SpeechSynthesizer` in `System.Speech` (requires .NET
+  interop).
+- **Pros:** High-quality voices on Windows 11 with cloud-enhanced mode.
+- **Cons:** Online variant requires internet; offline variant is the standard SAPI voice.
+- **Verdict:** Already covered by SAPI5. No separate stack needed.
 
-- **Upstream:** https://crates.io/crates/tts
-- **Role:** Thin cross-platform wrapper over native OS speech systems.
-- **Why it fits:** Good first integration layer for the MVP because it reduces platform-specific code.
-- **Use when:** The crate exposes enough control for rate, pitch, volume, voice selection, stop, and interruption.
-- **Do not assume:** That it solves neural model inference. It is a native-backend bridge, not a local neural TTS runtime.
+#### eSpeak NG
+- **What it is:** Compact, formant-synthesis TTS; multilingual; very fast.
+- **Package:** `pip install py-espeak-ng` (wraps the eSpeak NG binary).
+- **Pros:** 100+ languages, extremely small, no GPU needed, MIT-ish licence.
+- **Cons:** Robotic/synthetic quality; not competitive with neural models.
+- **On-device:** ✅
+- **Verdict:** Good fit as a lightweight fallback when no GPU is present. Worth an ADR.
 
-## Option 3: Kokoro-82M Local Neural TTS
+---
 
-- **Upstream:** https://huggingface.co/hexgrad/Kokoro-82M
-- **License:** Apache 2.0.
-- **Model size:** 82M parameters.
-- **Role:** First high-quality local neural target.
-- **Why it fits:** Good quality-to-size ratio, local execution, permissive license, realistic desktop footprint.
-- **Implementation route:** Start with the most reliable existing local runtime. Only move toward ONNX/Candle/Rust-native inference after measuring quality and latency.
-- **Requirement:** Must be runnable without paid API calls.
+### 2b. Local neural TTS (not yet added)
 
-## Option 4: Piper Offline TTS
+#### StyleTTS 2
+- **Repo:** `yl4579/StyleTTS2`
+- **Package:** `pip install git+https://github.com/yl4579/StyleTTS2`
+- **Size:** ~300 M
+- **Quality:** State-of-the-art naturalness for English; matches human in some benchmarks.
+- **Voices:** Style-transfer from reference audio.
+- **On-device:** ✅ (CUDA preferred; CPU possible)
+- **Sample rate:** 24 kHz
+- **Verdict:** High quality competitor to Chatterbox. Worth adding as `ml/styletts2`.
 
-- **Upstream:** https://github.com/rhasspy/piper
-- **License:** MIT.
-- **Status:** Original upstream is archived/read-only.
-- **Role:** Small offline neural fallback.
-- **Why it fits:** Proven local TTS engine with small voice models.
-- **Correction:** Do not refer to "Vellum Tiny"; use real Piper voice quality tiers such as `x_low`, `low`, `medium`, and `high`.
-- **Risk:** Maintenance has moved away from the original repository, so avoid depending on future upstream development.
+#### MeloTTS
+- **Repo:** `myshell-ai/MeloTTS`
+- **Package:** `pip install git+https://github.com/myshell-ai/MeloTTS`
+- **Size:** ~200 M
+- **Quality:** High, fast inference; multilingual (EN, ZH, ES, FR, JP, KR).
+- **On-device:** ✅
+- **Sample rate:** 44.1 kHz
+- **Verdict:** Best option for multilingual support. Add as `ml/melotts`.
 
-## Option 5: Heavier Local Neural Engines
+#### Parler-TTS Mini / Large
+- **Repo:** `huggingface/parler-tts`
+- **Package:** `pip install git+https://github.com/huggingface/parler-tts`
+- **Size:** 880 M (Mini), 2.2 B (Large)
+- **Quality:** High; description-controlled voice style ("a male voice with a warm tone").
+- **On-device:** ✅ (CUDA required for real-time)
+- **Sample rate:** 44.1 kHz
+- **Verdict:** Unique voice-style-by-description UX. Interesting future addition.
 
-### VibeVoice-Realtime-0.5B
+#### Orpheus TTS
+- **Repo:** `canopylabs/orpheus-tts`
+- **Size:** 3B (Llama-based)
+- **Quality:** Highly expressive, handles laughter/sighing/breathing.
+- **On-device:** ✅ (requires ~3.5 GB VRAM on a 4090)
+- **Sample rate:** 24 kHz
+- **Verdict:** Best-in-class expressiveness. Slower than Kokoro; good for content production, not real-time.
 
-- **Upstream:** https://github.com/microsoft/VibeVoice
-- **License:** MIT.
-- **Role:** Streaming local neural TTS candidate.
-- **Strengths:** 0.5B parameter size, streaming text input, real-time TTS focus, local-capable open-source path.
-- **Constraint:** Microsoft describes VibeVoice as research/development-oriented and recommends further testing before commercial or real-world application use. Benchmark locally before treating it as production-ready.
-- **Implementation route:** Test through the upstream Python/Hugging Face path first. Add a native wrapper only after latency, quality, and memory measurements pass.
+#### Coqui XTTS v2
+- **Package:** `pip install TTS`
+- **Size:** ~2 GB
+- **Quality:** Very high, 17 languages, voice cloning from 6 s reference.
+- **On-device:** ✅
+- **Sample rate:** 24 kHz
+- **Verdict:** Mature library, well-documented. Good alternative to F5-TTS for cloning.
 
-### Zonos v0.1 / ZONOS2
+#### Bark (suno-ai)
+- **Package:** `pip install git+https://github.com/suno-ai/bark`
+- **Size:** ~5 GB (all models)
+- **Quality:** Very expressive; non-verbal sounds, music.
+- **On-device:** ✅ (GPU strongly preferred)
+- **Cons:** Very slow (5–30× slower than Kokoro); not suitable for real-time.
+- **Verdict:** Niche — good for one-shot audio production, not interactive TTS.
 
-- **Upstreams:** https://github.com/Zyphra/Zonos and https://huggingface.co/Zyphra/ZONOS2
-- **License:** Apache 2.0.
-- **Role:** High-quality local experiment.
-- **Strengths:** Voice cloning, expressive control, multilingual support.
-- **Constraint:** Heavier runtime and GPU-oriented local inference make it unsuitable as the first MVP engine.
+---
 
-### Dia
+### 2c. todo_008 candidates under active evaluation
 
-- **Upstreams:** https://github.com/nari-labs/dia and https://huggingface.co/nari-labs/Dia-1.6B
-- **License:** Apache 2.0.
-- **Role:** Dialogue/storytelling experiment.
-- **Strengths:** Speaker-tagged dialogue, emotional/nonverbal cues, audio conditioning.
-- **Constraint:** English-focused and GPU-oriented; not ideal for fast read-selection playback.
+The following are surfaced from the Voicebox roadmap and are being evaluated against the rubric in
+[`docs/SOTA_models.md`](SOTA_models.md). No implementation decision has been made yet.
 
-## Option 6: Cloud TTS Adapters
+**TTS:** Pocket TTS, IndicF5, VibeVoice, FireRedTTS-2, LongCat-AudioDiT, SoproTTS, NeuTTS Air/Nano,
+dots.tts, Maya1, X-Voice
 
-Cloud TTS adapters are allowed only as optional demos or user-enabled extensions. They must not be part of the default product path.
+**STT:** Nemotron 3.5 ASR Streaming 0.6B, Cohere Transcribe 03-2026, ARK-ASR 3B/0.6B, IBM Granite Speech
+4.1 2B/NAR
 
-### Gemini TTS
+See `python_app/docs/issues/todo_008_model_landscape_evaluation.md` for full research questions and
+evaluation criteria.
 
-- **Upstreams:** https://ai.google.dev/gemini-api/docs/models/gemini-2.5-flash-preview-tts and https://docs.cloud.google.com/text-to-speech/docs/gemini-tts
-- **Reason not default:** Cloud/API dependency, quotas, preview changes, and billing risk.
-- **Allowed role:** Optional adapter behind explicit configuration.
+---
 
-### Other Paid Cloud Providers
+### 2d. Cloud / API TTS (excluded by design)
 
-- Examples: ElevenLabs, OpenAI TTS, Azure Neural Voice.
-- **Reason not default:** They require network access and/or paid usage.
-- **Allowed role:** Optional adapter only.
+The following are cloud APIs and are **incompatible with AlienVox's design constraint** (no backend,
+inference on-device):
 
-## Removed / Corrected Claims
+| Provider | Model | Note |
+|----------|-------|------|
+| Google | Gemini 2.5 Flash TTS | Cloud API only; no local weights |
+| Google | Cloud TTS | API |
+| Azure | Azure Neural TTS | API |
+| OpenAI | TTS-1 / TTS-1-HD | API |
+| AWS | Polly | API |
+| ElevenLabs | — | API |
 
-The previous version included claims that must not guide implementation:
+These are permanently excluded unless AlienVox gains an optional cloud mode (separate ADR required).
+
+---
+
+## 3. ADR candidates — priority order
+
+ADR documents live in `python_app/docs/adr/`.
+
+| # | Title | Priority | Complexity | Value |
+|---|-------|----------|------------|-------|
+| ADR-005 | Add eSpeak NG as lightweight fallback engine | **MED** | Low | CPU-only fallback |
+| ADR-006 | Add StyleTTS 2 as high-quality English engine | **HIGH** | Medium | Best naturalness |
+| ADR-007 | Add MeloTTS for multilingual support | **HIGH** | Medium | Opens non-English |
+| ADR-008 | Add Orpheus TTS for expressive/production use | MED | Medium | Expressiveness |
+| ADR-009 | Add Parler-TTS description-controlled voices | LOW | Medium | Novel UX |
+| ADR-010 | NVDA accessibility integration | LOW | Low | Niche audience |
+| ADR-011 | Cloud TTS optional mode (Azure/Google) | LOW | High | Requires arch change |
+
+---
+
+## 4. Decision criteria for new engines
+
+An engine is worth adding to AlienVox when it satisfies **all** of:
+
+1. **On-device** — no network required for inference.
+2. **Licence** — Apache 2.0, MIT, or similar (no research-only or commercial-restricted weights).
+3. **Quality** — MOS ≥ 4.0 or clearly better than what is already in the stack for its use case.
+4. **Install story** — `pip install <package>` + HF auto-download; no manual binary setup.
+5. **Ships with tests** — `tests/test_<engine>.py` covering roster, validation guard, rate mapping, stop,
+   wait_until_done.
+
+---
+
+## 5. Required validation before implementation
+
+Before committing to any neural model:
+
+1. Generate the same sample text through each candidate.
+2. Measure cold start, time to first audio, and real-time factor on the target Windows machine.
+3. Measure memory and disk footprint.
+4. Verify license for both inference code and model weights.
+5. Confirm the model runs without paid services or mandatory network calls after installation.
+
+---
+
+## 6. Removed / corrected claims
+
+The following entries from earlier versions of this document were removed because they were unverified,
+inaccurate, or out of scope:
 
 - `Qwen3-TTS-rs`: repository, model figures, and latency claims were not verified.
 - `any-tts`: crate and adapter claims were not verified.
 - `Voxtral` as TTS: incorrect; Voxtral is speech-understanding/ASR-oriented, not a TTS engine.
-- Piper "Vellum Tiny": not real Piper terminology.
-- VibeVoice-Realtime-0.5B sub-80ms TTFA: model is verified, but that specific benchmark was not verified. Use upstream's roughly 300 ms first audible latency claim until local measurements exist.
+- Piper "Vellum Tiny": not real Piper terminology. Use real quality tiers: `x_low`, `low`, `medium`, `high`.
+- VibeVoice-Realtime-0.5B sub-80ms TTFA: model is verified, but that specific benchmark was not verified.
+  Use upstream's roughly 300 ms first audible latency claim until local measurements exist.
+- Rust `tts` crate as a primary integration path: relevant only to the retired `gemini_poc` implementation.
 - Cloud AI voices as a high-priority product path: conflicts with the free/local requirement.
-
-## Recommended Implementation Order
-
-1. Implement the provider interface and native OS TTS path.
-2. Add playback interruption and reliable stop behavior.
-3. Add Kokoro-82M as the first local neural engine.
-4. Benchmark VibeVoice-Realtime-0.5B against Kokoro-82M for streaming latency and voice quality.
-5. Add Piper only if Kokoro is too heavy or unreliable on target machines.
-6. Evaluate Zonos or Dia after the core app is stable.
-7. Keep cloud adapters out of the critical path.
-
-## Acceptance Criteria
-
-- App can speak selected text without internet.
-- App can speak selected text without API keys.
-- App can stop current speech immediately.
-- App preserves the native OS fallback even when neural models are unavailable.
-- Any model shipped or downloaded by the app has verified license terms for both code and weights.
+- Fish Audio S2 / S2 Pro claims: previous size and WER figures were not verified.
+- Wan Streamer v0.1 / `arXiv:2606.25041`: appears fabricated or irrelevant to a TTS utility.
