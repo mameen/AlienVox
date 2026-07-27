@@ -125,3 +125,16 @@ stacks:
           pitch:       { applies: false }
           volume:      { min: 0, max: 100, default: 100, applies: true }
           ttl_seconds: { min: 0, max: 300, default: 30,  applies: true }
+
+      - id: qwen3tts
+        name: Qwen3-TTS 0.6B
+        weights_subpath: ml/qwen3tts
+        auto_download: true
+        voices:
+          - { id: vivian, label: "Vivian (F · ZH/EN)" }
+          - { id: sohee,  label: "Sohee (F · KO)" }
+        controls:
+          rate:        { applies: false }
+          pitch:       { applies: false }
+          volume:      { min: 0, max: 100, default: 100, applies: true }
+          ttl_seconds: { min: 0, max: 300, default: 30,  applies: true }

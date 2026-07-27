@@ -50,6 +50,7 @@ _DIA_HF_REPO = "nari-labs/Dia-1.6B-0626"  # dia package (git HEAD) requires the 
 _F5TTS_HF_REPO = "SWivid/F5-TTS"
 _OUTETTS_HF_REPO = "OuteAI/OuteTTS-0.3-500M"
 _VIBEVOICE_REALTIME_HF_REPO = "microsoft/VibeVoice-Realtime-0.5B"
+_QWEN3TTS_HF_REPO = "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice"
 
 # HF token from .env (for gated repos)
 _HF_TOKEN = os.environ.get("HUGGINGFACE_TOKEN", "")
@@ -167,6 +168,7 @@ def _download_auto(models_root: Path, model_id: str, force: bool = False) -> Non
         "f5tts": (_F5TTS_HF_REPO, "~1.2 GB"),
         "outetts": (_OUTETTS_HF_REPO, "~1 GB"),
         "vibevoice_realtime": (_VIBEVOICE_REALTIME_HF_REPO, "~2 GB"),
+        "qwen3tts": (_QWEN3TTS_HF_REPO, "~1.5 GB"),
     }
     if model_id not in downloads:
         print(f"  ⊘ No download strategy for '{model_id}'.")

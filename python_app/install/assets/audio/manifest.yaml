@@ -211,3 +211,39 @@ samples:
   model_id: null
   voice_id: TTS_MS_EN-US_ZIRA_11.0
   file: speech_platform/TTS_MS_EN-US_ZIRA_11.0.mp3
+- stack_id: ml
+  model_id: qwen3tts
+  voice_id: vivian
+  file: ml/qwen3tts/vivian.mp3
+- stack_id: ml
+  model_id: qwen3tts
+  voice_id: serena
+  file: ml/qwen3tts/serena.mp3
+- stack_id: ml
+  model_id: qwen3tts
+  voice_id: dylan
+  file: ml/qwen3tts/dylan.mp3
+- stack_id: ml
+  model_id: qwen3tts
+  voice_id: eric
+  file: ml/qwen3tts/eric.mp3
+- stack_id: ml
+  model_id: qwen3tts
+  voice_id: ryan
+  file: ml/qwen3tts/ryan.mp3
+- stack_id: ml
+  model_id: qwen3tts
+  voice_id: aiden
+  file: ml/qwen3tts/aiden.mp3
+- stack_id: ml
+  model_id: qwen3tts
+  voice_id: uncle_fu
+  file: ml/qwen3tts/uncle_fu.mp3
+- stack_id: ml
+  model_id: qwen3tts
+  voice_id: ono_anna
+  file: ml/qwen3tts/ono_anna.mp3
+- stack_id: ml
+  model_id: qwen3tts
+  voice_id: sohee
+  file: ml/qwen3tts/sohee.mp3

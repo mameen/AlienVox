@@ -43,6 +43,7 @@ _ALL_ML_MODELS = [
     "ml/f5tts",
     "ml/outetts",
     "ml/vibevoice_realtime",
+    "ml/qwen3tts",
 ]
 
 def _real_models_root() -> Path:

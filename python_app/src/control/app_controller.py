@@ -47,6 +47,8 @@ _UNSAFE_FILENAME_CHARS_RE = re.compile(r'[<>:"/\\|?*]')
 # Single source of truth for the "Play Sample" button and the performance
 # test harness (tests/test_perf.py imports this rather than keeping its
 # own copy) — both need the exact same phrase for results to be comparable.
+# This phrase is also used for offline voice samples in install/assets/audio/
+# — all ML engines must use it for their sample files, not arbitrary text.
 SAMPLE_TEXT = (
     "Welcome to AlienVox. This is a performance test of your TTS engine. "
     "If you can hear this, your system is working correctly."
@@ -68,6 +70,7 @@ _ML_ENGINES: dict[str, tuple[str, str]] = {
     "f5tts":      ("f5tts_engine",      "F5TTSEngine"),
     "outetts":    ("outetts_engine",    "OuteTTSEngine"),
     "vibevoice_realtime": ("vibevoice_engine", "VibeVoiceEngine"),
+    "qwen3tts":         ("qwen3tts_engine",         "Qwen3TTSEngine"),
 }
 
 

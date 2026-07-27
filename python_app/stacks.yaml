@@ -160,3 +160,24 @@ stacks:
           pitch:       { applies: false }
           volume:      { min: 0, max: 100, default: 100, applies: true }
           ttl_seconds: { min: 0, max: 300, default: 30,  applies: true }
+
+      - id: qwen3tts
+        name: Qwen3-TTS 0.6B
+        weights_subpath: ml/qwen3tts
+        auto_download: true        # Qwen3TTSModel.from_pretrained() fetches on first use (~1.5 GB)
+        approx_size_mb: 1500       # single shared download, covers every voice below
+        voices:
+          - { id: vivian,   label: "Vivian (F · ZH/EN)" }
+          - { id: serena,   label: "Serena (F · ZH/EN)" }
+          - { id: dylan,    label: "Dylan (M · EN)" }
+          - { id: eric,     label: "Eric (M · EN)" }
+          - { id: ryan,     label: "Ryan (M · EN)" }
+          - { id: aiden,    label: "Aiden (M · EN)" }
+          - { id: uncle_fu, label: "Uncle Fu (M · ZH)" }
+          - { id: ono_anna, label: "Ono Anna (F · JA)" }
+          - { id: sohee,    label: "Sohee (F · KO)" }
+        controls:
+          rate:        { applies: false }
+          pitch:       { applies: false }
+          volume:      { min: 0, max: 100, default: 100, applies: true }
+          ttl_seconds: { min: 0, max: 300, default: 30,  applies: true }

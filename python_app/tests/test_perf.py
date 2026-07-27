@@ -509,6 +509,9 @@ def _load_ml_engine(stack_id: str, model_info: Any) -> Any | None:
         elif model_id == "vibevoice_realtime":
             from src.engines.vibevoice_engine import VibeVoiceEngine
             return VibeVoiceEngine()
+        elif model_id == "qwen3tts":
+            from src.engines.qwen3tts_engine import Qwen3TTSEngine
+            return Qwen3TTSEngine()
     except Exception:
         pass
     return None

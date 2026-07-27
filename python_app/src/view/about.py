@@ -147,7 +147,7 @@ class AboutDialog(QDialog):
                     ("UI Framework", "PySide6 — Qt6 for Windows and macOS"),
                     ("System Tray", "QSystemTrayIcon — platform-native integration"),
                     ("TTS — OS", "Windows SAPI 5 via pywin32 COM"),
-                    ("TTS — ML", "Kokoro-82M, Piper, Dia, VibeVoice (in-process ONNX)"),
+                    ("TTS — ML", "Kokoro-82M, Piper, Dia, VibeVoice, Qwen3-TTS (in-process ONNX/PyTorch)"),
                     ("Config", "stacks.yaml bundled next to executable"),
                 ],
             ),
@@ -160,6 +160,7 @@ class AboutDialog(QDialog):
                     ("Piper", "Small offline neural TTS (MIT). Stable fallback."),
                     ("VibeVoice-Realtime-0.5B", "Streaming TTS (MIT, Microsoft research-stage model). Not real-time on CPU — GPU recommended."),
                     ("Dia", "Expressive dialogue generation (Apache 2.0, GPU-oriented)."),
+                    ("Qwen3-TTS 0.6B", "Multilingual TTS with voice cloning (Apache 2.0, Alibaba Qwen Team). ~10 languages; CPU RTF > 1.0 — GPU recommended for interactive use."),
                 ],
             ),
             (

@@ -48,6 +48,7 @@ _ML_ENGINE_IMPORTS = {
     "outetts": "outetts",
     "dia": "dia",
     "vibevoice_realtime": "vibevoice",
+    "qwen3tts":         "qwen_tts",
 }
 
 # vibevoice isn't in requirements.txt itself (no PyPI release, git-only,
@@ -57,7 +58,7 @@ _ML_ENGINE_IMPORTS = {
 # venv set up before that, or one where that step failed/was skipped. A
 # missing import here is treated as expected/normal, not a failure — warn
 # instead of erroring like a genuinely required engine would.
-_MANUAL_INSTALL_ENGINES = {"vibevoice_realtime"}
+_MANUAL_INSTALL_ENGINES = {"vibevoice_realtime", "qwen3tts"}
 
 # VibeVoice's preset voices are precomputed .pt files fetched separately
 # from the HF weight snapshot (see vibevoice_engine.py's docstring) — the
