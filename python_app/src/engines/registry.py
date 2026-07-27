@@ -83,6 +83,10 @@ def _speech_platform_installed() -> bool:
     return result
 
 
+def _path_has_files(path: Path) -> bool:
+    return path.exists() and any(p.is_file() for p in path.rglob("*"))
+
+
 @dataclass
 class ModelInfo:
     id: str
@@ -163,7 +167,7 @@ def available_stacks(
             # (e.g. any(rglob("*"))) — matches the original weights_ok
             # check exactly, so `available`'s semantics don't shift as a
             # side effect of adding this field.
-            present = bool(weights_dir and weights_dir.exists())
+            present = bool(weights_dir and _path_has_files(weights_dir))
             weights_ok = auto_dl or present
             model_infos.append(ModelInfo(
                 id=mid,

@@ -13,7 +13,7 @@ isn't available in either packaged build right now; running from source with
 | | What you get | Build with |
 |---|---|---|
 | **Portable** (`portable/`) | A zip — extract anywhere, run `AlienVox.exe`. No installer, no registry entries, no admin rights. | `portable\build_portable.bat` |
-| **Installer** (`exe/`) | `AlienVoxSetup-<version>.exe` — Start Menu shortcut, optional desktop icon, proper uninstaller. Installs per-user (no admin required). | `exe\build_exe.bat` |
+| **Installer** (`exe/`) | `AlienVoxSetup-<version>.exe` — Start Menu shortcut, optional desktop icon, proper uninstaller, plus a Basic/Advanced install choice. Installs per-user (no admin required). | `exe\build_exe.bat` |
 
 ## Building
 
@@ -96,3 +96,4 @@ default.
 
 AlienVox is a product of [AlienTech.Software](https://alientech.software/), © 2026. Licensed under
 the MIT License — see [LICENSE](../../../LICENSE) in the repository root.
+

@@ -52,6 +52,7 @@ from ..control.app_controller import AppController
 from ..device import cuda_available
 from ..engines.registry import StackInfo
 from ..model.app_state import AppState
+from ..resource_paths import resource_path
 from .toggle_switch import ToggleSwitch
 
 _ACCENT = "#0078d4"
@@ -337,7 +338,7 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(560, 400)
         # Qt.Window ensures it gets its own taskbar button even when parented
         self.setWindowFlags(Qt.WindowType.Window)
-        _icon_path = Path(__file__).parent.parent / "resources" / "icons" / "icon_256x256.png"
+        _icon_path = resource_path("icons", "icon_256x256.png")
         if _icon_path.exists():
             self.setWindowIcon(QIcon(str(_icon_path)))
 
@@ -941,7 +942,7 @@ class MainWindow(QMainWindow):
         # ("is my audio pipeline actually working"), not a text-playback
         # action, so it belongs with the other diagnostic control rather
         # than in the toolbar's Play/Play Enhanced/Pause/Stop cluster.
-        sample_icon_path = Path(__file__).parent.parent / "resources" / "icons" / "play_sample_icon.png"
+        sample_icon_path = resource_path("icons", "play_sample_icon.png")
         sample_btn = QToolButton()
         sample_btn.setStyleSheet("QToolButton { border: none; background-color: transparent; }")
         sample_btn.setIcon(QIcon(str(sample_icon_path)) if sample_icon_path.exists() else _make_play_icon())

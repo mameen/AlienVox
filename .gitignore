@@ -4,4 +4,15 @@ gemini_poc/*.zip
 gemini_poc/**/*.zip
 gemini_poc/src-tauri/target/debug/
 .download/
+.venv-base-build/build/exe/redist/
+# AlienVox install/build caches and downloaded payloads
+python_app/install/.venv-base-build/Lib/
+python_app/install/.venv-base-build/Scripts/
+python_app/install/.venv-base-build/Include/
+python_app/install/.venv-base-build/Lib64/
+python_app/install/.venv-base-build/build/
+python_app/install/.venv-base-build/Downloads/
+python_app/install/windows/exe/redist/
+python_app/install/windows/exe/*.exe
+python_app/install/windows/portable/*.zip
 .env

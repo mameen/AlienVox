@@ -17,9 +17,8 @@ from PySide6.QtWidgets import (
 )
 
 from ..device import cuda_available
+from ..resource_paths import resource_path
 from ..version import version as get_version
-
-_ICONS = Path(__file__).parent.parent / "resources" / "icons"
 
 
 class AboutDialog(QDialog):
@@ -57,7 +56,7 @@ class AboutDialog(QDialog):
         logo = QLabel()
         logo.setFixedSize(72, 72)
         logo.setStyleSheet("border-radius:8px; background:#f5f5f5; padding:4px;")
-        pix_path = _ICONS / "icon_256x256.png"
+        pix_path = resource_path("icons", "icon_256x256.png")
         if pix_path.exists():
             pix = QPixmap(str(pix_path)).scaled(
                 64, 64,
@@ -88,7 +87,7 @@ class AboutDialog(QDialog):
 
         if cuda_available():
             gpu_badge = QLabel()
-            gpu_icon_path = _ICONS / "gpu.png"
+            gpu_icon_path = resource_path("icons", "gpu.png")
             if gpu_icon_path.exists():
                 gpu_badge.setPixmap(QPixmap(str(gpu_icon_path)).scaled(
                     12, 12, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation,

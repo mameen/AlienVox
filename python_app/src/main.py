@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import sys
 import threading
+import importlib.util
 from pathlib import Path
 
 # Load .env (HUGGINGFACE_TOKEN, CUDA_VISIBLE_DEVICES, ...) before anything
@@ -30,16 +31,24 @@ from PySide6.QtWidgets import QApplication
 from . import logger as _logger
 from .config import load_effective_config
 from .config import models_root as _models_root
-from .control.app_controller import AppController
+from .control.app_controller import AppController, _ML_ENGINES
 from .control.hotkey import start_listener
 from .control.telemetry import Telemetry
 from .engines.registry import available_stacks
 from .model.app_state import AppState
+from .resource_paths import resource_path
 from .version import version as get_version
 from .view.main_window import MainWindow
 from .view.tray import AlienVoxTray
 
 _log = _logger.get_logger("main")
+
+
+def _packaged_ml_engine_available(model_id: str) -> bool:
+    module_name = _ML_ENGINES.get(model_id, ("", ""))[0]
+    if not module_name:
+        return False
+    return importlib.util.find_spec(f"src.engines.{module_name}") is not None
 
 
 def _publish_aux_sapi_voices(state: AppState) -> None:
@@ -117,7 +126,7 @@ def main() -> int:
     app.setApplicationName("AlienVox")
     app.setOrganizationName("AlienTech.Software")
     app.setQuitOnLastWindowClosed(False)
-    _app_icon_path = Path(__file__).parent / "resources" / "icons" / "icon_256x256.png"
+    _app_icon_path = resource_path("icons", "icon_256x256.png")
     if _app_icon_path.exists():
         app.setWindowIcon(QIcon(str(_app_icon_path)))
 
@@ -145,6 +154,15 @@ def main() -> int:
 
     cfg = load_effective_config()
     stacks = available_stacks()
+
+    if getattr(sys, "frozen", False) and cfg.get("engine") == "ml":
+        model_id = cfg.get("model") or "kokoro"
+        if not _packaged_ml_engine_available(model_id):
+            _log.warn("packaged ML engine %s is unavailable â€” falling back to sapi5", model_id)
+            cfg = dict(cfg)
+            cfg["engine"] = "sapi5"
+            cfg["model"] = ""
+            cfg["voice"] = ""
 
     state = AppState(stacks, cfg)
     _log.info("active stack=%s model=%s", state.active_stack, state.active_model or "(none)")

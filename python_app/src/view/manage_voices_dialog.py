@@ -156,8 +156,11 @@ class ManageVoicesDialog(QDialog):
         root.addWidget(self._tree, stretch=1)
 
         self._progress_bar = QProgressBar()
-        self._progress_bar.setRange(0, 0)
+        self._progress_bar.setRange(0, 1)
+        self._progress_bar.setValue(0)
         self._progress_bar.setTextVisible(True)
+        self._progress_bar.setFormat("Downloading...")
+        self._progress_bar.setMinimumHeight(22)
         self._progress_bar.setStyleSheet(f"""
             QProgressBar {{ border: 1px solid #ccc; border-radius: 4px; text-align: center; height: 18px; font-size: 11px; }}
             QProgressBar::chunk {{ background: {_ACCENT}; border-radius: 3px; }}
@@ -337,10 +340,13 @@ class ManageVoicesDialog(QDialog):
     def _start_install(self, stack_id: str, model_id: str, voice_id: str | None = None) -> None:
         if self._thread is not None:
             self._status_lbl.setText("A download is already in progress — wait for it to finish.")
+            self._progress_bar.show()
             self._status_lbl.show()
             return
 
-        self._progress_bar.setRange(0, 0)
+        self._progress_bar.setRange(0, 1)
+        self._progress_bar.setValue(0)
+        self._progress_bar.setFormat("Downloading...")
         self._progress_bar.show()
         self._status_lbl.setText(f"Starting download for {model_id}{'/' + voice_id if voice_id else ''}…")
         self._status_lbl.show()
@@ -361,8 +367,12 @@ class ManageVoicesDialog(QDialog):
         if total > 0:
             self._progress_bar.setRange(0, total)
             self._progress_bar.setValue(done)
+            self._progress_bar.setFormat(f"{done}/{total}")
         else:
-            self._progress_bar.setRange(0, 0)
+            self._progress_bar.setRange(0, 1)
+            self._progress_bar.setValue(0)
+            self._progress_bar.setFormat("Downloading...")
+        self._progress_bar.show()
 
     def _on_install_finished(self, success: bool, message: str) -> None:
         self._status_lbl.setText(message)

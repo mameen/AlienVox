@@ -55,6 +55,10 @@ Use this reference when a change touches install flow, packaging, deployment, co
 - Keep preview assets available even when model weights are missing.
 - Keep user config and runtime caches in their own writable location.
 - Keep UI behavior crisp: the app should not need to guess where defaults came from.
+- A frozen build must never assume a dev-only ML engine is present. If the packaged
+  artifact omits a model module, the startup path must fall back to a bundled,
+  actually-shipped engine before constructing app state. "Default in the catalog"
+  is not the same as "default in the frozen binary."
 
 ## Path Decisions
 
@@ -80,6 +84,9 @@ When deciding where a file should live, ask:
 - Using registry lookups as the primary config mechanism for cross-platform behavior.
 - Coupling install assets to runtime downloads so uninstall destroys previews.
 - Making prod behavior depend on dev-only cache paths.
+- Booting the installer or portable package into a model that is not present in the
+  frozen runtime, then letting the UI fail at startup instead of selecting a shipped
+  fallback engine.
 
 ## When To Update This Reference
 
@@ -88,3 +95,4 @@ When deciding where a file should live, ask:
 - New model/voice packaging behavior
 - New platform-specific deployment rule
 - Any change that affects how the app distinguishes dev from prod
+- Any change that affects which engine a frozen build may select at startup

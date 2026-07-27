@@ -16,9 +16,9 @@ from PySide6.QtWidgets import QFileDialog, QMenu, QSystemTrayIcon
 
 from ..control.app_controller import AppController
 from ..model.app_state import AppState
+from ..resource_paths import resource_path
 
-_ICONS_DIR = Path(__file__).parent.parent / "resources" / "icons"
-_APP_ICON = _ICONS_DIR / "icon_32x32.png"  # official AlienVox icon — see docs/img/icons
+_APP_ICON = resource_path("icons", "icon_32x32.png")  # official AlienVox icon — see docs/img/icons
 
 
 def _status_icon(dot_color: str | None) -> QIcon:

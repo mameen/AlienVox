@@ -58,3 +58,13 @@ That reference is the detailed contract for:
 - User config: stored per user/per install location, never hardcoded into Views.
 - Generated previews: can be built during setup, then shipped as install assets.
 - Model weights: installable at runtime, but not required for the basic app shell.
+
+## Lessons Learned
+
+- Frozen Windows builds are sensitive to the exact Qt/PySide6 wheel line. If a packaged app crashes in `QtGui` or reports an ICU export mismatch, do not assume "latest" is safe; pin the build venv to a known-good PySide6 version and rebuild both portable and installer outputs from that same environment.
+- A shared build venv is only safe if the build scripts re-sync declared requirements on every run. Reusing a stale venv without reinstalling `install/requirements-base.txt` can silently keep an incompatible Qt runtime alive even after the repo pin changes.
+- When the packaged app needs Qt runtime DLLs, stage them into the layout PySide6 expects and verify the final tree on a clean VM. File presence alone is not enough; loader-snap and export-resolution errors are runtime compatibility signals, not missing-file signals.
+- Keep ICU and other Qt-adjacent runtime files in the frozen bundle, not in the dev source tree. The shipped artifact should own its complete runtime closure so a fresh VM does not depend on the developer machine's conda or system state.
+- When diagnosing a packaged Qt failure, debug on a clean VM with loader snaps or WinDbg/TTD and compare the exact export resolution failure before changing layout. The useful path was: confirm the bundle files exist, run a shared-folder probe script, enable loader snaps for the app, inspect the first missing export with WinDbg, and only then change the PySide6 pin. That sequence distinguished a true ABI mismatch from a packaging omission.
+- A packaged base-tier build must not boot into an ML model that is absent from the frozen runtime. If the repo catalog names a default that the bundle does not actually ship, startup must fall back to a bundled engine first so the UI stays usable on a clean VM.
+- Fresh-VM validation is part of the release contract for installers and portable zips. A build is not "good enough" until it runs from a clean Windows machine with no dev venv, no ambient Python, and no hidden reliance on the developer's workstation state.
