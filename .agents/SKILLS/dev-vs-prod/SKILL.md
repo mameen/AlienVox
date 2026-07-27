@@ -1,6 +1,7 @@
 ---
 name: dev-vs-prod
 description: Dev/prod environment guidance for AlienVox. Use when a task touches installation, packaging, config file locations, dev vs production differences, portable vs installed builds, user config paths, deployment behavior, or when deciding what belongs in source control versus generated assets.
+IMPORTANT: `python_app/setup.py` is **dev-only** (venv bootstrap + weight download). The production installer lives in `python_app/install/` (install.bat, install_ml.bat, requirements-base.txt, windows/). Never treat setup.py as the installer — it has no role in shipped artifacts.
 ---
 
 # Dev Vs Prod

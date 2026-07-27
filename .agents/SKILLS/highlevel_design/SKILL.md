@@ -121,6 +121,10 @@ for those two surfaces; they're both driven entirely by this catalog + `engines/
 `_provision_chatterbox_reference_voices`) if the model needs extra per-voice assets beyond the base
 HF snapshot.
 
+> **Note:** `setup.py` is **dev-only** — it bootstraps a venv and downloads ML weights for
+development. The production installer lives in `python_app/install/` (install.bat, install_ml.bat,
+requirements-base.txt, windows/). Do not add new installer logic to setup.py.
+
 **5. `install_dialog.py`** — a `_build_<name>_ui`/`_download_<name>` branch alongside the existing
 Kokoro/Piper ones, wired into `_build_ui`'s dispatch and `_on_download`'s task selection.
 
