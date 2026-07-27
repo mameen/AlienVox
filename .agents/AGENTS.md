@@ -92,3 +92,19 @@ Before proposing any non-trivial change (new subsystem, adapter, refactor spanni
 - **Risk / unknowns**: one line naming the biggest unknown (e.g. "VibeVoice audio decoder API stability on Windows Python 3.11").
 
 Estimates apply to both options in a "pick A vs B" recommendation, so the developer sees the trade-off in the same units.
+
+## Canonical Sample Phrase
+
+All ML engines must use the same canonical sample phrase for voice samples and performance tests. This ensures consistent, comparable results across all engines.
+
+**Source:** `python_app/src/control/app_controller.py` — `SAMPLE_TEXT`
+
+```
+Welcome to AlienVox. This is a performance test of your TTS engine. If you can hear this, your system is working correctly.
+```
+
+**Rules:**
+- All offline voice samples in `install/assets/audio/ml/<model>/` must use this exact phrase.
+- All performance tests (`tests/test_perf.py`) import this as `WELCOME_PHRASE`.
+- Never use arbitrary text (like "quick brown fox") for voice samples — always use the canonical phrase.
+- When generating new voice samples, reference `app_controller.py`'s `SAMPLE_TEXT`, not a hardcoded string in your generation script.

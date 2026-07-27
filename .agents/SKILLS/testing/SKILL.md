@@ -129,6 +129,24 @@ addopts = "--cov=src --cov-report=term-missing --cov-fail-under=80"
 
 Every test must prove **behavior**, not implementation. Ask: "If I refactored the internals completely, would this test still be meaningful?" If yes, keep it. If it only works because it knows the internal variable name, rewrite it.
 
+---
+
+## 7. Canonical Sample Phrase
+
+All ML engines must use the same canonical sample phrase for voice samples and performance tests. This ensures consistent, comparable results across all engines.
+
+**Source:** `python_app/src/control/app_controller.py` — `SAMPLE_TEXT`
+
+```
+Welcome to AlienVox. This is a performance test of your TTS engine. If you can hear this, your system is working correctly.
+```
+
+**Rules:**
+- All offline voice samples in `install/assets/audio/ml/<model>/` must use this exact phrase.
+- All performance tests (`tests/test_perf.py`) import this as `WELCOME_PHRASE`.
+- Never use arbitrary text (like "quick brown fox") for voice samples — always use the canonical phrase.
+- When generating new voice samples, reference `app_controller.py`'s `SAMPLE_TEXT`, not a hardcoded string in your generation script.
+
 - Config tests: verify the merged output values, not which internal dict was accessed.
 - Telemetry tests: verify the JSONL line was written with the correct fields, not that a specific method was called.
 - Registry tests: verify which stacks are returned given a specific `.models/` directory layout.
