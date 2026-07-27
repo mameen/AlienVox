@@ -111,9 +111,17 @@ class _DownloadWorker(QObject):
                 voice_id=self._voice_id,
             )
             self.finished.emit(True, "Install complete.")
+        except RuntimeError as exc:
+            msg = str(exc).strip()
+            if "huggingface_hub" in msg:
+                msg = (
+                    "The installer is missing a download dependency. "
+                    "Please reinstall AlienVox or run the installer again."
+                )
+            self.finished.emit(False, msg)
         except Exception as exc:
             _log.error("install failed: %s", exc)
-            self.finished.emit(False, str(exc))
+            self.finished.emit(False, "Install failed. See the log for details.")
 
 
 class ManageVoicesDialog(QDialog):

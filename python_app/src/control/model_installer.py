@@ -84,7 +84,13 @@ def download_model(
 
     dest = models_root / "ml" / model_id
     dest.mkdir(parents=True, exist_ok=True)
-    from huggingface_hub import snapshot_download
+    try:
+        from huggingface_hub import snapshot_download
+    except ImportError as exc:
+        raise RuntimeError(
+            "Missing downloader dependency 'huggingface_hub'. "
+            "Please reinstall the app or run the full installer again."
+        ) from exc
 
     def _progress_cb(transferred: int, total: int) -> None:
         on_progress(transferred, total, f"{model_id}  {transferred // 1_048_576} / {max(total, 1) // 1_048_576} MB")
@@ -114,7 +120,13 @@ def _download_vibevoice_voices(dest: Path, on_progress: ProgressCb) -> None:
 
 
 def _download_piper_voice(voice_id: str, models_root: Path, on_progress: ProgressCb) -> None:
-    from huggingface_hub import hf_hub_download
+    try:
+        from huggingface_hub import hf_hub_download
+    except ImportError as exc:
+        raise RuntimeError(
+            "Missing downloader dependency 'huggingface_hub'. "
+            "Please reinstall the app or run the full installer again."
+        ) from exc
     dest = models_root / "ml" / "piper"
     dest.mkdir(parents=True, exist_ok=True)
     subpath = _piper_subpath(voice_id)
