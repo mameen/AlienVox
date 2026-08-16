@@ -91,6 +91,15 @@ Expected behavior:
 1. Run `python scripts/speak.py "Welcome to AlienVox"` (no flags needed — plays by default).
 2. Confirm the script printed a real duration, `played: true`, and exit code 0.
 
+### Example: Verifying the skill itself is working (not just some other AlienVox surface)
+
+This skill, `python_mcp_server`, and the desktop `python_app` are three separate ways to reach
+AlienVox's TTS — when manually verifying by ear which one just spoke (e.g. after a change to this
+skill specifically), have the spoken phrase say so explicitly, since audio alone can't otherwise
+distinguish them: e.g. `python scripts/speak.py "Hello, this is the AlienVox Skill speaking."`
+rather than a generic phrase. Same idea applies to `python_mcp_server` (say "MCP") if verifying
+that surface instead — never the desktop app, which already announces itself correctly.
+
 ### Example: Specific voice, file only (no playback)
 
 Request: "Generate a British male voice sample of 'The quick brown fox' and save it, don't play it."
