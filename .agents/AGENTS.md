@@ -93,6 +93,28 @@ Before proposing any non-trivial change (new subsystem, adapter, refactor spanni
 
 Estimates apply to both options in a "pick A vs B" recommendation, so the developer sees the trade-off in the same units.
 
+## Skill vs MCP server: real per-turn token cost
+
+When recommending between `.agents/SKILLS/alien_vox` (Claude Code Skill) and `python_mcp_server`
+(MCP server) for a task, the two are not interchangeable on context-window cost — measured for
+real with `tiktoken`'s `cl100k_base` encoding, not estimated:
+
+| Surface | What loads every turn | Tokens | Chars | Tokens/1K chars |
+|---|---|---:|---:|---:|
+| `alien_vox` Skill | `SKILL.md` frontmatter (`name` + `description`) only, until triggered | 95 | 398 | ~239 |
+| `python_mcp_server` | Full `list_tools()`/`list_resources()`/`list_prompts()` schema (7 tools, 2 resources, 1 prompt) | 953 | 4,052 | ~235 |
+
+The tokens-per-1K-chars rate is nearly identical (~235–239) — the gap isn't tokenizer efficiency,
+it's *what's forced into context on every single turn*. MCP's tool discovery sends the full schema
+list on every turn of a session that has the server connected, whether or not AlienVox is used that
+turn — **~10x** the Skill's steady-state footprint. The Skill only pays a larger one-time cost
+(~1,688 tokens, the full `SKILL.md` body) once it's actually triggered by a matching request.
+
+**Default to the Skill** for any Claude Code session unless the task specifically needs MCP's
+protocol-level exposure (e.g. a non-Claude-Code MCP host, or programmatic tool/resource/prompt
+discovery). Re-measure if either surface's tool count or `SKILL.md` grows meaningfully — these
+numbers are a real snapshot, not a permanent constant.
+
 ## Canonical Sample Phrase
 
 All ML engines must use the same canonical sample phrase for voice samples and performance tests. This ensures consistent, comparable results across all engines.

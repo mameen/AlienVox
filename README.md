@@ -97,9 +97,32 @@ tts/
 │   ├── stacks.yaml          # Bundled config: all stacks, models, voices
 │   ├── run.py               # Task runner: app | build | test | lint | cov
 │   └── pyproject.toml       # pytest + ruff + coverage config
-├── .agents/                 # AI agent guidance & skills
+├── python_lib/               # Standalone alienvox_tts SDK (canonical source, Kokoro-82M)
+├── python_mcp_server/         # MCP server exposing TTS as tools/resources/prompts (self-sufficient, vendors alienvox_tts)
+├── .agents/
+│   └── SKILLS/alien_vox/      # Claude Code Skill wrapping the same TTS (self-sufficient, vendors alienvox_tts)
 └── docs/                    # ADRs, technical requirements, SOTA research
 ```
+
+## AI integration: Skill vs MCP server
+
+Two ways to reach AlienVox's TTS from an AI coding assistant, both wrapping the same
+`alienvox_tts` library ([`python_lib/`](python_lib/)) but with very different context-window cost:
+
+| | `.agents/SKILLS/alien_vox` | `python_mcp_server` |
+|---|---|---|
+| Loaded into context | name + description only, until triggered | full tool/resource/prompt schema, **every turn** |
+| Real measured cost | 95 tokens (398 chars) | 953 tokens (4,052 chars) |
+| Normalized rate | ~239 tokens/1K chars | ~235 tokens/1K chars (same tokenizer density — the gap is *what* loads, not *how densely* it encodes) |
+| Per-turn overhead | 1x (baseline) | **~10x** the Skill's per-turn footprint |
+
+Measured with `tiktoken`'s `cl100k_base` encoding against this repo's real
+`SKILL.md` frontmatter and the real MCP server's `list_tools()`/`list_resources()`/`list_prompts()`
+output (7 tools, 2 resources, 1 prompt) — not estimated. The MCP server's cost is fixed overhead on
+*every* turn of a session regardless of whether AlienVox is used at all (that's how MCP tool
+discovery works); the Skill only pays its larger, ~1,700-token full `SKILL.md` cost once it's
+actually triggered. Use the Skill for Claude Code sessions; the MCP server is for hosts (or
+workflows) that specifically need MCP's protocol-level tool/resource/prompt exposure.
 
 ## Configuration
 
