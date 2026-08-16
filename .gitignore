@@ -16,3 +16,6 @@ python_app/install/windows/exe/redist/
 python_app/install/windows/exe/*.exe
 python_app/install/windows/portable/*.zip
 .env
+.venv/
+__pycache__/
+*.pyc

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "alienvox-tts": {
+      "command": "C:\\dev\\personal\\.repos\\tts\\.venv\\Scripts\\python.exe",
+      "args": ["C:\\dev\\personal\\.repos\\tts\\python_mcp_server\\server.py"]
+    }
+  }
+}

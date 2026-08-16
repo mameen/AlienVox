@@ -1,0 +1,15 @@
+# python_mcp_server — MCP protocol layer + python_lib's own TTS dependencies.
+# Install both: this file, then ../python_lib/requirements.txt (or just
+# ../python_lib/requirements.txt if reusing an existing python_app venv that
+# already has torch/kokoro/etc — this file only adds what's new: `mcp`).
+#
+# Pinned >=2.0.0 deliberately, not just ">=1.0.0" — verified for real that
+# mcp 2.0's API is a genuine break from the 1.x decorator style
+# (@app.list_tools()/@app.call_tool() on mcp.server.Server) that most
+# example code online still shows. This server uses
+# mcp.server.mcpserver.MCPServer (the SDK's own high-level API, its native
+# equivalent of what third-party `fastmcp` used to provide) — @app.tool(),
+# @app.resource(), @app.prompt() decorators, confirmed working against the
+# real installed package, not assumed from older docs.
+
+mcp>=2.0.0
