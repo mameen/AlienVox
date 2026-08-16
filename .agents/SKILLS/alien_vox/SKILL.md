@@ -2,7 +2,7 @@
 name: alien_vox
 description: Speak text aloud through the local speakers using AlienVox's Kokoro-82M TTS engine — local, offline, no API keys. Use when asked to speak text aloud, read something out loud, or narrate a passage; also generates a WAV file on request. Default voice is Kokoro af_heart ("American F · Heart"); other Kokoro voices are selectable. Runs on CPU by default, GPU if available.
 license: MIT
-compatibility: Python 3.11+, Windows/macOS/Linux; requires python_lib/requirements.txt installed (torch, kokoro, sounddevice, soundfile).
+compatibility: Python 3.11+, Windows/macOS/Linux; self-sufficient — requires scripts/requirements.txt installed (torch, kokoro, sounddevice, soundfile) in this skill folder's own venv.
 metadata:
   author: AlienTech.Software
   version: "0.1.20260816000000"
@@ -19,8 +19,8 @@ is only written when explicitly requested (`--out`) — playing it is the defaul
 producing a file nobody opens.
 
 Not for: editing/transcribing existing audio, speech-to-text, or any TTS engine other than Kokoro
-(the only one this skill's underlying [`python_lib`](../../../python_lib/) ships today — see that
-library's README for why, and how to add another engine later).
+(the only one this skill's vendored [`alienvox_tts`](alienvox_tts/) library ships today — see
+`references/voices.md` for why, and how to add another engine later).
 
 ## When To Use
 
@@ -37,18 +37,24 @@ this skill only wraps AlienVox's local Kokoro engine. Not for speech-to-text/tra
 - The text to speak (required).
 - Voice (optional — defaults to `af_heart`, "American F · Heart"). See
   [references/voices.md](references/voices.md) for the full roster of 7 voices.
-- Device (optional — defaults to auto-detect: GPU if a real CUDA device is present, else CPU).
+- Device (optional — defaults to `cpu`, the real enforced default; pass `--device gpu` to opt into
+  CUDA if a real GPU is present, falls back to CPU automatically if not).
 - Whether a `.wav` file is also wanted (optional — off by default; playback alone is the default
   outcome).
 
 ## Operating Procedure
 
-1. Confirm [`python_lib`](../../../python_lib/)'s dependencies are installed in the environment
-   you'll run this in (`pip install -r ../../../python_lib/requirements.txt` — a one-time step;
-   skip if already installed, e.g. reusing `python_app`'s own `.venv`, which already has them).
+1. Confirm this skill's own dependencies are installed (a one-time step; this skill is
+   self-sufficient — no sibling repo dependency):
+   ```
+   cd .agents/SKILLS/alien_vox
+   python -m venv .venv
+   .venv\Scripts\activate
+   pip install -r scripts/requirements.txt
+   ```
 2. Run [`scripts/speak.py`](scripts/speak.py):
    ```
-   python scripts/speak.py "Text to speak here" [--voice af_heart] [--device cpu|gpu|auto] [--no-play] [--out output.wav]
+   python scripts/speak.py "Text to speak here" [--voice af_heart] [--device cpu|gpu] [--no-play] [--out output.wav]
    ```
 3. By default the script plays the audio through the local default output device and prints
    `sample_rate`/`duration_s`/`played: true`. Pass `--out` to also write a real `.wav` file (its
@@ -98,14 +104,17 @@ Expected behavior:
 
 Request: "Speak this using the 'robot' voice."
 
-Expected behavior: `python_lib`'s `KokoroEngine` falls back to `af_heart` for any unrecognized
+Expected behavior: the vendored `alienvox_tts`'s `KokoroEngine` falls back to `af_heart` for any unrecognized
 voice id rather than erroring — the script will succeed but with the default voice, not silently
 claim "robot" was used. Report this fallback explicitly to the user rather than staying quiet
 about it, since it's not what they asked for.
 
 ## Resources
 
-- [scripts/speak.py](scripts/speak.py) — the CLI wrapper (imports `python_lib` directly).
+- [scripts/speak.py](scripts/speak.py) — the CLI wrapper (imports the vendored `alienvox_tts/` directly).
+- [alienvox_tts/](alienvox_tts/) — the vendored TTS library itself (self-sufficient copy).
 - [references/voices.md](references/voices.md) — full Kokoro voice roster and how to add engines.
 - [assets/sample_af_heart.wav](assets/sample_af_heart.wav) — a real, pre-generated sample of the
   default voice, for reference/comparison (not required to run anything).
+- [AGENTS.md](AGENTS.md) — standalone-copy checklist for this skill folder.
+- [tests/test_kokoro.py](tests/test_kokoro.py) — real synthesis tests for the vendored library.

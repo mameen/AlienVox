@@ -37,15 +37,14 @@ from __future__ import annotations
 
 import asyncio
 import json
-import sys
-from pathlib import Path
 
 from mcp.server.mcpserver import MCPServer
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "python_lib"))
-from alienvox_tts import DEFAULT_VOICE  # noqa: E402
+# alienvox_tts is vendored directly inside this folder (./alienvox_tts/) —
+# this server is self-sufficient, no sibling ../python_lib dependency.
+from alienvox_tts import DEFAULT_VOICE
 
-import tools  # noqa: E402
+import tools
 
 app = MCPServer(
     "alienvox-tts",

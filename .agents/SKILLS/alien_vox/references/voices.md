@@ -1,6 +1,6 @@
 # Kokoro-82M Voice Roster
 
-The only engine `python_lib` currently ships (`engine=kokoro`, the default). All 7 voices load
+The only engine this skill's vendored `alienvox_tts` currently ships (`engine=kokoro`, the default). All 7 voices load
 from the same ~300MB model download — picking a different voice doesn't trigger a new download.
 
 | Voice id | Label | Accent | Gender |
@@ -25,11 +25,13 @@ reporting this fallback to the user explicitly rather than staying quiet about i
 
 ## Adding another engine
 
-`python_lib` ships Kokoro only for now (see the parent repo's
+This skill's vendored `alienvox_tts` ships Kokoro only for now (see the parent repo's
 `docs/20260816_agentic_requiremetns_and_plan.md` for why). To add one:
 
-1. Create `python_lib/alienvox_tts/engines/<name>.py`, subclass `TtsEngine` from `..base`
-   (see `kokoro.py` for the full reference shape).
-2. Register it in `python_lib/alienvox_tts/__init__.py`'s `ENGINES` dict.
-3. This skill's `speak.py --engine <name>` and `python_mcp_server`'s tools work with any
-   registered engine automatically — no changes needed to either.
+1. Create `alienvox_tts/engines/<name>.py` (in this skill folder), subclass `TtsEngine` from
+   `..base` (see `kokoro.py` for the full reference shape).
+2. Register it in `alienvox_tts/__init__.py`'s `ENGINES` dict.
+3. This skill's `speak.py --engine <name>` works with any registered engine automatically — no
+   changes needed elsewhere. Note: `python_mcp_server`'s own `alienvox_tts` is a separate vendored
+   copy (self-sufficiency over a shared dependency) — apply the same change there too if both
+   should support the new engine.

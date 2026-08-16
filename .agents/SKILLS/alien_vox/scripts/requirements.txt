@@ -1,0 +1,11 @@
+# alien_vox skill — fully self-sufficient: every dependency needed to run
+# scripts/speak.py, including the vendored ../alienvox_tts library's own
+# deps. No sibling ../../../python_lib install step needed.
+
+torch>=2.0.0
+transformers>=4.30.0
+huggingface_hub[hf_xet]>=0.20.0
+numpy>=1.24.0,<2.0.0
+kokoro>=0.9.0
+soundfile>=0.12.1
+sounddevice>=0.4.6

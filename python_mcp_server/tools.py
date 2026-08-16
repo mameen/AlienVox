@@ -9,9 +9,11 @@ can be swapped/upgraded (as already happened once in this repo's history —
 see `docs/20260816_agentic_requiremetns_and_plan.md`'s note on the `mcp`
 SDK's 1.x -> 2.0 API change) without touching this file at all.
 
-All real synthesis is delegated to `python_lib`'s `alienvox_tts`.
+All real synthesis is delegated to the vendored `alienvox_tts` package
+(./alienvox_tts/ — a self-sufficient copy, no sibling ../python_lib
+dependency).
 
-Device policy (explicit, not python_lib's own auto-detect default):
+Device policy (explicit, not alienvox_tts's own auto-detect default):
 `speak_text`'s `device` argument defaults to `"cpu"` — this server does
 NOT auto-prefer GPU just because one happens to be present, matching the
 confirmed "supports both, defaults to CPU" requirement. Pass
@@ -27,7 +29,7 @@ Pass `save=True` to also (or instead, with `play=False`) write a real
 attach/send somewhere).
 
 Volume policy: `speak_text`'s `volume` argument defaults to `None`, which
-uses the current PERSISTENT volume level (python_lib's
+uses the current PERSISTENT volume level (the vendored
 alienvox_tts.volume — a process-lifetime default that `set_volume`/
 `volume_up`/`volume_down` below adjust) rather than resetting to 100 on
 every call. Pass an explicit 0..100 to override just that one call
@@ -35,20 +37,19 @@ without touching the persistent level.
 """
 from __future__ import annotations
 
-import sys
 import tempfile
 import uuid
 from pathlib import Path
 from typing import Any
 
-# python_lib lives one level up from this file (repo root -> python_lib).
-_REPO_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(_REPO_ROOT / "python_lib"))
-
-from alienvox_tts import DEFAULT_VOICE, ENGINES, list_voices, synthesize  # noqa: E402
-from alienvox_tts.audio import play_audio  # noqa: E402
-from alienvox_tts.device import select_device  # noqa: E402
-from alienvox_tts.volume import get_volume, set_volume, volume_down, volume_up  # noqa: E402
+# alienvox_tts is vendored directly inside this folder (see alienvox_tts/) —
+# this server is meant to be self-sufficient: copy python_mcp_server/ alone
+# to another machine, `pip install -r requirements.txt` in its own venv, and
+# it runs, with no sibling ../python_lib dependency.
+from alienvox_tts import DEFAULT_VOICE, ENGINES, list_voices, synthesize
+from alienvox_tts.audio import play_audio
+from alienvox_tts.device import select_device
+from alienvox_tts.volume import get_volume, set_volume, volume_down, volume_up
 
 # Only used when save=True — otherwise no file ever touches disk.
 OUTPUT_DIR = Path(tempfile.gettempdir()) / "alienvox_mcp_output"
@@ -122,7 +123,7 @@ def do_speak_text(
 
 def do_list_engines() -> dict[str, Any]:
     """List every registered TTS engine id (currently just 'kokoro' — see
-    python_lib/alienvox_tts/engines/__init__.py for how to add more)."""
+    alienvox_tts/engines/__init__.py for how to add more)."""
     return {"engines": sorted(ENGINES)}
 
 

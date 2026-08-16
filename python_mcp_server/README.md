@@ -1,9 +1,12 @@
 # AlienVox TTS MCP Server
 
-A Model Context Protocol server exposing AlienVox's local Kokoro-82M TTS engine (via
-[`python_lib`](../python_lib/)) as MCP tools, resources, and prompts. Stdio transport — not hosted
-externally (see
+A Model Context Protocol server exposing AlienVox's local Kokoro-82M TTS engine as MCP tools,
+resources, and prompts. Stdio transport — not hosted externally (see
 [`docs/20260816_agentic_requiremetns_and_plan.md`](../docs/20260816_agentic_requiremetns_and_plan.md)).
+
+**Fully self-sufficient**: `alienvox_tts` is vendored directly inside this folder
+(`./alienvox_tts/`) — no sibling `../python_lib` dependency. Copy `python_mcp_server/` alone to a
+new machine and it runs; see `AGENTS.md` for the standalone-copy checklist.
 
 Built on the official `mcp` Python SDK's high-level `MCPServer` class (`mcp.server.mcpserver`) —
 its own native equivalent of what third-party `fastmcp` used to provide, confirmed via the
@@ -17,8 +20,10 @@ cd python_mcp_server
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
-pip install -r ../python_lib/requirements.txt
 ```
+
+That's the complete setup — `requirements.txt` lists every dependency this folder needs, including
+the vendored `alienvox_tts` library's own deps (torch, kokoro, etc).
 
 ## Run
 
@@ -77,4 +82,9 @@ python -m pytest tests/ -v
   tools/resources/prompts actually work end-to-end (not just that decoration doesn't crash).
 
 Both follow the anti-mocking philosophy this repo uses throughout (see `python_app`'s
-`.agents/SKILLS/testing/SKILL.md`) — no mocking `python_lib` or the `mcp` SDK itself.
+`.agents/SKILLS/testing/SKILL.md`) — no mocking `alienvox_tts` or the `mcp` SDK itself.
+
+## Copying to another machine
+
+See `AGENTS.md` for the full standalone-copy checklist — in short: copy this folder, create a venv
+inside it, `pip install -r requirements.txt`, done.

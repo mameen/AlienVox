@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""AlienVox TTS skill — CLI wrapper around ../../../python_lib.
+"""AlienVox TTS skill — CLI wrapper around the vendored alienvox_tts library
+(../alienvox_tts, one level up from this script). Self-sufficient: this
+skill folder can be copied on its own and it still runs — no sibling
+../../../python_lib dependency.
 
-Thin by design: all real synthesis logic lives in python_lib/alienvox_tts,
-this file only does argument parsing, path resolution, and reporting
-results in a script-friendly way (exit codes, printed facts) — no
-synthesis logic duplicated here, per the Agent Skills authoring guide's
-"scripts do deterministic work, skills document judgment" split.
+Thin by design: all real synthesis logic lives in alienvox_tts, this file
+only does argument parsing, path resolution, and reporting results in a
+script-friendly way (exit codes, printed facts) — no synthesis logic
+duplicated here, per the Agent Skills authoring guide's "scripts do
+deterministic work, skills document judgment" split.
 
 Usage:
     python speak.py "Text to speak" [--voice af_heart] [--engine kokoro]
@@ -29,10 +32,11 @@ import argparse
 import sys
 from pathlib import Path
 
-# python_lib lives three levels up from this script
-# (.agents/SKILLS/alien_vox/scripts/speak.py -> repo root -> python_lib).
-_REPO_ROOT = Path(__file__).resolve().parents[4]
-sys.path.insert(0, str(_REPO_ROOT / "python_lib"))
+# alienvox_tts is vendored one level up from this script
+# (.agents/SKILLS/alien_vox/scripts/speak.py -> alien_vox/alienvox_tts) —
+# this skill is self-sufficient, no sibling ../../../python_lib dependency.
+_SKILL_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(_SKILL_ROOT))
 
 
 def main() -> int:

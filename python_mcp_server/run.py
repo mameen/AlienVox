@@ -6,8 +6,10 @@ Usage:
     python run.py inspect   -- launch the official MCP Inspector against this server
     python run.py test      -- run the real unit + smoke test suite (pytest)
 
-All three commands run against THIS repo's own venv (../.venv — the one
-with torch/kokoro/mcp already installed), not a fresh/isolated environment.
+All three commands run against THIS folder's own venv (./.venv — this
+server is self-sufficient: copy python_mcp_server/ alone to another
+machine, `python -m venv .venv && .venv\Scripts\pip install -r
+requirements.txt`, and it runs with no sibling repo dependency).
 
 Why `inspect` doesn't just shell out to `mcp dev server.py`: that command
 (mcp.cli.cli.dev) builds a `uv run --with mcp mcp run <file>` command under
@@ -30,14 +32,13 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-REPO_ROOT = ROOT.parent
-VENV_PYTHON = REPO_ROOT / ".venv" / "Scripts" / "python.exe"
+VENV_PYTHON = ROOT / ".venv" / "Scripts" / "python.exe"
 SERVER_PY = ROOT / "server.py"
 TESTS_DIR = ROOT / "tests"
 
 
 def _venv_python() -> str:
-    """Return this repo's own venv python, falling back to the current
+    """Return this folder's own venv python, falling back to the current
     interpreter if that venv doesn't exist (e.g. a fresh checkout that
     hasn't been set up yet) — with a clear warning either way, since
     running against the wrong interpreter is a common source of confusing
@@ -46,7 +47,7 @@ def _venv_python() -> str:
         return str(VENV_PYTHON)
     print(
         f"WARNING: {VENV_PYTHON} not found — falling back to {sys.executable}. "
-        "torch/kokoro/mcp may not be installed there; see ../README.md for venv setup.",
+        "torch/kokoro/mcp may not be installed there; see README.md for venv setup.",
         file=sys.stderr,
     )
     return sys.executable

@@ -1,7 +1,8 @@
-# python_mcp_server — MCP protocol layer + python_lib's own TTS dependencies.
-# Install both: this file, then ../python_lib/requirements.txt (or just
-# ../python_lib/requirements.txt if reusing an existing python_app venv that
-# already has torch/kokoro/etc — this file only adds what's new: `mcp`).
+# python_mcp_server — fully self-sufficient: this file lists EVERY
+# dependency needed to run this folder standalone (MCP protocol layer +
+# the vendored alienvox_tts library's own deps). No sibling ../python_lib
+# install step needed — `pip install -r requirements.txt` in this folder's
+# own venv is the complete setup.
 #
 # Pinned >=2.0.0 deliberately, not just ">=1.0.0" — verified for real that
 # mcp 2.0's API is a genuine break from the 1.x decorator style
@@ -11,5 +12,15 @@
 # equivalent of what third-party `fastmcp` used to provide) — @app.tool(),
 # @app.resource(), @app.prompt() decorators, confirmed working against the
 # real installed package, not assumed from older docs.
-
 mcp>=2.0.0
+
+# alienvox_tts (vendored in ./alienvox_tts/) — same version floors/ceilings
+# as python_app/requirements.txt, kept consistent even though only the
+# Kokoro engine ships for now.
+torch>=2.0.0
+transformers>=4.30.0
+huggingface_hub[hf_xet]>=0.20.0
+numpy>=1.24.0,<2.0.0
+kokoro>=0.9.0
+soundfile>=0.12.1
+sounddevice>=0.4.6
