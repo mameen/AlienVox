@@ -47,6 +47,15 @@ Then pick a model in the app's ML/AI tab and click "Install Model" (or preview i
 installing happens the first time it's actually used). Each model's weights download once and
 are cached under `.models/`.
 
+## Qwen3-TTS extra: SoX (system binary, not pip)
+
+Qwen3-TTS (`qwen-tts`, manually installed — see `requirements.txt`) depends on the `sox` PyPI
+wrapper, which shells out to a real SoX CLI binary. Neither `install.bat` nor `install_ml.bat`
+can install that — it's not a Python package. Without it, importing `qwen_tts` prints a noisy
+but harmless "SoX could not be found!" warning; only worth installing if we keep using this
+engine long-term (still under evaluation). Windows: `winget install ChrisBagwell.SoX` (or the
+maintained fork, `winget install sox_ng.sox_ng`), then restart the shell so PATH picks it up.
+
 ## Performance testing extras
 
 `psutil` and `nvidia-ml-py` (used by `tests/test_perf.py` / `python run.py perf` for the

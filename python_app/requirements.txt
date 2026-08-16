@@ -61,6 +61,12 @@ outetts>=0.3.0
 #   pip install qwen-tts
 # Verify transformers pin compatibility with existing ML deps before use,
 # see issue_005 for the pattern (VibeVoice forced transformers==4.51.3).
+# qwen-tts pulls in the `sox` PyPI wrapper, which shells out to a real SoX
+# CLI binary — not a pip package, and not installed by this file. Missing
+# SoX prints a noisy (but harmless) warning on import; only worth installing
+# if we keep using this engine. Windows: `winget install ChrisBagwell.SoX`
+# (or the maintained fork, `winget install sox_ng.sox_ng`) — restart the
+# shell afterward so PATH picks it up.
 
 # Dia: pip install git+https://github.com/nari-labs/dia.git
 # (no stable PyPI release yet — install manually or add to setup.py)

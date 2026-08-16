@@ -45,7 +45,10 @@ from pathlib import Path
 ROOT = Path(__file__).parent
 SRC = ROOT / "src"
 TESTS = ROOT / "tests"
-VENV_DIR = ROOT / ".venv"
+# The venv normally lives at python_app/.venv (per setup.py), but this repo
+# also supports a single venv shared across python_app/python_mcp_server at
+# the repo root — checked second so either layout works.
+VENV_CANDIDATES = [ROOT / ".venv", ROOT.parent / ".venv"]
 
 try:
     from dotenv import load_dotenv
@@ -55,12 +58,22 @@ except ImportError:
 
 
 def _venv_python() -> str:
-    """Return venv python executable if it exists, else sys.executable."""
-    if sys.platform.startswith("win"):
-        exe = VENV_DIR / "Scripts" / "python.exe"
-    else:
-        exe = VENV_DIR / "bin" / "python"
-    return str(exe) if exe.exists() else sys.executable
+    """Return the venv python executable if one can be found, else
+    sys.executable — with a clear warning either way, since running against
+    the wrong interpreter is a common source of confusing
+    "ModuleNotFoundError" failures."""
+    rel = ("Scripts", "python.exe") if sys.platform.startswith("win") else ("bin", "python")
+    for venv_dir in VENV_CANDIDATES:
+        exe = venv_dir.joinpath(*rel)
+        if exe.exists():
+            return str(exe)
+    print(
+        f"WARNING: no venv found at {' or '.join(str(v) for v in VENV_CANDIDATES)} "
+        f"— falling back to {sys.executable}. Dependencies may not be installed "
+        "there; see README.md for venv setup.",
+        file=sys.stderr,
+    )
+    return sys.executable
 
 
 def _run(*args: str, cwd: Path = ROOT, env: dict[str, str] | None = None) -> int:
