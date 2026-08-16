@@ -56,7 +56,11 @@ app = MCPServer(
         "speak_text plays through local speakers by default (pass save=True "
         "for a .wav file instead/as well). Volume is a persistent, process-"
         "lifetime level — set_volume/volume_up/volume_down adjust it; "
-        "speak_text's own volume argument only overrides a single call."
+        "speak_text's own volume argument only overrides a single call. "
+        "If the text to speak contains code blocks, ask the user first "
+        "whether they want the code read aloud literally or replaced with "
+        "a spoken 'code block' placeholder — don't guess, since reading "
+        "source code character-by-character is rarely what's wanted."
     ),
 )
 
@@ -84,7 +88,9 @@ def speak_text(
     get_volume/set_volume/volume_up/volume_down — pass an explicit 0..100
     to override just this call. Pass save=True to also write a real .wav
     file (its path is returned) — useful when a file is actually wanted,
-    e.g. to attach somewhere."""
+    e.g. to attach somewhere. If `text` contains code blocks, ask the user
+    first whether to read the code literally or substitute a spoken 'code
+    block' placeholder — don't guess."""
     return tools.do_speak_text(text, voice, engine, device, rate, volume, play, save)
 
 
