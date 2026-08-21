@@ -9,6 +9,17 @@ This repository uses `.agents/` to control AI assistant behavior and ensure safe
 - Do not add broad workspace rules or cross-repo assumptions.
 - Keep the prototype focused on MVP scope: tray support, minimal options, Windows local TTS, and one open-source ML/AI TTS provider.
 
+## AlienVox skill ownership
+
+- The canonical, editable AlienVox skill source is `.agents/SKILLS/alien_vox/` in this repository.
+  Make implementation and documentation changes there, then commit them in this repository.
+- `SKILLS` at the repository root is intentionally a symbolic link to `.agents/SKILLS`. It is a
+  convenience/compatibility path, not a second source tree. Do not replace it with a real folder
+  or create a duplicate `SKILLS/alien_vox` copy.
+- Consumer locations outside this repository, including `C:\dev\personal\.agents\SKILLS\alien_vox`
+  and the VP workspace skill path, must remain links to this canonical source. Before changing
+  links, inspect their target; never delete the canonical folder while replacing a link.
+
 ## Relevant skills
 
 - `workspace-discipline`: enforces repo boundary isolation, non-destructive VCS behavior, and reflect/self-check before responding.

@@ -42,6 +42,33 @@ this skill only wraps AlienVox's local Kokoro engine. Not for speech-to-text/tra
 - Whether a `.wav` file is also wanted (optional — off by default; playback alone is the default
   outcome).
 
+## Code Blocks In The Text To Speak
+
+If the text to speak contains code blocks (fenced ``` blocks or substantial inline code), ask the
+user first whether they want the code read aloud literally or replaced with a spoken "code block"
+placeholder — don't guess either way. Reading source code character-by-character/symbol-by-symbol
+is rarely what's wanted and makes for a bad listening experience, but silently skipping it isn't
+always right either (the user might actually want to hear it).
+
+## Long Narration And Queued Requests
+
+Do not send a long response as one enormous command-line argument. Instead, split it into a
+**serial queue of smaller, semantically complete passages**:
+
+- Split at section boundaries or paragraph boundaries; never split a sentence, a list item, or a
+  code block in the middle.
+- Prefer one to three short paragraphs per request. The goal is intelligible listening and a safe
+  command-line size, not the fewest possible TTS calls.
+- Play chunks in their original order and wait for each request to report success before starting
+  the next. Never synthesize or play chunks concurrently: overlapping audio is unusable.
+- Keep the default speaker-first behavior. Do not add `--out` merely because a response is long;
+  create a WAV only when the user explicitly asks for one.
+
+The current `speak.py` CLI starts a new process for each request, so separate chunks may reload
+the model. This is an acceptable reliability trade-off for now. If repeated long narrations become
+common, add a local batch runner that loads the engine once and consumes this same serial queue;
+do not introduce a persistent MCP server solely for that optimization.
+
 ## Operating Procedure
 
 1. Confirm this skill's own dependencies are installed (a one-time step; this skill is
@@ -62,6 +89,15 @@ this skill only wraps AlienVox's local Kokoro engine. Not for speech-to-text/tra
    with both suppressed does real synthesis work and discards it, which the script refuses).
 4. Verify the result: check the printed duration is non-zero — a zero duration or a nonzero exit
    code means synthesis failed; report the script's stderr, don't claim success.
+
+### Cold Starts And Resource Use
+
+- `--device cpu` is the enforced default. It prevents GPU use, but does **not** set a memory cap:
+  Torch and the Kokoro model still use normal system RAM while loading and synthesizing.
+- On first use, model download and initialization can take longer than a short terminal timeout.
+  `device: cpu` or model-loading warnings are not a success result. Only report playback after the
+  script prints a non-zero `duration_s` and `played: true` (or an output path when a WAV was
+  explicitly requested).
 
 ## Safety And Escalation
 
@@ -108,6 +144,14 @@ Expected behavior:
 1. Check [references/voices.md](references/voices.md) — British male is `bm_george`.
 2. Run `python scripts/speak.py "The quick brown fox" --voice bm_george --out fox_sample.wav --no-play`.
 3. Report the saved file path (no audible playback, since the request explicitly said not to).
+
+### Example: Text to speak includes a code block
+
+Request: "Read this explanation aloud" (the explanation includes a fenced ```python block).
+
+Expected behavior: ask the user first — "Want the code block read aloud literally, or should I
+just say 'code block' instead?" — before running `scripts/speak.py`, rather than guessing either
+way.
 
 ### Example: Unknown/invalid voice
 
