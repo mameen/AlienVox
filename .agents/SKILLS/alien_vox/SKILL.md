@@ -61,6 +61,9 @@ Do not send a long response as one enormous command-line argument. Instead, spli
   command-line size, not the fewest possible TTS calls.
 - Play chunks in their original order and wait for each request to report success before starting
   the next. Never synthesize or play chunks concurrently: overlapping audio is unusable.
+- After one chunk has finished playing, wait a short **1.5-second gap** before starting the next
+  chunk. This prevents the prior audio tail or audio-device release from overlapping the next
+  passage.
 - Keep the default speaker-first behavior. Do not add `--out` merely because a response is long;
   create a WAV only when the user explicitly asks for one.
 
