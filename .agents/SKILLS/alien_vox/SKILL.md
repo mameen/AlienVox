@@ -5,10 +5,91 @@ license: MIT
 compatibility: Python 3.11+, Windows/macOS/Linux; self-sufficient — requires scripts/requirements.txt installed (torch, kokoro, sounddevice, soundfile) in this skill folder's own venv.
 metadata:
   author: AlienTech.Software
-  version: "0.1.20260816000000"
+  version: "0.1.20260825211910"
 ---
 
 # AlienVox TTS Skill
+
+## Jobs to be Done
+
+This skill's jobs, stated as **verb + object [+ clarifier]**:
+
+> **Speak** text aloud *through the local speakers, offline and without an API key*
+> **Normalize** text *for speech, without changing what it says*
+> **Select** a voice *without changing the words*
+
+It does not decide what to say. Enhancement is presentation only - opt-in,
+deterministic, and meaning-preserving: it reflows wrapped lines, drops markup
+that would otherwise be read aloud, and evens out punctuation. A rule that would
+change the words belongs to the caller, not here.
+
+Two uses. **Querying** - when a request is unclear, it is usually missing one of
+the three, and asking for that part converges faster than asking someone to
+explain themselves. The clarifier is where the real requirement usually hides:
+*fix the tests* means something different depending on whether it ends *so they
+pass* or *so they test the right thing*.
+
+**Deciding scope** - the verb determines whether two pieces of work belong
+together. Two tasks producing similar output are still two jobs if the verbs
+differ. Compare verbs, not output shapes.
+
+## Personal data boundary
+
+This skill ships a mechanism, and stores nothing belonging to one person: no
+name, contact details, home region, employment history, or account handle; no
+stated preferences such as industries someone will not work in; no credentials,
+and no templates or documents the user authored.
+
+That is not a style preference. A skill carrying any of it still runs perfectly,
+reports nothing, and is no longer reusable - it has become a copy of one setup,
+and it leaks the moment it is shared.
+
+Anything specific is supplied at run time by the caller or read from
+user-owned configuration outside this folder, conventionally
+`.personal/<this-skill>/manifest.json`, which the host keeps out of version
+control. Where this skill ships an example of that configuration it lives in
+`assets/` with `.example.` in the name, carries placeholders only, and is never
+read at run time.
+
+If personal configuration is required and absent, stop and say so. Never fall
+back to a built-in default: a default that stands in for someone's own settings
+produces output that looks valid and is not, and nothing downstream can tell.
+
+## The learning loop
+
+This skill owns the knowledge, the experience, the style, and the how-to for
+local speech synthesis, and applies that expertise outward to whatever project it is dropped
+into. It is the expert; the host is the caller.
+
+**It is always eager to acquire and advance.** Every reference, gotcha, schema,
+template, and script here exists because something was learned once and written
+down so it need not be learned again.
+
+**Whenever a calling project improves something in this domain, that is a
+trigger, not a footnote.** Ask immediately:
+
+> What can we learn and generalize from this?
+
+Then do the work of generalizing:
+
+1. **Name the lesson.** What actually went wrong, or what worked better than
+   the previous approach.
+2. **Strip the host.** Remove its vocabulary, its paths, its file layout, its
+   domain language. What remains is the mechanism.
+3. **Decide where it lands** — a rule in the failure-modes reference, a
+   template in `assets/`, a check in a validation script, or a capability in
+   the library.
+4. **Prefer executable over prose.** A written rule depends on someone
+   remembering it. A check does not.
+
+**Never absorb the host's specifics while doing this.** A fix that only makes
+sense for one project belongs in that project. If a lesson cannot survive
+having the host's vocabulary removed, it was never a lesson about speech — it
+was a lesson about that host, and it belongs there.
+
+This is what keeps the skill portable *and* improving. Portability without
+learning goes stale; learning without portability turns the skill into part of
+one project.
 
 ## Purpose
 
