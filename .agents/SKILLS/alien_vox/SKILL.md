@@ -5,11 +5,22 @@ license: MIT
 compatibility: Python 3.11+, Windows/macOS/Linux; self-sufficient — requires scripts/requirements.txt installed (torch, kokoro, sounddevice, soundfile) in this skill folder's own venv.
 metadata:
   author: AlienTech.Software
-  version: "0.1.20260825211910"
+  version: "0.1.20260827122124"
 ---
 
 # AlienVox TTS Skill
 
+This skill does not search or retrieve content. It speaks caller-supplied text
+without changing its meaning.
+
+## Host-project boundary
+
+This skill is a portable mechanism that runs in a host project. The host supplies
+locations, project configuration, content, dependencies, and domain decisions;
+the skill supplies reusable instructions, tooling, schemas, and tests. A linked
+`SKILLS/<name>` path is the same shared implementation, and work can proceed
+through that visible path normally. Only the client agent composes skills; this
+skill does not invoke a sibling skill.
 ## Jobs to be Done
 
 This skill's jobs, stated as **verb + object [+ clarifier]**:
@@ -54,6 +65,56 @@ read at run time.
 If personal configuration is required and absent, stop and say so. Never fall
 back to a built-in default: a default that stands in for someone's own settings
 produces output that looks valid and is not, and nothing downstream can tell.
+
+## Stamps
+
+```
+DATE STAMP        YYYYMMDD
+DATETIME STAMP    YYYYMMDDHHmmss
+```
+
+A DATE STAMP names a day. A DATETIME STAMP names an instant within a day, down to
+the second. Both exist so a filename, an identifier, and a folder can be sorted
+and matched as plain text.
+
+| Element | Meaning | Range |
+|---|---|---|
+| `YYYY` | year | four digits |
+| `MM` | month | 01 to 12 |
+| `DD` | day | 01 to 31 |
+| `HH` | hour, 24-hour clock | 00 to 23 |
+| `mm` | minutes | 00 to 59 |
+| `ss` | seconds | 00 to 59 |
+
+Case carries meaning: **`MM` is month, `mm` is minutes.** They are not
+interchangeable, and this is the same convention Moment.js, Day.js, Java
+`DateTimeFormatter` and .NET use, so `yyyyMMddHHmmss` pasted into Java or .NET
+produces exactly this. In Python it is `%Y%m%d%H%M%S`.
+
+Never write `hh`: in Java and .NET that is the 12-hour clock, which silently
+turns 22:00 into 10:00 and collides with a real 10:00 stamp.
+
+Digits only. Zero padded. No separators, no timezone suffix, no milliseconds,
+no variants.
+
+**Times are Pacific**, `America/Los_Angeles`, never UTC. The format carries no
+zone suffix, so the zone is declared here once and assumed everywhere: -07:00 in
+summer, -08:00 in winter.
+
+One consequence follows from that. Pacific repeats an hour each autumn when the
+clocks go back, so two different instants can produce the same DATETIME STAMP on
+that one night. Where a stamp has to be unique, check for a collision rather than
+trusting the seconds to prevent it.
+
+**The format is the entire definition.** Neither term says which moment is being
+stamped or what the value is used for. Do not infer a meaning, and do not derive
+one from a pattern across existing values. Where the moment matters, name a field
+for it.
+
+**Never rewrite a stamp that has been issued.** It is a key, and every filename,
+path, and reference pointing at it stops matching the moment it changes.
+
+A DATE STAMP is not a shortened DATETIME STAMP.
 
 ## The learning loop
 
