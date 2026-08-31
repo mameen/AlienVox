@@ -30,6 +30,7 @@ Prioritize these first:
 - `dots.tts`
 - `Maya1`
 - `X-Voice`
+- `Fish Audio S2 Pro`
 
 Keep `VoxCPM / VoxCPM2` in a separate "blocked / watch" bucket unless platform gating or upstream CPU/MPS support improves.
 
@@ -41,6 +42,19 @@ Also evaluate the streaming / capture-related additions surfaced in the `voicebo
 - `Cohere Transcribe 03-2026`
 - `ARK-ASR 3B / 0.6B`
 - `IBM Granite Speech 4.1 2B / NAR`
+
+### Full-duplex conversational candidates
+
+Evaluate this end-to-end speech understanding and generation model separately from the
+cascaded TTS/STT candidates:
+
+- `NVIDIA NemotronLabs VoiceChat 11B` - https://huggingface.co/nvidia/NVIDIA-NemotronLabs-VoiceChat-11B
+
+Focus the evaluation on whether its full-duplex streaming and tool-calling behavior can fit
+AlienVox's local, Windows-first architecture. Confirm CPU and Windows support, runtime and
+memory requirements, code and weight licenses, model download size, whether inference is
+usable in-process or requires a server, and how audio input/output streaming and tool-call
+"on-hold" messages would map to the engine and controller boundaries.
 
 ---
 
@@ -72,6 +86,9 @@ The current useful takeaway is:
 - Voicebox already ships Qwen3-TTS, Qwen CustomVoice, LuxTTS, Chatterbox Multilingual, Chatterbox Turbo, TADA, and Kokoro.
 - Voicebox has already evaluated and backlogged VoxCPM for CPU/MPS reasons.
 - Voicebox has a curated future-model list that aligns with AlienVox's direction, especially Pocket TTS, IndicF5, VibeVoice, FireRedTTS-2, LongCat-AudioDiT, SoproTTS, NeuTTS, and dots.tts.
+- Fish Audio S2 Pro has been requested for evaluation:
+  - Model: https://huggingface.co/fishaudio/s2-pro
+  - Code: https://github.com/fishaudio/fish-speech
 
 ---
 
