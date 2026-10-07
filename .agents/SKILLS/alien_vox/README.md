@@ -47,3 +47,10 @@ python build.py
 Zips this skill folder (excluding `.venv/`, `__pycache__/`, `.build/`, and other dev-only files)
 into `.build/alien_vox.zip` — a self-contained artifact that can be copied/shared and unzipped
 elsewhere to run standalone.
+
+## Optional networked engine: `edge`
+
+`python scripts/speak.py "..." --engine edge [--voice ar-SA-HamedNeural]` uses Microsoft's neural
+voices (Arabic and many other languages Kokoro lacks). Unlike Kokoro it is **not offline**: the text
+is sent to Microsoft's online service. Needs `edge-tts` (in `scripts/requirements.txt`); no API key.
+See `SKILL.md` and `references/voices.md`.

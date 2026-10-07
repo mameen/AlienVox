@@ -25,7 +25,7 @@ reporting this fallback to the user explicitly rather than staying quiet about i
 
 ## Adding another engine
 
-This skill's vendored `alienvox_tts` ships Kokoro only for now (see the parent repo's
+This skill's vendored `alienvox_tts` ships Kokoro and `edge` (below) (see the parent repo's
 `docs/20260816_agentic_requiremetns_and_plan.md` for why). To add one:
 
 1. Create `alienvox_tts/engines/<name>.py` (in this skill folder), subclass `TtsEngine` from
@@ -35,3 +35,22 @@ This skill's vendored `alienvox_tts` ships Kokoro only for now (see the parent r
    changes needed elsewhere. Note: `python_mcp_server`'s own `alienvox_tts` is a separate vendored
    copy (self-sufficiency over a shared dependency) — apply the same change there too if both
    should support the new engine.
+
+## Edge voices (engine `edge`, networked)
+
+Microsoft neural voices, id = service short name. Curated roster (any other valid short name is
+passed to the service as-is; list them all with `edge_tts.list_voices()`):
+
+| Voice id | Label |
+|---|---|
+| `ar-SA-HamedNeural` | Arabic (Saudi Arabia) M · Hamed — **edge default** |
+| `ar-SA-ZariyahNeural` | Arabic (Saudi Arabia) F · Zariyah |
+| `ar-EG-ShakirNeural` / `ar-EG-SalmaNeural` | Arabic (Egypt) M / F |
+| `ar-AE-HamdanNeural` / `ar-AE-FatimaNeural` | Arabic (UAE) M / F |
+| `en-US-AriaNeural` / `en-US-AndrewNeural` | English (US) F / M |
+| `en-GB-SoniaNeural` / `en-GB-RyanNeural` | English (UK) F / M |
+
+**Networked:** the text leaves the machine (Microsoft's online service), so it is opt-in and never the
+default. Rate maps -10..10 to -50%..+100%; pitch maps to +/-5 Hz per step; volume is the same
+post-synthesis scale. A malformed voice id raises; it does not fall back like Kokoro does. Output is
+24 kHz mono, decoded from the service's MP3.

@@ -44,14 +44,14 @@ def main() -> int:
         description="Synthesize speech with AlienVox's Kokoro-82M TTS engine (local, offline).",
     )
     parser.add_argument("text", help="Text to speak")
-    parser.add_argument("--voice", default="af_heart", help="Voice id (default: af_heart). See references/voices.md.")
-    parser.add_argument("--engine", default="kokoro", help="Engine id (default: kokoro — the only one currently shipped).")
+    parser.add_argument("--voice", default=None, help="Voice id (default: the engine's own default: af_heart for kokoro, ar-SA-HamedNeural for edge). See references/voices.md.")
+    parser.add_argument("--engine", default="kokoro", help="Engine id: kokoro (default; local, offline) or edge (Microsoft neural voices; NETWORKED, sends the text online).")
     parser.add_argument("--device", default="cpu", choices=["cpu", "gpu"],
                          help="Device (default: cpu — the real, enforced default; pass gpu to opt into CUDA if available).")
     parser.add_argument("--no-play", action="store_true", help="Suppress local playback (default: plays).")
     parser.add_argument("--out", default=None, help="Also write a .wav file to this path (default: no file written).")
     parser.add_argument("--rate", type=int, default=0, help="Speech rate, -10..10 (default: 0, natural pace).")
-    parser.add_argument("--pitch", type=int, default=0, help="Pitch, -10..10 (ignored by Kokoro — no pitch control).")
+    parser.add_argument("--pitch", type=int, default=0, help="Pitch, -10..10 (ignored by Kokoro; honored by edge).")
     parser.add_argument("--volume", type=int, default=100, help="Volume, 0..100 (default: 100).")
     args = parser.parse_args()
 

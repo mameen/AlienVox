@@ -1,6 +1,6 @@
 ---
 name: alien_vox
-description: Speak text aloud through the local speakers using AlienVox's Kokoro-82M TTS engine — local, offline, no API keys. Use when asked to speak text aloud, read something out loud, or narrate a passage; also generates a WAV file on request. Default voice is Kokoro af_heart ("American F · Heart"); other Kokoro voices are selectable. Runs on CPU by default, GPU if available.
+description: Speak text aloud through the local speakers using AlienVox's Kokoro-82M TTS engine — local, offline, no API keys. Use when asked to speak text aloud, read something out loud, or narrate a passage; also generates a WAV file on request. Default voice is Kokoro af_heart ("American F · Heart"); other Kokoro voices are selectable. Runs on CPU by default, GPU if available. An optional networked `edge` engine (Microsoft neural voices, sends the text online) covers Arabic and other languages Kokoro lacks.
 license: MIT
 compatibility: Python 3.11+, Windows/macOS/Linux; self-sufficient — requires scripts/requirements.txt installed (torch, kokoro, sounddevice, soundfile) in this skill folder's own venv.
 metadata:
@@ -161,7 +161,7 @@ is only written when explicitly requested (`--out`) — playing it is the defaul
 producing a file nobody opens.
 
 Not for: editing/transcribing existing audio, speech-to-text, or any TTS engine other than Kokoro
-(the only one this skill's vendored [`alienvox_tts`](alienvox_tts/) library ships today — see
+and the optional networked `edge` engine (the only two this skill's vendored [`alienvox_tts`](alienvox_tts/) library ships today — see
 `references/voices.md` for why, and how to add another engine later).
 
 ## When To Use
@@ -172,7 +172,21 @@ Not for: editing/transcribing existing audio, speech-to-text, or any TTS engine 
 - "Narrate this passage"
 
 Not for: requests naming a different TTS engine/provider (ElevenLabs, Azure, OpenAI TTS, etc.) —
-this skill only wraps AlienVox's local Kokoro engine. Not for speech-to-text/transcription requests.
+this skill only wraps AlienVox's local Kokoro engine and the `edge` engine below. Not for
+speech-to-text/transcription requests.
+
+## The `edge` engine (networked — opt in per request)
+
+`--engine edge` uses Microsoft's neural voices through the `edge-tts` package. It is the only
+engine here that is **not** local: **the text is sent to Microsoft's online service**, it needs an
+internet connection, and it uses the Edge Read Aloud endpoint unofficially (it can change or
+rate-limit without notice). No API key. Use it only when the caller asks for it or needs a language
+Kokoro does not ship (Arabic above all), and never for text that must stay private. Kokoro stays the
+default. Voice ids are service short names (`ar-SA-HamedNeural`, `en-US-AriaNeural`, ...); the
+default for `edge` is `ar-SA-HamedNeural`. A malformed voice id is an error, never a silent
+fallback. Rate and pitch are honored (Kokoro ignores pitch).
+
+    python scripts/speak.py "نص عربي" --engine edge --voice ar-SA-HamedNeural --no-play --out out.wav
 
 ## Required Inputs
 
@@ -246,7 +260,7 @@ do not introduce a persistent MCP server solely for that optimization.
 
 ## Safety And Escalation
 
-- Purely local, offline synthesis (after the one-time model download) — no data leaves the
+- The default Kokoro engine is purely local, offline synthesis (after the one-time model download); the `edge` engine is the exception and sends text online (see its section). Kokoro: no data leaves the
   machine, no confirmation checkpoint needed for the synthesis itself.
 - Playback uses the local audio output device and **will make audible sound on the user's
   machine by default** — that's the intended, expected outcome for a "speak this" request; only

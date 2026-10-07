@@ -34,7 +34,7 @@ from __future__ import annotations
 
 from .base import SpeakParams, TtsEngine, Voice
 from .device import cuda_available, select_device
-from .engines import KokoroEngine
+from .engines import EdgeEngine, KokoroEngine
 from .volume import get_volume, set_volume, volume_down, volume_up
 
 # Engine registry — the extension point for adding more engines later (see
@@ -43,10 +43,14 @@ from .volume import get_volume, set_volume, volume_down, volume_up
 # so tooling built against this library and the app agree on naming.
 ENGINES: dict[str, type[TtsEngine]] = {
     "kokoro": KokoroEngine,
+    "edge": EdgeEngine,   # NETWORKED (Microsoft online service) — see engines/edge.py
 }
 
 DEFAULT_ENGINE = "kokoro"
-DEFAULT_VOICE = "af_heart"  # American F · Heart
+DEFAULT_VOICE = "af_heart"  # American F · Heart (the default engine's default voice)
+# Voice used when the caller names an engine but no voice; ids are engine-specific,
+# so one global default would be invalid for every engine but Kokoro.
+DEFAULT_VOICES = {"kokoro": "af_heart", "edge": "ar-SA-HamedNeural"}
 DEFAULT_DEVICE = "cpu"      # project-wide CPU-first default — see module docstring
 
 # Process-lifetime engine instances, keyed by (engine_id, resolved_device)
@@ -85,7 +89,7 @@ def list_voices(engine: str = DEFAULT_ENGINE) -> list[Voice]:
 
 def synthesize(
     text: str,
-    voice: str = DEFAULT_VOICE,
+    voice: str | None = None,
     engine: str = DEFAULT_ENGINE,
     *,
     device: str = DEFAULT_DEVICE,
@@ -112,6 +116,7 @@ def synthesize(
     after whitespace stripping) — callers should treat this as a real
     failure, not silently ignore it.
     """
+    voice = voice or DEFAULT_VOICES.get(engine, DEFAULT_VOICE)
     eng = get_engine(engine, device)
     effective_volume = get_volume() if volume is None else volume
     result = eng.synthesize(text, voice, SpeakParams(rate=rate, pitch=pitch, volume=effective_volume))
@@ -125,7 +130,7 @@ def synthesize(
 
 def speak(
     text: str,
-    voice: str = DEFAULT_VOICE,
+    voice: str | None = None,
     engine: str = DEFAULT_ENGINE,
     *,
     device: str = DEFAULT_DEVICE,
@@ -141,6 +146,7 @@ def speak(
 
     device="cpu" (default) and volume=None (persistent level) — see
     synthesize()'s docstring for both."""
+    voice = voice or DEFAULT_VOICES.get(engine, DEFAULT_VOICE)
     eng = get_engine(engine, device)
     effective_volume = get_volume() if volume is None else volume
     params = SpeakParams(rate=rate, pitch=pitch, volume=effective_volume)
@@ -155,9 +161,11 @@ __all__ = [
     "TtsEngine",
     "Voice",
     "KokoroEngine",
+    "EdgeEngine",
     "ENGINES",
     "DEFAULT_ENGINE",
     "DEFAULT_VOICE",
+    "DEFAULT_VOICES",
     "DEFAULT_DEVICE",
     "cuda_available",
     "select_device",

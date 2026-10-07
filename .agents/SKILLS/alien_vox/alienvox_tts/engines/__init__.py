@@ -1,6 +1,6 @@
 """Concrete TtsEngine implementations.
 
-Only `kokoro` ships in this version of the library — see the repo's
+`kokoro` (local, offline, the default) and `edge` (networked Microsoft neural voices; Arabic) ship in this version of the library — see the repo's
 `docs/20260816_agentic_requiremetns_and_plan.md` for why (Kokoro is the
 confirmed default and the simplest engine to extract cleanly; the other 8
 engines in `python_app/src/engines/` are a documented future addition, not
@@ -14,6 +14,7 @@ To add a new engine:
 No other file needs to change — `synthesize()`, the skill's `speak.py`, and
 the MCP server's `speak_text` tool all work with any registered engine.
 """
+from .edge import EdgeEngine
 from .kokoro import KokoroEngine
 
-__all__ = ["KokoroEngine"]
+__all__ = ["EdgeEngine", "KokoroEngine"]
