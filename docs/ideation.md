@@ -1,6 +1,6 @@
 # Ideation — Future Ideas To Explore
 
-**Updated:** 2026-08-28
+**Updated:** 2026-10-19
 
 A running list of things worth investigating for AlienVox (the app, the `alien_vox` skill, and/or
 `python_mcp_server`) that aren't scoped or committed to yet — no implementation decision has been
@@ -17,6 +17,15 @@ made on anything below. When an idea gets real investigation, promote it: a mode
 A newer TTS model from Fish Audio. Not yet evaluated against this project's constraints (free/local
 fit, license, model size, quality vs. Kokoro/Chatterbox/F5-TTS). Worth a look alongside the existing
 candidates in `docs/SOTA_models.md`'s decision table.
+
+## Qwen3-TTS
+
+**Link:** https://github.com/QwenLM/Qwen3-TTS
+
+Open-source TTS from the Qwen team. Not yet evaluated against this project's constraints (CPU path,
+Windows support, code vs. weight licenses, model size, quality vs. Kokoro). An engine plan already
+exists at [`python_app/docs/issues/todo_009_qwen3tts_engine.md`](../python_app/docs/issues/todo_009_qwen3tts_engine.md);
+this entry just records the upstream link.
 
 ## Google Cloud TTS / Gemini Live API
 
