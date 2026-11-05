@@ -15,5 +15,11 @@ No other file needs to change — `synthesize()`, the skill's `speak.py`, and
 the MCP server's `speak_text` tool all work with any registered engine.
 """
 from .kokoro import KokoroEngine
+from .piper import PiperEngine
+from .supertonic3 import Supertonic3Engine
+try:
+    from .sapi import SapiEngine
+except ImportError:
+    SapiEngine = None
 
-__all__ = ["KokoroEngine"]
+__all__ = ["KokoroEngine", "PiperEngine", "Supertonic3Engine", "SapiEngine"]

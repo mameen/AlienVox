@@ -50,7 +50,7 @@ app = MCPServer(
     "alienvox-tts",
     version="0.1.0",
     instructions=(
-        "Local, offline text-to-speech via AlienVox's Kokoro-82M engine. "
+        "Local, offline text-to-speech via Kokoro, Supertonic 3, Piper, and on Windows installed SAPI voices. "
         "Default voice: af_heart (American F, Heart). Default device: CPU "
         "— pass device='gpu' to speak_text to use CUDA if available. "
         "speak_text plays through local speakers by default (pass save=True "
@@ -77,9 +77,10 @@ def speak_text(
     volume: int | None = None,
     play: bool = True,
     save: bool = False,
+    language: str = "en",
 ) -> dict:
-    """Synthesize text to speech using AlienVox's local Kokoro-82M TTS
-    engine (offline, no API keys) and play it through the local default
+    """Synthesize text to speech using an AlienVox local offline engine
+    (Kokoro, Supertonic 3, Piper, or installed Windows SAPI voices) and play it through the local default
     audio device (play=True, the default — this server runs on the same
     machine as the user). Default voice: af_heart (American F, Heart).
     Default device: CPU — pass device='gpu' to use a CUDA GPU if one is
@@ -90,22 +91,29 @@ def speak_text(
     file (its path is returned) — useful when a file is actually wanted,
     e.g. to attach somewhere. If `text` contains code blocks, ask the user
     first whether to read the code literally or substitute a spoken 'code
-    block' placeholder — don't guess."""
-    return tools.do_speak_text(text, voice, engine, device, rate, volume, play, save)
+    block' placeholder — don't guess. For Supertonic 3, language is its
+    language code (31 languages) or 'na' for the language-agnostic fallback."""
+    return tools.do_speak_text(text, voice, engine, device, rate, volume, play, save, language)
 
 
 @app.tool()
 def list_voices(engine: str = "kokoro") -> dict:
     """List every voice available for a given TTS engine. Default engine
-    is 'kokoro' (the only one currently supported), whose default voice is
+    is 'kokoro', whose default voice is
     'af_heart' (American F, Heart)."""
     return tools.do_list_voices(engine)
 
 
 @app.tool()
 def list_engines() -> dict:
-    """List every registered TTS engine id."""
+    """List available local engines, CPU support, preferred voices, and resource notes."""
     return tools.do_list_engines()
+
+
+@app.tool()
+def get_recommendations() -> dict:
+    """Get subjective top voices and CPU/resource-aware alternatives, including Windows SAPI candidates."""
+    return tools.do_get_recommendations()
 
 
 @app.tool()
@@ -139,19 +147,25 @@ def volume_down(step: int = 10) -> dict:
 
 # ── Resources ────────────────────────────────────────────────────────────
 
-@app.resource("alienvox://voices", name="Kokoro voice roster", mime_type="application/json")
+@app.resource("alienvox://voices", name="Offline voice rosters", mime_type="application/json")
 def voices_resource() -> str:
-    """The full Kokoro voice roster, as a passively-readable resource
+    """Voice rosters for registered engines, as a passively-readable resource
     (same data as the list_voices tool — offered both ways since some MCP
     hosts surface resources differently from tools, e.g. in a context/file
     browser rather than requiring an explicit tool call)."""
-    return json.dumps(tools.do_list_voices("kokoro"), indent=2)
+    return json.dumps({engine: tools.do_list_voices(engine) for engine in __import__("alienvox_tts").ENGINES}, indent=2)
 
 
 @app.resource("alienvox://engines", name="Registered TTS engines", mime_type="application/json")
 def engines_resource() -> str:
     """Every registered TTS engine id, as a passively-readable resource."""
     return json.dumps(tools.do_list_engines(), indent=2)
+
+
+@app.resource("alienvox://recommendations", name="Developer voice recommendations", mime_type="application/json")
+def recommendations_resource() -> str:
+    """Subjective listening favorites and CPU/resource-aware alternatives."""
+    return json.dumps(tools.do_get_recommendations(), indent=2)
 
 
 # ── Prompts ──────────────────────────────────────────────────────────────

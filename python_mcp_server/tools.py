@@ -46,7 +46,7 @@ from typing import Any
 # this server is meant to be self-sufficient: copy python_mcp_server/ alone
 # to another machine, `pip install -r requirements.txt` in its own venv, and
 # it runs, with no sibling ../python_lib dependency.
-from alienvox_tts import DEFAULT_VOICE, ENGINES, list_voices, synthesize
+from alienvox_tts import DEFAULT_VOICE, ENGINES, SpeakParams, get_engine, list_voices
 from alienvox_tts.audio import play_audio
 from alienvox_tts.device import select_device
 from alienvox_tts.volume import get_volume, set_volume, volume_down, volume_up
@@ -72,6 +72,7 @@ def do_speak_text(
     volume: int | None = None,
     play: bool = True,
     save: bool = False,
+    language: str = "en",
 ) -> dict[str, Any]:
     """Synthesize `text` and play it through the local default audio
     output device (play=True, the default — this server runs on the same
@@ -84,11 +85,14 @@ def do_speak_text(
     if engine not in ENGINES:
         return {"error": f"Unknown engine {engine!r}. Available: {sorted(ENGINES)}"}
 
-    resolved_device = select_device(prefer=device)
+    cpu_only = engine in {"piper", "supertonic3", "sapi5", "speech_platform"}
+    resolved_device = "cpu" if cpu_only else select_device(prefer=device)
     effective_volume = get_volume() if volume is None else volume
 
     try:
-        audio, sample_rate = synthesize(text, voice=voice, engine=engine, device=device, rate=rate, volume=volume)
+        audio, sample_rate = get_engine(engine, resolved_device).synthesize(
+            text, voice, SpeakParams(rate=rate, volume=effective_volume, extra={"lang": language})
+        )
     except Exception as exc:
         return {"error": f"synthesis failed: {exc}"}
 
@@ -122,9 +126,43 @@ def do_speak_text(
 
 
 def do_list_engines() -> dict[str, Any]:
-    """List every registered TTS engine id (currently just 'kokoro' — see
-    alienvox_tts/engines/__init__.py for how to add more)."""
-    return {"engines": sorted(ENGINES)}
+    """List engines with CPU/offline notes and preferred voices."""
+    engines = [
+        {"id": "kokoro", "name": "Kokoro-82M", "offline": True, "cpu_supported": True,
+         "recommended_voices": ["af_heart", "af_bella", "bf_emma", "am_adam", "bm_george"]},
+        {"id": "supertonic3", "name": "Supertonic 3", "offline": True, "cpu_supported": True,
+         "recommended_voices": ["F1", "F4"], "notes": "Multilingual ONNX model; ~400 MB model files."},
+        {"id": "piper", "name": "Piper", "offline": True, "cpu_supported": True,
+         "recommended_voices": ["en_US-ryan-high", "en_US-kathleen-low", "en_GB-southern_english_female-low"],
+         "notes": "ONNX CPU inference; the two low quality-tier voices have ~20 MB model files each."},
+    ]
+    if "sapi5" in ENGINES:
+        engines.extend([
+            {"id": "sapi5", "name": "Windows SAPI 5 / OneCore", "offline": True, "cpu_supported": True,
+             "recommended_voices": ["MSTTS_V110_enGB_HazelM", "MSTTS_V110_enGB_SusanM", "TTS_MS_EN-US_ZIRA_11.0"],
+             "notes": "Uses installed Windows voices; availability varies by machine."},
+            {"id": "speech_platform", "name": "Microsoft Speech Platform", "offline": True, "cpu_supported": True,
+             "recommended_voices": [], "notes": "Voices must be installed under Speech Server v11."},
+        ])
+    return {"engines": sorted(ENGINES), "details": engines}
+
+
+def do_get_recommendations() -> dict[str, Any]:
+    """Return subjective favorites and resource-aware alternatives."""
+    return {
+        "rating_basis": "Subjective developer listening preferences; not an objective benchmark.",
+        "priority": ["low latency", "low CPU", "low memory"],
+        "ml": [
+            {"engine": "kokoro", "voices": ["af_heart", "af_bella", "bf_emma"], "note": "Favorite overall quality; shared model across voices and relatively memory-heavy."},
+            {"engine": "kokoro", "voices": ["am_adam", "bm_george"], "note": "Developer described these as not too bad."},
+            {"engine": "supertonic3", "voices": ["F1", "F4"], "note": "Top rated Supertonic voices; CPU ONNX and multilingual."},
+            {"engine": "piper", "voices": ["en_US-ryan-high"], "note": "Top rated Piper voice; CPU ONNX, larger high-quality voice file."},
+            {"engine": "piper", "voices": ["en_US-kathleen-low", "en_GB-southern_english_female-low"], "note": "Small low-tier alternatives, approximately 20 MB each; lower subjective ratings."},
+        ],
+        "sapi": ["MSTTS_V110_enGB_HazelM", "MSTTS_V110_enGB_SusanM", "TTS_MS_EN-US_ZIRA_11.0"],
+        "sapi_note": "Subjective audition shortlist only; these voices had no star ratings in the export.",
+        "local_models_dir": "Set ALIENVOX_MODELS_DIR to the folder containing ml\\piper and ml\\supertonic3; otherwise the app's per-user model directory is used.",
+    }
 
 
 def do_get_volume() -> dict[str, Any]:

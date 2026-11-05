@@ -1,0 +1,727 @@
+﻿{
+    "schema_version":  1,
+    "created_utc":  "2026-11-05T20:55:15.983011+00:00",
+    "phrase_source":  "python_app/src/control/app_controller.py:SAMPLE_TEXT",
+    "phrase":  "Welcome to AlienVox. This is a performance test of your TTS engine. If you can hear this, your system is working correctly.",
+    "phrase_chars":  123,
+    "device":  "CPU",
+    "runs_per_voice":  4,
+    "measurement_notes":  "Cold first-use synthesis plus three warm calls; process CPU time divided by synthesis wall time (100% equals one fully occupied core). RSS is sampled immediately after synthesis, not peak memory. Sequential voices share a process, so RSS deltas include retained model state and are not isolated per-model memory estimates.",
+    "results":  [
+                    {
+                        "engine":  "kokoro",
+                        "voice_requested":  "af_heart",
+                        "device":  "cpu",
+                        "phrase_chars":  123,
+                        "runs":  [
+                                     {
+                                         "run":  "cold",
+                                         "synthesis_seconds":  12.2319,
+                                         "audio_seconds":  8.55,
+                                         "real_time_factor":  1.4306,
+                                         "process_cpu_seconds":  19.75,
+                                         "rss_delta_mb":  1263.02,
+                                         "sample_rate":  24000,
+                                         "cpu_percent_one_core":  161.5,
+                                         "rss_mb_after":  1654.68
+                                     },
+                                     {
+                                         "run":  "warm_1",
+                                         "synthesis_seconds":  1.6794,
+                                         "audio_seconds":  8.55,
+                                         "real_time_factor":  0.1964,
+                                         "process_cpu_seconds":  6.1406,
+                                         "rss_delta_mb":  49.79,
+                                         "sample_rate":  24000,
+                                         "cpu_percent_one_core":  365.6,
+                                         "rss_mb_after":  1704.57
+                                     },
+                                     {
+                                         "run":  "warm_2",
+                                         "synthesis_seconds":  1.6549,
+                                         "audio_seconds":  8.55,
+                                         "real_time_factor":  0.1936,
+                                         "process_cpu_seconds":  6.2344,
+                                         "rss_delta_mb":  25.89,
+                                         "sample_rate":  24000,
+                                         "cpu_percent_one_core":  376.7,
+                                         "rss_mb_after":  1730.46
+                                     },
+                                     {
+                                         "run":  "warm_3",
+                                         "synthesis_seconds":  1.5781,
+                                         "audio_seconds":  8.55,
+                                         "real_time_factor":  0.1846,
+                                         "process_cpu_seconds":  5.875,
+                                         "rss_delta_mb":  24.75,
+                                         "sample_rate":  24000,
+                                         "cpu_percent_one_core":  372.3,
+                                         "rss_mb_after":  1755.22
+                                     }
+                                 ],
+                        "voice_id":  "af_heart",
+                        "warm_median_seconds":  1.6549,
+                        "status":  "ok"
+                    },
+                    {
+                        "engine":  "kokoro",
+                        "voice_requested":  "af_bella",
+                        "device":  "cpu",
+                        "phrase_chars":  123,
+                        "runs":  [
+                                     {
+                                         "run":  "cold",
+                                         "synthesis_seconds":  2.5603,
+                                         "audio_seconds":  9.0,
+                                         "real_time_factor":  0.2845,
+                                         "process_cpu_seconds":  8.75,
+                                         "rss_delta_mb":  70.41,
+                                         "sample_rate":  24000,
+                                         "cpu_percent_one_core":  341.8,
+                                         "rss_mb_after":  1825.63
+                                     },
+                                     {
+                                         "run":  "warm_1",
+                                         "synthesis_seconds":  1.5359,
+                                         "audio_seconds":  9.0,
+                                         "real_time_factor":  0.1707,
+                                         "process_cpu_seconds":  6.1094,
+                                         "rss_delta_mb":  2.55,
+                                         "sample_rate":  24000,
+                                         "cpu_percent_one_core":  397.8,
+                                         "rss_mb_after":  1828.18
+                                     },
+                                     {
+                                         "run":  "warm_2",
+                                         "synthesis_seconds":  1.4796,
+                                         "audio_seconds":  9.0,
+                                         "real_time_factor":  0.1644,
+                                         "process_cpu_seconds":  5.8594,
+                                         "rss_delta_mb":  0.41,
+                                         "sample_rate":  24000,
+                                         "cpu_percent_one_core":  396.0,
+                                         "rss_mb_after":  1828.59
+                                     },
+                                     {
+                                         "run":  "warm_3",
+                                         "synthesis_seconds":  1.4455,
+                                         "audio_seconds":  9.0,
+                                         "real_time_factor":  0.1606,
+                                         "process_cpu_seconds":  5.7656,
+                                         "rss_delta_mb":  0.89,
+                                         "sample_rate":  24000,
+                                         "cpu_percent_one_core":  398.9,
+                                         "rss_mb_after":  1829.48
+                                     }
+                                 ],
+                        "voice_id":  "af_bella",
+                        "warm_median_seconds":  1.4796,
+                        "status":  "ok"
+                    },
+                    {
+                        "engine":  "kokoro",
+                        "voice_requested":  "bf_emma",
+                        "device":  "cpu",
+                        "phrase_chars":  123,
+                        "runs":  [
+                                     {
+                                         "run":  "cold",
+                                         "synthesis_seconds":  3.4329,
+                                         "audio_seconds":  8.35,
+                                         "real_time_factor":  0.4111,
+                                         "process_cpu_seconds":  11.1406,
+                                         "rss_delta_mb":  825.99,
+                                         "sample_rate":  24000,
+                                         "cpu_percent_one_core":  324.5,
+                                         "rss_mb_after":  2655.47
+                                     },
+                                     {
+                                         "run":  "warm_1",
+                                         "synthesis_seconds":  1.4149,
+                                         "audio_seconds":  8.35,
+                                         "real_time_factor":  0.1694,
+                                         "process_cpu_seconds":  5.6875,
+                                         "rss_delta_mb":  18.6,
+                                         "sample_rate":  24000,
+                                         "cpu_percent_one_core":  402.0,
+                                         "rss_mb_after":  2674.07
+                                     },
+                                     {
+                                         "run":  "warm_2",
+                                         "synthesis_seconds":  1.3032,
+                                         "audio_seconds":  8.35,
+                                         "real_time_factor":  0.1561,
+                                         "process_cpu_seconds":  5.1875,
+                                         "rss_delta_mb":  13.15,
+                                         "sample_rate":  24000,
+                                         "cpu_percent_one_core":  398.1,
+                                         "rss_mb_after":  2687.21
+                                     },
+                                     {
+                                         "run":  "warm_3",
+                                         "synthesis_seconds":  1.4517,
+                                         "audio_seconds":  8.35,
+                                         "real_time_factor":  0.1739,
+                                         "process_cpu_seconds":  5.7969,
+                                         "rss_delta_mb":  13.51,
+                                         "sample_rate":  24000,
+                                         "cpu_percent_one_core":  399.3,
+                                         "rss_mb_after":  2700.73
+                                     }
+                                 ],
+                        "voice_id":  "bf_emma",
+                        "warm_median_seconds":  1.4149,
+                        "status":  "ok"
+                    },
+                    {
+                        "engine":  "kokoro",
+                        "voice_requested":  "am_adam",
+                        "device":  "cpu",
+                        "phrase_chars":  123,
+                        "runs":  [
+                                     {
+                                         "run":  "cold",
+                                         "synthesis_seconds":  2.0703,
+                                         "audio_seconds":  8.425,
+                                         "real_time_factor":  0.2457,
+                                         "process_cpu_seconds":  7.0938,
+                                         "rss_delta_mb":  52.84,
+                                         "sample_rate":  24000,
+                                         "cpu_percent_one_core":  342.6,
+                                         "rss_mb_after":  2753.57
+                                     },
+                                     {
+                                         "run":  "warm_1",
+                                         "synthesis_seconds":  1.4096,
+                                         "audio_seconds":  8.425,
+                                         "real_time_factor":  0.1673,
+                                         "process_cpu_seconds":  5.6094,
+                                         "rss_delta_mb":  6.38,
+                                         "sample_rate":  24000,
+                                         "cpu_percent_one_core":  397.9,
+                                         "rss_mb_after":  2759.95
+                                     },
+                                     {
+                                         "run":  "warm_2",
+                                         "synthesis_seconds":  1.496,
+                                         "audio_seconds":  8.425,
+                                         "real_time_factor":  0.1776,
+                                         "process_cpu_seconds":  5.9688,
+                                         "rss_delta_mb":  10.28,
+                                         "sample_rate":  24000,
+                                         "cpu_percent_one_core":  399.0,
+                                         "rss_mb_after":  2770.23
+                                     },
+                                     {
+                                         "run":  "warm_3",
+                                         "synthesis_seconds":  1.3981,
+                                         "audio_seconds":  8.425,
+                                         "real_time_factor":  0.1659,
+                                         "process_cpu_seconds":  5.5625,
+                                         "rss_delta_mb":  0.01,
+                                         "sample_rate":  24000,
+                                         "cpu_percent_one_core":  397.9,
+                                         "rss_mb_after":  2770.24
+                                     }
+                                 ],
+                        "voice_id":  "am_adam",
+                        "warm_median_seconds":  1.4096,
+                        "status":  "ok"
+                    },
+                    {
+                        "engine":  "kokoro",
+                        "voice_requested":  "bm_george",
+                        "device":  "cpu",
+                        "phrase_chars":  123,
+                        "runs":  [
+                                     {
+                                         "run":  "cold",
+                                         "synthesis_seconds":  2.2731,
+                                         "audio_seconds":  9.2,
+                                         "real_time_factor":  0.2471,
+                                         "process_cpu_seconds":  7.8125,
+                                         "rss_delta_mb":  49.95,
+                                         "sample_rate":  24000,
+                                         "cpu_percent_one_core":  343.7,
+                                         "rss_mb_after":  2820.2
+                                     },
+                                     {
+                                         "run":  "warm_1",
+                                         "synthesis_seconds":  1.6261,
+                                         "audio_seconds":  9.2,
+                                         "real_time_factor":  0.1768,
+                                         "process_cpu_seconds":  6.4531,
+                                         "rss_delta_mb":  1.63,
+                                         "sample_rate":  24000,
+                                         "cpu_percent_one_core":  396.8,
+                                         "rss_mb_after":  2821.83
+                                     },
+                                     {
+                                         "run":  "warm_2",
+                                         "synthesis_seconds":  1.4878,
+                                         "audio_seconds":  9.2,
+                                         "real_time_factor":  0.1617,
+                                         "process_cpu_seconds":  5.9375,
+                                         "rss_delta_mb":  1.25,
+                                         "sample_rate":  24000,
+                                         "cpu_percent_one_core":  399.1,
+                                         "rss_mb_after":  2823.08
+                                     },
+                                     {
+                                         "run":  "warm_3",
+                                         "synthesis_seconds":  1.4923,
+                                         "audio_seconds":  9.2,
+                                         "real_time_factor":  0.1622,
+                                         "process_cpu_seconds":  6.0,
+                                         "rss_delta_mb":  0.18,
+                                         "sample_rate":  24000,
+                                         "cpu_percent_one_core":  402.1,
+                                         "rss_mb_after":  2823.26
+                                     }
+                                 ],
+                        "voice_id":  "bm_george",
+                        "warm_median_seconds":  1.4923,
+                        "status":  "ok"
+                    },
+                    {
+                        "engine":  "supertonic3",
+                        "voice_requested":  "F1",
+                        "device":  "cpu",
+                        "phrase_chars":  123,
+                        "runs":  [
+                                     {
+                                         "run":  "cold",
+                                         "synthesis_seconds":  2.6908,
+                                         "audio_seconds":  8.9861,
+                                         "real_time_factor":  0.2994,
+                                         "process_cpu_seconds":  23.6562,
+                                         "rss_delta_mb":  465.59,
+                                         "sample_rate":  44100,
+                                         "cpu_percent_one_core":  879.2,
+                                         "rss_mb_after":  3288.85
+                                     },
+                                     {
+                                         "run":  "warm_1",
+                                         "synthesis_seconds":  1.6541,
+                                         "audio_seconds":  8.9861,
+                                         "real_time_factor":  0.1841,
+                                         "process_cpu_seconds":  20.5312,
+                                         "rss_delta_mb":  21.1,
+                                         "sample_rate":  44100,
+                                         "cpu_percent_one_core":  1241.2,
+                                         "rss_mb_after":  3309.95
+                                     },
+                                     {
+                                         "run":  "warm_2",
+                                         "synthesis_seconds":  1.6271,
+                                         "audio_seconds":  8.9861,
+                                         "real_time_factor":  0.1811,
+                                         "process_cpu_seconds":  20.5938,
+                                         "rss_delta_mb":  0.0,
+                                         "sample_rate":  44100,
+                                         "cpu_percent_one_core":  1265.7,
+                                         "rss_mb_after":  3309.95
+                                     },
+                                     {
+                                         "run":  "warm_3",
+                                         "synthesis_seconds":  1.561,
+                                         "audio_seconds":  8.9861,
+                                         "real_time_factor":  0.1737,
+                                         "process_cpu_seconds":  19.875,
+                                         "rss_delta_mb":  0.0,
+                                         "sample_rate":  44100,
+                                         "cpu_percent_one_core":  1273.2,
+                                         "rss_mb_after":  3309.95
+                                     }
+                                 ],
+                        "voice_id":  "F1",
+                        "warm_median_seconds":  1.6271,
+                        "status":  "ok"
+                    },
+                    {
+                        "engine":  "supertonic3",
+                        "voice_requested":  "F4",
+                        "device":  "cpu",
+                        "phrase_chars":  123,
+                        "runs":  [
+                                     {
+                                         "run":  "cold",
+                                         "synthesis_seconds":  1.2486,
+                                         "audio_seconds":  7.6626,
+                                         "real_time_factor":  0.163,
+                                         "process_cpu_seconds":  16.2188,
+                                         "rss_delta_mb":  0.97,
+                                         "sample_rate":  44100,
+                                         "cpu_percent_one_core":  1299.0,
+                                         "rss_mb_after":  3310.92
+                                     },
+                                     {
+                                         "run":  "warm_1",
+                                         "synthesis_seconds":  1.4324,
+                                         "audio_seconds":  7.6626,
+                                         "real_time_factor":  0.1869,
+                                         "process_cpu_seconds":  17.7656,
+                                         "rss_delta_mb":  8.11,
+                                         "sample_rate":  44100,
+                                         "cpu_percent_one_core":  1240.3,
+                                         "rss_mb_after":  3319.04
+                                     },
+                                     {
+                                         "run":  "warm_2",
+                                         "synthesis_seconds":  1.2933,
+                                         "audio_seconds":  7.6626,
+                                         "real_time_factor":  0.1688,
+                                         "process_cpu_seconds":  16.4375,
+                                         "rss_delta_mb":  0.0,
+                                         "sample_rate":  44100,
+                                         "cpu_percent_one_core":  1271.0,
+                                         "rss_mb_after":  3319.04
+                                     },
+                                     {
+                                         "run":  "warm_3",
+                                         "synthesis_seconds":  1.2932,
+                                         "audio_seconds":  7.6626,
+                                         "real_time_factor":  0.1688,
+                                         "process_cpu_seconds":  16.6562,
+                                         "rss_delta_mb":  0.0,
+                                         "sample_rate":  44100,
+                                         "cpu_percent_one_core":  1288.0,
+                                         "rss_mb_after":  3319.04
+                                     }
+                                 ],
+                        "voice_id":  "F4",
+                        "warm_median_seconds":  1.2933,
+                        "status":  "ok"
+                    },
+                    {
+                        "engine":  "piper",
+                        "voice_requested":  "en_US-ryan-high",
+                        "device":  "cpu",
+                        "phrase_chars":  123,
+                        "runs":  [
+                                     {
+                                         "run":  "cold",
+                                         "synthesis_seconds":  2.0175,
+                                         "audio_seconds":  7.4008,
+                                         "real_time_factor":  0.2726,
+                                         "process_cpu_seconds":  10.7188,
+                                         "rss_delta_mb":  189.48,
+                                         "sample_rate":  22050,
+                                         "cpu_percent_one_core":  531.3,
+                                         "rss_mb_after":  3508.52
+                                     },
+                                     {
+                                         "run":  "warm_1",
+                                         "synthesis_seconds":  0.6954,
+                                         "audio_seconds":  7.633,
+                                         "real_time_factor":  0.0911,
+                                         "process_cpu_seconds":  8.4375,
+                                         "rss_delta_mb":  10.04,
+                                         "sample_rate":  22050,
+                                         "cpu_percent_one_core":  1213.3,
+                                         "rss_mb_after":  3518.55
+                                     },
+                                     {
+                                         "run":  "warm_2",
+                                         "synthesis_seconds":  0.7015,
+                                         "audio_seconds":  7.6911,
+                                         "real_time_factor":  0.0912,
+                                         "process_cpu_seconds":  8.4219,
+                                         "rss_delta_mb":  0.03,
+                                         "sample_rate":  22050,
+                                         "cpu_percent_one_core":  1200.6,
+                                         "rss_mb_after":  3518.59
+                                     },
+                                     {
+                                         "run":  "warm_3",
+                                         "synthesis_seconds":  0.7069,
+                                         "audio_seconds":  7.4589,
+                                         "real_time_factor":  0.0948,
+                                         "process_cpu_seconds":  8.3594,
+                                         "rss_delta_mb":  0.05,
+                                         "sample_rate":  22050,
+                                         "cpu_percent_one_core":  1182.5,
+                                         "rss_mb_after":  3518.63
+                                     }
+                                 ],
+                        "voice_id":  "en_US-ryan-high",
+                        "warm_median_seconds":  0.7015,
+                        "status":  "ok"
+                    },
+                    {
+                        "engine":  "piper",
+                        "voice_requested":  "en_US-kathleen-low",
+                        "device":  "cpu",
+                        "phrase_chars":  123,
+                        "runs":  [
+                                     {
+                                         "run":  "cold",
+                                         "synthesis_seconds":  1.9022,
+                                         "audio_seconds":  7.968,
+                                         "real_time_factor":  0.2387,
+                                         "process_cpu_seconds":  4.4531,
+                                         "rss_delta_mb":  126.96,
+                                         "sample_rate":  16000,
+                                         "cpu_percent_one_core":  234.1,
+                                         "rss_mb_after":  3645.59
+                                     },
+                                     {
+                                         "run":  "warm_1",
+                                         "synthesis_seconds":  0.1666,
+                                         "audio_seconds":  8.08,
+                                         "real_time_factor":  0.0206,
+                                         "process_cpu_seconds":  2.0312,
+                                         "rss_delta_mb":  2.15,
+                                         "sample_rate":  16000,
+                                         "cpu_percent_one_core":  1219.2,
+                                         "rss_mb_after":  3647.74
+                                     },
+                                     {
+                                         "run":  "warm_2",
+                                         "synthesis_seconds":  0.1638,
+                                         "audio_seconds":  7.712,
+                                         "real_time_factor":  0.0212,
+                                         "process_cpu_seconds":  1.875,
+                                         "rss_delta_mb":  0.27,
+                                         "sample_rate":  16000,
+                                         "cpu_percent_one_core":  1144.7,
+                                         "rss_mb_after":  3648.01
+                                     },
+                                     {
+                                         "run":  "warm_3",
+                                         "synthesis_seconds":  0.1708,
+                                         "audio_seconds":  7.936,
+                                         "real_time_factor":  0.0215,
+                                         "process_cpu_seconds":  2.0625,
+                                         "rss_delta_mb":  0.0,
+                                         "sample_rate":  16000,
+                                         "cpu_percent_one_core":  1207.6,
+                                         "rss_mb_after":  3648.01
+                                     }
+                                 ],
+                        "voice_id":  "en_US-kathleen-low",
+                        "warm_median_seconds":  0.1666,
+                        "status":  "ok"
+                    },
+                    {
+                        "engine":  "piper",
+                        "voice_requested":  "en_GB-southern_english_female-low",
+                        "device":  "cpu",
+                        "phrase_chars":  123,
+                        "runs":  [
+                                     {
+                                         "run":  "cold",
+                                         "synthesis_seconds":  2.0364,
+                                         "audio_seconds":  7.808,
+                                         "real_time_factor":  0.2608,
+                                         "process_cpu_seconds":  4.8438,
+                                         "rss_delta_mb":  130.79,
+                                         "sample_rate":  16000,
+                                         "cpu_percent_one_core":  237.9,
+                                         "rss_mb_after":  3778.8
+                                     },
+                                     {
+                                         "run":  "warm_1",
+                                         "synthesis_seconds":  0.1583,
+                                         "audio_seconds":  7.68,
+                                         "real_time_factor":  0.0206,
+                                         "process_cpu_seconds":  1.875,
+                                         "rss_delta_mb":  3.37,
+                                         "sample_rate":  16000,
+                                         "cpu_percent_one_core":  1184.5,
+                                         "rss_mb_after":  3782.18
+                                     },
+                                     {
+                                         "run":  "warm_2",
+                                         "synthesis_seconds":  0.1405,
+                                         "audio_seconds":  7.28,
+                                         "real_time_factor":  0.0193,
+                                         "process_cpu_seconds":  1.6875,
+                                         "rss_delta_mb":  0.38,
+                                         "sample_rate":  16000,
+                                         "cpu_percent_one_core":  1201.1,
+                                         "rss_mb_after":  3782.56
+                                     },
+                                     {
+                                         "run":  "warm_3",
+                                         "synthesis_seconds":  0.1401,
+                                         "audio_seconds":  7.184,
+                                         "real_time_factor":  0.0195,
+                                         "process_cpu_seconds":  1.6875,
+                                         "rss_delta_mb":  33.45,
+                                         "sample_rate":  16000,
+                                         "cpu_percent_one_core":  1204.5,
+                                         "rss_mb_after":  3816.01
+                                     }
+                                 ],
+                        "voice_id":  "en_GB-southern_english_female-low",
+                        "warm_median_seconds":  0.1405,
+                        "status":  "ok"
+                    },
+                    {
+                        "engine":  "sapi5",
+                        "voice_requested":  "MSTTS_V110_enGB_HazelM",
+                        "device":  "cpu",
+                        "phrase_chars":  123,
+                        "runs":  [
+                                     {
+                                         "run":  "cold",
+                                         "synthesis_seconds":  0.1065,
+                                         "audio_seconds":  11.0263,
+                                         "real_time_factor":  0.0097,
+                                         "process_cpu_seconds":  0.0625,
+                                         "rss_delta_mb":  3.64,
+                                         "sample_rate":  22050,
+                                         "cpu_percent_one_core":  58.7,
+                                         "rss_mb_after":  3822.47
+                                     },
+                                     {
+                                         "run":  "warm_1",
+                                         "synthesis_seconds":  0.0346,
+                                         "audio_seconds":  11.0263,
+                                         "real_time_factor":  0.0031,
+                                         "process_cpu_seconds":  0.0469,
+                                         "rss_delta_mb":  0.0,
+                                         "sample_rate":  22050,
+                                         "cpu_percent_one_core":  135.5,
+                                         "rss_mb_after":  3822.46
+                                     },
+                                     {
+                                         "run":  "warm_2",
+                                         "synthesis_seconds":  0.0298,
+                                         "audio_seconds":  11.0263,
+                                         "real_time_factor":  0.0027,
+                                         "process_cpu_seconds":  0.0156,
+                                         "rss_delta_mb":  -0.01,
+                                         "sample_rate":  22050,
+                                         "cpu_percent_one_core":  52.3,
+                                         "rss_mb_after":  3822.45
+                                     },
+                                     {
+                                         "run":  "warm_3",
+                                         "synthesis_seconds":  0.0292,
+                                         "audio_seconds":  11.0263,
+                                         "real_time_factor":  0.0026,
+                                         "process_cpu_seconds":  0.0312,
+                                         "rss_delta_mb":  0.02,
+                                         "sample_rate":  22050,
+                                         "cpu_percent_one_core":  106.8,
+                                         "rss_mb_after":  3822.47
+                                     }
+                                 ],
+                        "voice_id":  "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Speech_OneCore\\Voices\\Tokens\\MSTTS_V110_enGB_HazelM",
+                        "warm_median_seconds":  0.0298,
+                        "status":  "ok"
+                    },
+                    {
+                        "engine":  "sapi5",
+                        "voice_requested":  "MSTTS_V110_enGB_SusanM",
+                        "device":  "cpu",
+                        "phrase_chars":  123,
+                        "runs":  [
+                                     {
+                                         "run":  "cold",
+                                         "synthesis_seconds":  0.0532,
+                                         "audio_seconds":  10.9961,
+                                         "real_time_factor":  0.0048,
+                                         "process_cpu_seconds":  0.0469,
+                                         "rss_delta_mb":  0.05,
+                                         "sample_rate":  22050,
+                                         "cpu_percent_one_core":  88.2,
+                                         "rss_mb_after":  3822.53
+                                     },
+                                     {
+                                         "run":  "warm_1",
+                                         "synthesis_seconds":  0.044,
+                                         "audio_seconds":  10.9961,
+                                         "real_time_factor":  0.004,
+                                         "process_cpu_seconds":  0.0469,
+                                         "rss_delta_mb":  0.03,
+                                         "sample_rate":  22050,
+                                         "cpu_percent_one_core":  106.6,
+                                         "rss_mb_after":  3822.56
+                                     },
+                                     {
+                                         "run":  "warm_2",
+                                         "synthesis_seconds":  0.0421,
+                                         "audio_seconds":  10.9961,
+                                         "real_time_factor":  0.0038,
+                                         "process_cpu_seconds":  0.0469,
+                                         "rss_delta_mb":  0.09,
+                                         "sample_rate":  22050,
+                                         "cpu_percent_one_core":  111.4,
+                                         "rss_mb_after":  3822.65
+                                     },
+                                     {
+                                         "run":  "warm_3",
+                                         "synthesis_seconds":  0.0439,
+                                         "audio_seconds":  10.9961,
+                                         "real_time_factor":  0.004,
+                                         "process_cpu_seconds":  0.0469,
+                                         "rss_delta_mb":  0.04,
+                                         "sample_rate":  22050,
+                                         "cpu_percent_one_core":  106.8,
+                                         "rss_mb_after":  3822.7
+                                     }
+                                 ],
+                        "voice_id":  "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Speech_OneCore\\Voices\\Tokens\\MSTTS_V110_enGB_SusanM",
+                        "warm_median_seconds":  0.0439,
+                        "status":  "ok"
+                    },
+                    {
+                        "engine":  "sapi5",
+                        "voice_requested":  "TTS_MS_EN-US_ZIRA_11.0",
+                        "device":  "cpu",
+                        "phrase_chars":  123,
+                        "runs":  [
+                                     {
+                                         "run":  "cold",
+                                         "synthesis_seconds":  0.1179,
+                                         "audio_seconds":  9.7478,
+                                         "real_time_factor":  0.0121,
+                                         "process_cpu_seconds":  0.0625,
+                                         "rss_delta_mb":  0.89,
+                                         "sample_rate":  22050,
+                                         "cpu_percent_one_core":  53.0,
+                                         "rss_mb_after":  3823.58
+                                     },
+                                     {
+                                         "run":  "warm_1",
+                                         "synthesis_seconds":  0.0375,
+                                         "audio_seconds":  9.7478,
+                                         "real_time_factor":  0.0038,
+                                         "process_cpu_seconds":  0.0312,
+                                         "rss_delta_mb":  0.12,
+                                         "sample_rate":  22050,
+                                         "cpu_percent_one_core":  83.2,
+                                         "rss_mb_after":  3823.7
+                                     },
+                                     {
+                                         "run":  "warm_2",
+                                         "synthesis_seconds":  0.0324,
+                                         "audio_seconds":  9.7478,
+                                         "real_time_factor":  0.0033,
+                                         "process_cpu_seconds":  0.0312,
+                                         "rss_delta_mb":  -0.03,
+                                         "sample_rate":  22050,
+                                         "cpu_percent_one_core":  96.3,
+                                         "rss_mb_after":  3823.67
+                                     },
+                                     {
+                                         "run":  "warm_3",
+                                         "synthesis_seconds":  0.0319,
+                                         "audio_seconds":  9.7478,
+                                         "real_time_factor":  0.0033,
+                                         "process_cpu_seconds":  0.0312,
+                                         "rss_delta_mb":  0.07,
+                                         "sample_rate":  22050,
+                                         "cpu_percent_one_core":  97.8,
+                                         "rss_mb_after":  3823.74
+                                     }
+                                 ],
+                        "voice_id":  "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Speech\\Voices\\Tokens\\TTS_MS_EN-US_ZIRA_11.0",
+                        "warm_median_seconds":  0.0324,
+                        "status":  "ok"
+                    }
+                ]
+}

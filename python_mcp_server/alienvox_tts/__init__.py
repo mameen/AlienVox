@@ -34,7 +34,9 @@ from __future__ import annotations
 
 from .base import SpeakParams, TtsEngine, Voice
 from .device import cuda_available, select_device
-from .engines import KokoroEngine
+from .engines import KokoroEngine, PiperEngine, Supertonic3Engine
+if __import__("sys").platform == "win32":
+    from .engines.sapi import SapiEngine
 from .volume import get_volume, set_volume, volume_down, volume_up
 
 # Engine registry — the extension point for adding more engines later (see
@@ -43,7 +45,11 @@ from .volume import get_volume, set_volume, volume_down, volume_up
 # so tooling built against this library and the app agree on naming.
 ENGINES: dict[str, type[TtsEngine]] = {
     "kokoro": KokoroEngine,
+    "piper": PiperEngine,
+    "supertonic3": Supertonic3Engine,
 }
+if __import__("sys").platform == "win32":
+    ENGINES.update({"sapi5": lambda device="cpu": SapiEngine("sapi5"), "speech_platform": lambda device="cpu": SapiEngine("speech_platform")})
 
 DEFAULT_ENGINE = "kokoro"
 DEFAULT_VOICE = "af_heart"  # American F · Heart

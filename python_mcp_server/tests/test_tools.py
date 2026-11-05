@@ -32,7 +32,25 @@ requires_kokoro = pytest.mark.skipif(not _KOKORO_INSTALLED, reason="kokoro packa
 
 def test_list_engines_includes_kokoro():
     result = do_list_engines()
-    assert "kokoro" in result["engines"]
+    engine_ids = set(result["engines"])
+    assert {"kokoro", "piper", "supertonic3"} <= engine_ids
+    detail_ids = {item["id"] for item in result["details"]}
+    assert {"kokoro", "piper", "supertonic3"} <= detail_ids
+
+
+def test_recommendations_include_top_voices_and_resource_priority():
+    from tools import do_get_recommendations
+    recs = do_get_recommendations()
+    assert recs["priority"] == ["low latency", "low CPU", "low memory"]
+    assert "F1" in recs["ml"][2]["voices"] and "F4" in recs["ml"][2]["voices"]
+    assert "en_US-ryan-high" in recs["ml"][3]["voices"]
+
+
+def test_new_engine_rosters_are_available_without_loading_models():
+    for engine, required in (("piper", {"en_US-ryan-high", "en_US-kathleen-low"}),
+                             ("supertonic3", {"F1", "F4"})):
+        result = do_list_voices(engine)
+        assert {voice["id"] for voice in result["voices"]} >= required
 
 
 def test_list_voices_unknown_engine_returns_error():

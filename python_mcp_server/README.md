@@ -1,6 +1,6 @@
 # AlienVox TTS MCP Server
 
-A Model Context Protocol server exposing AlienVox's local Kokoro-82M TTS engine as MCP tools,
+A Model Context Protocol server exposing AlienVox's local Kokoro, Supertonic 3, Piper, and Windows SAPI TTS engines as MCP tools,
 resources, and prompts. Stdio transport — not hosted externally (see
 [`docs/20260816_agentic_requiremetns_and_plan.md`](../docs/20260816_agentic_requiremetns_and_plan.md)).
 
@@ -42,7 +42,7 @@ stdio and will appear to hang otherwise (that's correct behavior).
 
 ### Tools
 
-- **`speak_text(text, voice="af_heart", engine="kokoro", device="cpu", rate=0, volume=None, play=True, save=False)`**
+- **`speak_text(text, voice="af_heart", engine="kokoro", device="cpu", rate=0, volume=None, play=True, save=False, language="en")`**
   — synthesizes real speech and **plays it through the local default audio device by default**
   (this server runs on the same machine as the user — generating a WAV file nobody opens is the
   wrong default). Pass `save=True` to also write a real `.wav` file (its path is then returned);
@@ -51,18 +51,23 @@ stdio and will appear to hang otherwise (that's correct behavior).
   current **persistent** volume level — see below — pass an explicit `0..100` to override just
   that one call.
 - **`list_voices(engine="kokoro")`** — the voice roster for an engine.
-- **`list_engines()`** — every registered engine id (currently just `kokoro`).
+- **`list_engines()`** — available engines, CPU/offline support, and preferred voices.
+- **`get_recommendations()`** — subjective developer favorites, resource-aware alternatives, and
+  the unscored Windows SAPI audition shortlist.
 - **`get_volume()`** / **`set_volume(percent)`** / **`volume_up(step=10)`** / **`volume_down(step=10)`**
   — a **persistent, process-lifetime** volume level (0..100), separate from `speak_text`'s own
   per-call `volume` argument. "Make it quieter" should stay quieter for the next request too, not
   reset — that's what these are for. `volume_up`/`volume_down` default to ±10 percentage points.
+  For Supertonic 3, `language` accepts a supported language code or `na` for the language-agnostic
+  fallback; other engines currently ignore it.
 
 ### Resources
 
-- **`alienvox://voices`** — the same voice roster as `list_voices`, as a passively-readable
+- **`alienvox://voices`** — voice rosters for all registered engines, as a passively-readable
   resource (some MCP hosts surface resources differently from tools — e.g. in a context/file
   browser rather than requiring an explicit call).
 - **`alienvox://engines`** — the same data as `list_engines`, as a resource.
+- **`alienvox://recommendations`** — listening shortlist and resource notes.
 
 ### Prompts
 
@@ -83,6 +88,17 @@ python -m pytest tests/ -v
 
 Both follow the anti-mocking philosophy this repo uses throughout (see `python_app`'s
 `.agents/SKILLS/testing/SKILL.md`) — no mocking `alienvox_tts` or the `mcp` SDK itself.
+
+For a full CPU comparison of top preferences (with model weights already installed):
+
+```bat
+set ALIENVOX_MODELS_DIR=C:\path\to\AlienVox\.models
+..\.venv\Scripts\python.exe scripts\cpu_voice_benchmark.py
+```
+
+The benchmark reads the exact `SAMPLE_TEXT` from `python_app/src/control/app_controller.py`, runs
+one cold and three warm CPU syntheses per voice, and writes a JSON report plus first-run WAVs under
+`reports/cpu-top-voices-<timestamp>/`. It never auto-downloads model files.
 
 ## Copying to another machine
 
