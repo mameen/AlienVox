@@ -826,6 +826,12 @@ tr:hover { background: #1f2b4d; }
 .status-warn { color: #ffaa00; }
 .status-error { color: #ff4444; }
 .status-na { color: #666; }
+.error-flag { width: 27px; height: 27px; border: 2px solid #ff4545; border-radius: 50%; background: transparent; color: #ff4545; cursor: pointer; font-size: 17px; font-weight: 900; line-height: 1; padding: 0; margin-right: 7px; vertical-align: middle; }
+.error-flag.selected { background: #e32636; color: #fff; box-shadow: 0 0 8px rgba(255,48,48,.55); }
+.error-flag:focus-visible { outline: 2px solid #ff9b9b; outline-offset: 2px; }
+.rating-star:disabled { cursor: not-allowed; opacity: .3; }
+.rating-star { background: transparent; border: 0; color: #68748c; cursor: pointer; font-size: 17px; padding: 1px; }
+.rating-star.selected { color: #ffd34e; }
 .legend { display: flex; gap: 20px; margin-top: 10px; font-size: 14px; }
 .legend-item { display: flex; align-items: center; gap: 5px; cursor: pointer; user-select: none;
     padding: 2px 8px; border-radius: 4px; transition: background 0.15s; }
@@ -875,11 +881,12 @@ def generate_html(json_js_path: str) -> str:
 <div id="chart-container"></div>
 <div id="chart-tooltip"></div>
 <h2>Raw Results</h2>
+<p><button id="export-ratings" type="button">Download metrics + ratings JSON</button></p>
 <table id="results-table">
 <thead><tr>
     <th>Stack</th><th>Model</th><th>Voice</th><th>Language</th><th>Phrase chars</th><th>Variant</th><th>Emotion</th><th>Tone</th><th>Device</th>
     <th>Synth (ms)</th><th>Duration (s)</th><th>Size (KB)</th><th>Sample Rate</th>
-    <th>Memory (MB)</th><th>CPU (%)</th><th>GPU (%)</th><th>GPU (MB)</th>
+    <th>Memory (MB)</th><th>CPU (%)</th><th>GPU (%)</th><th>GPU (MB)</th><th>Rating</th>
 </tr></thead>
 <tbody id="results-body"></tbody>
 </table>
@@ -1029,11 +1036,69 @@ const WELCOME_PHRASE = {json.dumps(WELCOME_PHRASE)};
 
     // ── Table rows ──
     const tbody = document.getElementById('results-body');
+    const ratingsKey = 'alienvox-voice-ratings-' + data.timestamp;
+    const errorsKey = ratingsKey + '-errors';
+    let voiceRatings = {{}}, voiceErrors = {{}};
+    try {{ voiceRatings = JSON.parse(localStorage.getItem(ratingsKey) || '{{}}'); }} catch (_) {{}}
+    try {{ voiceErrors = JSON.parse(localStorage.getItem(errorsKey) || '{{}}'); }} catch (_) {{}}
+    const rowKey = d => d.model_id ? d.model_id + '/' + d.voice_id : d.stack_id + '/' + d.voice_id;
+    const addRatingCell = (tr, d) => {{
+        const td = tr.insertCell();
+        const wrap = document.createElement('span'); wrap.className = 'star-rating';
+        const key = rowKey(d);
+        if (voiceErrors[key] === true && Object.prototype.hasOwnProperty.call(voiceRatings, key)) {{
+            delete voiceRatings[key];
+            try {{ localStorage.setItem(ratingsKey, JSON.stringify(voiceRatings)); }} catch (_) {{}}
+        }}
+        const error = document.createElement('button'); error.type = 'button'; error.className = 'error-flag';
+        error.textContent = '!'; error.title = 'Flag an error for ' + key + '; this blocks star rating until cleared.';
+        error.setAttribute('aria-label', error.title); error.setAttribute('aria-pressed', voiceErrors[key] === true); error.classList.toggle('selected', voiceErrors[key] === true);
+        error.addEventListener('click', () => {{
+            voiceErrors[key] = voiceErrors[key] !== true;
+            if (voiceErrors[key]) {{
+                delete voiceRatings[key];
+                wrap.querySelectorAll('.rating-star').forEach(star => {{ star.disabled = true; star.classList.remove('selected'); }});
+                try {{ localStorage.setItem(ratingsKey, JSON.stringify(voiceRatings)); }} catch (_) {{}}
+            }} else {{
+                wrap.querySelectorAll('.rating-star').forEach(star => {{ star.disabled = false; }});
+            }}
+            error.classList.toggle('selected', voiceErrors[key]);
+            error.title = (voiceErrors[key] ? 'Error reported; clear to rate ' : 'Report an error for ') + key;
+            error.setAttribute('aria-label', error.title); error.setAttribute('aria-pressed', voiceErrors[key]);
+            try {{ localStorage.setItem(errorsKey, JSON.stringify(voiceErrors)); }} catch (_) {{ alert('Browser storage is unavailable; export the JSON to keep error reports.'); }}
+        }});
+        wrap.appendChild(error);
+        for (let score = 1; score <= 5; score++) {{
+            const star = document.createElement('button'); star.type = 'button'; star.className = 'rating-star'; star.textContent = '\u2605';
+            star.title = 'Rate ' + key + ' ' + score + ' out of 5'; star.setAttribute('aria-label', star.title);
+            star.disabled = voiceErrors[key] === true;
+            if (star.disabled) star.title = 'Clear the error flag before rating ' + key;
+            star.classList.toggle('selected', voiceErrors[key] !== true && Number(voiceRatings[key]) >= score);
+            star.addEventListener('click', () => {{
+                if (voiceErrors[key] === true) return;
+                voiceRatings[key] = score;
+                wrap.querySelectorAll('.rating-star').forEach((item, index) => item.classList.toggle('selected', index < score));
+                try {{ localStorage.setItem(ratingsKey, JSON.stringify(voiceRatings)); }} catch (_) {{ alert('Browser storage is unavailable; export the JSON to keep ratings.'); }}
+            }});
+            wrap.appendChild(star);
+        }}
+        td.appendChild(wrap);
+    }};
+    document.getElementById('export-ratings').addEventListener('click', () => {{
+        const payload = {{ schema_version: 1, benchmark_timestamp: data.timestamp, welcome_phrase: data.welcome_phrase,
+            platform: data.platform, voice_ratings: voiceRatings, voice_errors: voiceErrors,
+            results: data.results.map(row => ({{...row, user_rating_1_to_5: voiceRatings[rowKey(row)] ?? null,
+                error_reported: voiceErrors[rowKey(row)] === true}})) }};
+        const blob = new Blob([JSON.stringify(payload, null, 2)], {{type: 'application/json'}});
+        const url = URL.createObjectURL(blob); const a = document.createElement('a');
+        a.href = url; a.download = 'alienvox-performance-ratings-' + data.timestamp + '.json'; a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }});
     data.results.forEach(d => {{
         const tr = tbody.insertRow();
         if (d.skipped) {{
             const td = tr.insertCell();
-            td.colSpan = 17;
+            td.colSpan = 18;
             td.className = 'status-na';
             td.textContent = `${{d.stack_id}}${{d.model_id ? '/' + d.model_id : ''}}/${{d.voice_id}} — skipped: ${{d.skip_reason}}`;
             return;
@@ -1066,6 +1131,7 @@ const WELCOME_PHRASE = {json.dumps(WELCOME_PHRASE)};
             else {{ td.className = 'status-ok'; }}
             td.textContent = fmt(val);
         }});
+        addRatingCell(tr, d);
     }});
   }} catch (err) {{
     document.getElementById('info').innerHTML = '<b>Error rendering:</b> ' + err.message;
