@@ -25,13 +25,14 @@ The previous export scored am_adam 5/5. This newer note supersedes that numeric 
 
 ## SAPI voices in the developer shortlist (not scored)
 
-These were called out as preferred Windows voices, but the exported ratings contain no SAPI star scores. They are listed as audition candidates rather than ranked winners. SAPI has captured **WAV** samples in the local performance report; its voices do not have bundled MP3 files.
+The exported ratings contain no SAPI star scores, so these remain subjective audition candidates. **SAPI-only performance recommendation: MSTTS_V110_enUS_ZiraM.** It synthesized the canonical phrase in 9.27 s versus 9.92 s for TTS_MS_EN-US_ZIRA_11.0 in the historical report. That is a latency choice, not a confirmed quality win. It does not change the overall ML default (Kokoro af_heart). Captured samples are **WAV** files, not bundled MP3s.
 
-| SAPI voice | Resources | Offline sample |
-|---|---|---|
-| MSTTS_V110_enGB_HazelM | Windows-provided voice; no bundled ML model files. | [Hazel WAV](../.logs/20261105025132_samples/sapi5/MSTTS_V110_enGB_HazelM.wav) |
-| MSTTS_V110_enGB_SusanM | Windows-provided voice; no bundled ML model files. | [Susan WAV](../.logs/20261105025132_samples/sapi5/MSTTS_V110_enGB_SusanM.wav) |
-| TTS_MS_EN-US_ZIRA_11.0 | Windows-provided voice; no bundled ML model files. | [Zira WAV](../.logs/20261105025132_samples/sapi5/TTS_MS_EN-US_ZIRA_11.0.wav) |
+| SAPI voice | Performance / preference | Resources | Offline sample |
+|---|---|---|---|
+| MSTTS_V110_enUS_ZiraM | **SAPI-only recommended candidate**; 9,267 ms; no star rating. | Windows-provided voice; no bundled ML model files. | [Zira OneCore WAV](../.logs/20261105025132_samples/sapi5/MSTTS_V110_enUS_ZiraM.wav) |
+| TTS_MS_EN-US_ZIRA_11.0 | 9,925 ms; no star rating. | Windows-provided voice; no bundled ML model files. | [Zira Speech WAV](../.logs/20261105025132_samples/sapi5/TTS_MS_EN-US_ZIRA_11.0.wav) |
+| MSTTS_V110_enGB_HazelM | 11,156 ms; no star rating. | Windows-provided voice; no bundled ML model files. | [Hazel WAV](../.logs/20261105025132_samples/sapi5/MSTTS_V110_enGB_HazelM.wav) |
+| MSTTS_V110_enGB_SusanM | 11,138 ms; no star rating. | Windows-provided voice; no bundled ML model files. | [Susan WAV](../.logs/20261105025132_samples/sapi5/MSTTS_V110_enGB_SusanM.wav) |
 
 ## Resource-data caveat
 

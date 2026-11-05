@@ -139,7 +139,7 @@ def do_list_engines() -> dict[str, Any]:
     if "sapi5" in ENGINES:
         engines.extend([
             {"id": "sapi5", "name": "Windows SAPI 5 / OneCore", "offline": True, "cpu_supported": True,
-             "recommended_voices": ["MSTTS_V110_enGB_HazelM", "MSTTS_V110_enGB_SusanM", "TTS_MS_EN-US_ZIRA_11.0"],
+             "recommended_voices": ["MSTTS_V110_enUS_ZiraM", "MSTTS_V110_enGB_HazelM", "MSTTS_V110_enGB_SusanM", "TTS_MS_EN-US_ZIRA_11.0"],
              "notes": "Uses installed Windows voices; availability varies by machine."},
             {"id": "speech_platform", "name": "Microsoft Speech Platform", "offline": True, "cpu_supported": True,
              "recommended_voices": [], "notes": "Voices must be installed under Speech Server v11."},
@@ -158,8 +158,9 @@ def do_get_recommendations() -> dict[str, Any]:
             {"engine": "supertonic3", "voices": ["F1", "F4"], "note": "Top rated Supertonic voices; CPU ONNX and multilingual."},
             {"engine": "piper", "voices": ["en_US-lessac-medium", "en_US-amy-medium", "en_US-ryan-high", "en_US-kathleen-low", "en_GB-southern_english_female-low", "en_GB-jenny_dioco-medium"], "note": "All six are now developer favorites ('really good'). Historical listening scores were 5/5 for Ryan High and 4/5 for the other five; ONNX CPU inference."},
         ],
-        "sapi": ["MSTTS_V110_enGB_HazelM", "MSTTS_V110_enGB_SusanM", "TTS_MS_EN-US_ZIRA_11.0"],
-        "sapi_note": "Subjective audition shortlist only; these voices had no star ratings in the export.",
+        "sapi": ["MSTTS_V110_enUS_ZiraM", "MSTTS_V110_enGB_HazelM", "MSTTS_V110_enGB_SusanM", "TTS_MS_EN-US_ZIRA_11.0"],
+        "sapi_preferred_voice": "MSTTS_V110_enUS_ZiraM",
+        "sapi_note": "MSTTS_V110_enUS_ZiraM is the SAPI-only performance recommendation (9.27 s versus 9.92 s for TTS_MS_EN-US_ZIRA_11.0 in the historical run); neither has a star rating, so this is not a quality verdict and does not replace the overall Kokoro default.",
         "local_models_dir": "Set ALIENVOX_MODELS_DIR to the folder containing ml\\piper and ml\\supertonic3; otherwise the app's per-user model directory is used.",
     }
 

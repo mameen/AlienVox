@@ -49,6 +49,8 @@ def test_recommendations_include_top_voices_and_resource_priority():
         "en_US-kathleen-low", "en_GB-southern_english_female-low",
         "en_GB-jenny_dioco-medium",
     }
+    assert recs["sapi_preferred_voice"] == "MSTTS_V110_enUS_ZiraM"
+    assert "does not replace the overall Kokoro default" in recs["sapi_note"]
 
 
 def test_new_engine_rosters_are_available_without_loading_models():
