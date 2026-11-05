@@ -43,7 +43,12 @@ def test_recommendations_include_top_voices_and_resource_priority():
     recs = do_get_recommendations()
     assert recs["priority"] == ["low latency", "low CPU", "low memory"]
     assert "F1" in recs["ml"][2]["voices"] and "F4" in recs["ml"][2]["voices"]
-    assert "en_US-ryan-high" in recs["ml"][3]["voices"]
+    piper = next(item for item in recs["ml"] if item["engine"] == "piper")
+    assert set(piper["voices"]) == {
+        "en_US-lessac-medium", "en_US-amy-medium", "en_US-ryan-high",
+        "en_US-kathleen-low", "en_GB-southern_english_female-low",
+        "en_GB-jenny_dioco-medium",
+    }
 
 
 def test_new_engine_rosters_are_available_without_loading_models():

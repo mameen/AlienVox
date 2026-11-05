@@ -33,6 +33,7 @@ _current_stream: sd.OutputStream | None = None
 # see vibevoice_engine.py's apply_volume() docstring), but a bigger margin
 # is a safe, free hedge either way.
 _PLAYBACK_TAIL_SETTLE_S = 0.6
+_PLAYBACK_SILENCE_TAIL_S = 0.75
 
 
 def play_audio(data: np.ndarray, sample_rate: int) -> None:
@@ -41,8 +42,14 @@ def play_audio(data: np.ndarray, sample_rate: int) -> None:
 
     stop_playback()
 
+    # Keep the output stream alive after the final speech sample so delayed
+    # Windows WASAPI/Bluetooth buffers can drain without clipping the last word.
+    data = np.asarray(data)
+    tail_shape = (round(sample_rate * _PLAYBACK_SILENCE_TAIL_S),) + data.shape[1:]
+    playback_data = np.concatenate((data, np.zeros(tail_shape, dtype=data.dtype)), axis=0)
+
     with _lock:
-        sd.play(data, sample_rate)
+        sd.play(playback_data, sample_rate)
 
     sd.wait()
     time.sleep(_PLAYBACK_TAIL_SETTLE_S)

@@ -7,6 +7,7 @@ JSON report plus WAV files. Requires local model weights; no model downloads.
 from __future__ import annotations
 
 import ast
+import argparse
 import json
 import os
 import statistics
@@ -40,17 +41,21 @@ TOP_VOICES = [
     ("kokoro", "af_heart"), ("kokoro", "af_bella"), ("kokoro", "bf_emma"),
     ("kokoro", "am_adam"), ("kokoro", "bm_george"),
     ("supertonic3", "F1"), ("supertonic3", "F4"),
+    ("piper", "en_US-lessac-medium"), ("piper", "en_US-amy-medium"),
     ("piper", "en_US-ryan-high"), ("piper", "en_US-kathleen-low"),
-    ("piper", "en_GB-southern_english_female-low"),
+    ("piper", "en_GB-southern_english_female-low"), ("piper", "en_GB-jenny_dioco-medium"),
     ("sapi5", "MSTTS_V110_enGB_HazelM"), ("sapi5", "MSTTS_V110_enGB_SusanM"),
     ("sapi5", "TTS_MS_EN-US_ZIRA_11.0"),
 ]
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output-dir", type=Path, help="report folder; defaults to a new timestamped folder")
+    args = parser.parse_args()
     import torch
     torch.set_num_threads(max(1, min(4, os.cpu_count() or 1)))
-    out_dir = ROOT / "python_mcp_server" / "reports" / ("cpu-top-voices-" + datetime.now().strftime("%Y%m%d-%H%M%S"))
+    out_dir = args.output_dir or ROOT / "python_mcp_server" / "reports" / ("cpu-top-voices-" + datetime.now().strftime("%Y%m%d-%H%M%S"))
     out_dir.mkdir(parents=True, exist_ok=True)
     proc = psutil.Process()
     results = []
