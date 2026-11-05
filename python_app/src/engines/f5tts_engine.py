@@ -1,8 +1,8 @@
 """F5-TTS zero-shot voice cloning engine (SWivid/F5-TTS).
 
-Auto-downloads model weights on first use.  Preset reference voices are
-stored in  .models/ml/f5tts/voices/<id>.wav  and downloaded from HuggingFace
-the first time that voice is selected via the Install dialog.
+Auto-downloads model weights on first use. Preset references are stored in
+.models/ml/f5tts/voices/<id>.wav and provisioned from the f5-tts package when
+they are missing.
 
 F5-TTS requires a short reference audio clip (~3–10 s) plus its transcript
 to clone a voice.  The preset voices below ship with curated references.
@@ -13,6 +13,7 @@ Install: pip install f5-tts
 """
 from __future__ import annotations
 
+import shutil
 import threading
 from pathlib import Path
 
@@ -47,6 +48,38 @@ def _ref_wav(voice_id: str) -> Path:
 
 def _ref_txt(voice_id: str) -> Path:
     return _voices_dir() / f"{voice_id}.txt"
+
+
+def provision_reference_voices(voices_dir: Path) -> None:
+    """Materialize the F5 preset references shipped with the f5-tts package."""
+    import f5_tts
+    import soundfile as sf
+
+    package_dir = Path(f5_tts.__path__[0])
+    presets = {
+        "en_female_calm": (
+            package_dir / "infer" / "examples" / "basic" / "basic_ref_en.wav",
+            "Some call me nature, others call me mother nature.",
+        ),
+        "en_male_warm": (
+            package_dir / "infer" / "examples" / "multi" / "country.flac",
+            "6 spoons of fresh snow peas, 5 thick slabs of blue cheese and maybe a snack for her brother Bob.",
+        ),
+    }
+    voices_dir.mkdir(parents=True, exist_ok=True)
+    for voice_id, (source, transcript) in presets.items():
+        wav_path = voices_dir / f"{voice_id}.wav"
+        text_path = voices_dir / f"{voice_id}.txt"
+        if not wav_path.is_file():
+            if not source.is_file():
+                raise FileNotFoundError(f"F5-TTS bundled reference is missing: {source}")
+            if source.suffix.lower() == ".wav":
+                shutil.copy2(source, wav_path)
+            else:
+                samples, sample_rate = sf.read(str(source), dtype="float32")
+                sf.write(str(wav_path), samples, sample_rate, subtype="PCM_16")
+        if not text_path.is_file():
+            text_path.write_text(transcript, encoding="utf-8")
 
 
 class F5TTSEngine(TtsEngine):
@@ -114,25 +147,9 @@ class F5TTSEngine(TtsEngine):
             voice_id = _DEFAULT_VOICE
         ref_wav_path = _ref_wav(voice_id)
         if not ref_wav_path.exists():
-            if voice_id != _DEFAULT_VOICE and _ref_wav(_DEFAULT_VOICE).exists():
-                # Requested voice is declared but its reference audio was
-                # never provisioned (e.g. en_male_warm has no bundled
-                # source — see setup.py's _provision_f5tts_reference_voice).
-                # Fall back to whichever preset voice DOES have real
-                # reference audio, rather than silently producing no sound.
-                _log.warn(
-                    "F5-TTS reference voice %r not found at %s — falling back to %r",
-                    voice_id, ref_wav_path, _DEFAULT_VOICE,
-                )
-                voice_id = _DEFAULT_VOICE
-                ref_wav_path = _ref_wav(voice_id)
-            else:
-                _log.error(
-                    "F5-TTS reference voice %r not found at %s — "
-                    "open the Install dialog to download preset voices",
-                    voice_id, ref_wav_path,
-                )
-                return None
+            provision_reference_voices(_voices_dir())
+        if not ref_wav_path.is_file():
+            raise FileNotFoundError(f"F5-TTS preset reference was not provisioned: {ref_wav_path}")
         ref_txt_path = _ref_txt(voice_id)
         ref_text = ref_txt_path.read_text(encoding="utf-8").strip() if ref_txt_path.exists() else ""
         model = self._get_model()

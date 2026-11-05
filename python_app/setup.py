@@ -579,11 +579,16 @@ def main() -> int:
          "vibevoice[streamingtts] @ git+https://github.com/microsoft/VibeVoice.git"])
 
     print("\nInstalling the MOSS-TTS-Nano in-process ONNX runtime (without upstream pins)...")
-    run([python, "-m", "pip", "install", "--no-deps",
-         "moss-tts-nano @ git+https://github.com/OpenMOSS/MOSS-TTS-Nano.git@8b7bcc9341b3b4ef3a3a58ba1338a7d85ff133eb"])
+    if run([python, "-m", "pip", "install", "--no-deps", "-r",
+            str(ROOT / "requirements-moss.txt")]) != 0:
+        print("ERROR: MOSS-TTS-Nano runtime installation failed.")
+        return 1
 
     print("\nInstalling Pocket TTS runtime without its incompatible NumPy requirement...")
-    run([python, "-m", "pip", "install", "--no-deps", "pocket-tts==4.0.1"])
+    if run([python, "-m", "pip", "install", "--no-deps", "-r",
+            str(ROOT / "requirements-pockettts.txt")]) != 0:
+        print("ERROR: Pocket TTS runtime installation failed.")
+        return 1
 
     # ── Auto-detect missing models and offer download ───────────────────────
     models_root = ROOT / ".models"

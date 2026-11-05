@@ -1,18 +1,7 @@
-"""Tests for F5TTSEngine.
-
-Per .agents/SKILLS/highlevel_design/SKILL.md's anti-mocking testing
-philosophy, real-synthesis tests run against the actual downloaded F5-TTS
-model plus a real reference voice — the "en_female_calm" preset, whose
-.wav/.txt are provisioned from the bundled reference clip that ships with
-the f5-tts pip package itself (see setup.py's _provision_f5tts_reference_voice).
-"en_male_warm" doesn't have a bundled reference and isn't downloaded
-automatically yet, so tests needing an *invalid/missing* reference file
-still use tmp_path-based fakes — that's a real filesystem-missing-file
-condition, not simulated model behavior.
-"""
+"""F5-TTS adapter tests, including real synthesis with packaged references."""
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import numpy as np
 
@@ -53,25 +42,18 @@ def test_kokoro_voices_not_in_roster():
 
 # ── Missing reference file handling (real filesystem condition) ──────────────
 
-def test_missing_reference_file_logs_error_and_skips(tmp_path):
-    """If the .wav reference is missing, synthesis must be skipped (no
-    crash, no model load). Real filesystem check — not mocked model
-    behavior — model.infer is asserted not-called as a side effect of our
-    own early-return guard, using a MagicMock only to observe non-invocation."""
-    mock_model = MagicMock()
-    engine = F5TTSEngine()
-    F5TTSEngine._model = mock_model
+def test_preset_reference_voices_are_provisioned_from_installed_package(tmp_path):
+    import soundfile as sf
 
-    missing_wav = tmp_path / "nonexistent.wav"
+    from src.engines.f5tts_engine import provision_reference_voices
 
-    with patch("src.engines.f5tts_engine._ref_wav", return_value=missing_wav), \
-         patch("src.engines.f5tts_engine.play_audio") as mock_play:
-        engine.speak("hello", _DEFAULT_VOICE, SpeakParams())
-        engine.wait_until_done(timeout_ms=5_000)
-
-    mock_play.assert_not_called()
-    mock_model.infer.assert_not_called()
-    F5TTSEngine._model = None  # reset singleton — don't leak into real-synthesis tests
+    provision_reference_voices(tmp_path)
+    for voice_id in ("en_female_calm", "en_male_warm"):
+        wav_path = tmp_path / f"{voice_id}.wav"
+        text_path = tmp_path / f"{voice_id}.txt"
+        assert wav_path.is_file() and wav_path.stat().st_size > 1_000
+        assert text_path.is_file() and text_path.read_text(encoding="utf-8").strip()
+        assert sf.info(wav_path).duration >= 3.0
 
 
 def test_speak_empty_text_does_nothing():

@@ -129,7 +129,10 @@ def download_model(
     snapshot_download(**download_args)
     _log.info("%s download complete -> %s", model_id, dest)
 
-    if model_id == "vibevoice_realtime":
+    if model_id == "f5tts":
+        from ..engines.f5tts_engine import provision_reference_voices
+        provision_reference_voices(dest / "voices")
+    elif model_id == "vibevoice_realtime":
         _download_vibevoice_voices(dest, on_progress)
 
 

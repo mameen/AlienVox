@@ -54,6 +54,7 @@ class MossTtsNanoEngine(TtsEngine):
         self._done = threading.Event()
         self._done.set()
         self._stop_requested = threading.Event()
+        self._last_error: Exception | None = None
 
     @classmethod
     def _get_runtime(cls):
@@ -98,6 +99,7 @@ class MossTtsNanoEngine(TtsEngine):
             return
         self.stop()
         self._stop_requested.clear()
+        self._last_error = None
         self._done.clear()
         threading.Thread(
             target=self._do_speak,
@@ -112,14 +114,18 @@ class MossTtsNanoEngine(TtsEngine):
         self._done.set()
 
     def wait_until_done(self, timeout_ms: int = 30_000) -> bool:
-        return self._done.wait(timeout_ms / 1000)
+        completed = self._done.wait(timeout_ms / 1000)
+        if completed and self._last_error is not None:
+            raise RuntimeError("MOSS-TTS-Nano speech failed") from self._last_error
+        return completed
 
     def _do_speak(self, text: str, voice_id: str, params: SpeakParams) -> None:
         try:
             result = self.synthesize(text, voice_id, params)
             if result and not self._stop_requested.is_set():
                 play_audio(*result)
-        except Exception:
+        except Exception as exc:
+            self._last_error = exc
             from .. import logger as _logger
             _logger.get_logger("moss_tts_nano").exception("MOSS-TTS-Nano synthesis failed")
         finally:

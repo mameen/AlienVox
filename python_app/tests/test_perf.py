@@ -19,6 +19,11 @@ Metrics collected per stack/model/voice:
     10. device           — "cuda" or "cpu", whatever select_device() picked for this run
                             (respects run.py's --cpu/--gpu, i.e. CUDA_VISIBLE_DEVICES)
 
+Each voice is tested with its primary locale's phrase from
+tests/fixtures/performance_phrases.json. Reports keep both voice_locale and
+phrase_locale so fallback/mismatch is visible instead of silently benchmarking
+an Arabic or Japanese voice with English text.
+
 Reports written to .logs/YYYYMMDDHHmmss.{json,html}
 """
 from __future__ import annotations
@@ -36,8 +41,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from src.control.app_controller import SAMPLE_TEXT as WELCOME_PHRASE
-
 # ── Thresholds ────────────────────────────────────────────────────────────────
 
 THRESHOLDS = {
@@ -52,6 +55,73 @@ THRESHOLDS = {
 ROOT = Path(__file__).parent.parent
 FIXTURES = ROOT / "tests" / "fixtures"
 LOGS_DIR = ROOT / ".logs"
+PERF_PHRASE_FILE = FIXTURES / "performance_phrases.json"
+with PERF_PHRASE_FILE.open(encoding="utf-8") as _phrase_file:
+    PERF_PHRASE_CATALOG = json.load(_phrase_file)
+_LOCALES_BY_ID = {row["locale_id"].lower(): row for row in PERF_PHRASE_CATALOG["locales"]}
+_SAMPLES_BY_LOCALE = {row["locale_id"].lower(): row for row in PERF_PHRASE_CATALOG["samples"]}
+WELCOME_PHRASE = _SAMPLES_BY_LOCALE["en"]["text"]
+
+
+def _voice_locale(stack_id: str, model_id: str | None, voice_id: str) -> str:
+    """Return the voice's primary locale, falling back conservatively to English."""
+    leaf_id = voice_id.split("\\")[-1]
+    match = re.search(r"(?:^|[_-])([a-z]{2})[-_]?([A-Z]{2})(?:[_\-.]|$)", leaf_id, re.IGNORECASE)
+    if match:
+        return f"{match.group(1).lower()}-{match.group(2).upper()}"
+
+    if model_id == "kokoro" and leaf_id:
+        return {"a": "en-US", "b": "en-GB", "e": "es-ES", "f": "fr-FR",
+                "h": "hi-IN", "i": "it-IT", "j": "ja-JP", "p": "pt-BR",
+                "z": "zh-CN"}.get(leaf_id[0].lower(), "und")
+    if model_id == "qwen3tts":
+        return {"vivian": "zh-CN", "serena": "zh-CN", "dylan": "en", "eric": "en",
+                "ryan": "en", "aiden": "en", "uncle_fu": "zh-CN", "ono_anna": "ja-JP",
+                "sohee": "ko-KR"}.get(leaf_id.lower(), "und")
+    if model_id == "moss_tts_nano":
+        return {"junhao": "zh-CN", "zhiming": "zh-CN", "weiguo": "zh-CN",
+                "xiaoyu": "zh-CN", "yuewen": "zh-CN", "lingyu": "zh-CN",
+                "trump": "en", "ava": "en", "bella": "en", "adam": "en",
+                "nathan": "en", "soyo": "ja-JP", "saki": "ja-JP", "mortis": "ja-JP",
+                "umiri": "ja-JP", "mei": "ja-JP", "anon": "ja-JP", "arisa": "ja-JP"}.get(leaf_id.lower(), "und")
+    if model_id in {"chatterbox", "dia", "f5tts", "outetts", "vibevoice_realtime", "pockettts", "supertonic3"}:
+        return "en"
+    return "und"
+
+
+def _phrase_for_locale(locale: str) -> dict[str, Any]:
+    """Find an exact locale phrase, then a language-only phrase, then English."""
+    normalized = locale.replace("_", "-").lower()
+    locale_id = normalized if normalized in _LOCALES_BY_ID else normalized.split("-", 1)[0]
+    if locale_id not in _LOCALES_BY_ID:
+        locale_id = "en"
+    locale = _LOCALES_BY_ID[locale_id]
+    sample = _SAMPLES_BY_LOCALE[locale_id]
+    return {**locale, **sample, "phrase": sample["text"], "phrase_variants": sample["text_variants"]}
+
+
+def _phrase_settings(stack_id: str, model_id: str | None, voice_id: str, variant_id: str = "neutral") -> dict[str, Any]:
+    profiles = PERF_PHRASE_CATALOG["delivery_profiles"]
+    if variant_id not in profiles:
+        raise ValueError(f"Unknown delivery variant {variant_id!r}; choose from {', '.join(profiles)}")
+    profile = profiles[variant_id]
+    voice_locale = _voice_locale(stack_id, model_id, voice_id)
+    phrase = _phrase_for_locale(voice_locale)
+    return {
+        "voice_locale": voice_locale,
+        "phrase_locale": phrase["locale"],
+        "language": phrase["locale"] if voice_locale.lower() == phrase["locale"].lower()
+                    else f"{phrase['locale']} (voice {voice_locale})",
+        "language_main": phrase["language_main"],
+        "language_sub": phrase["language_sub"],
+        "phrase_id": phrase["sample_id"],
+        "phrase": phrase["phrase_variants"][variant_id],
+        "variant_id": variant_id,
+        "emotion": profile["emotion"],
+        "tone": profile["tone"],
+        "expression": profile["expression"],
+        "extra_params": {"lang": phrase["language_main"]} if model_id == "supertonic3" else {},
+    }
 
 # ── psutil helpers (optional — skip if not installed) ─────────────────────────
 
@@ -103,6 +173,17 @@ class PerfResult:
     stack_id: str
     model_id: str | None = None
     voice_id: str = ""
+    language: str = "en"
+    voice_locale: str = "en"
+    phrase_locale: str = "en"
+    language_main: str = "en"
+    language_sub: str | None = None
+    phrase_id: str = "welcome-performance-v1:en"
+    phrase_chars: int = 0
+    variant_id: str = "neutral"
+    emotion: str = "neutral"
+    tone: str = "measured"
+    expression: str = "clear and matter-of-fact"
     # Timing
     first_chunk_ms: float = -1.0   # time until synthesis produces first audio (ML only)
     synthesis_ms: float = 0.0      # total time for full synthesis (speak() → done)
@@ -140,6 +221,7 @@ def collect_metrics(
     voice_id: str,
     listen: bool = True,
     save_path: Path | None = None,
+    phrase_settings: dict[str, Any] | None = None,
 ) -> PerfResult:
     """Run one synthesis cycle and collect timing, audio, and system metrics.
 
@@ -167,9 +249,21 @@ def collect_metrics(
         voice_id=voice_id,
         device=select_device(),
     )
+    phrase_settings = phrase_settings or {}
+    result.voice_locale = phrase_settings.get("voice_locale", "en")
+    result.phrase_locale = phrase_settings.get("phrase_locale", "en")
+    result.language = phrase_settings.get("language", result.phrase_locale)
+    result.language_main = phrase_settings.get("language_main", "en")
+    result.language_sub = phrase_settings.get("language_sub")
+    result.phrase_id = phrase_settings.get("phrase_id", "welcome-performance-v1:en")
+    result.phrase_chars = len(phrase)
+    result.variant_id = phrase_settings.get("variant_id", "neutral")
+    result.emotion = phrase_settings.get("emotion", "neutral")
+    result.tone = phrase_settings.get("tone", "measured")
+    result.expression = phrase_settings.get("expression", "clear and matter-of-fact")
 
-    from src.engines.base import SpeakParams
-    params = SpeakParams()
+    from src.engines.base import SpeakParams, TtsEngine
+    params = SpeakParams(extra=phrase_settings.get("extra_params", {}))
 
     # ── Memory + CPU baseline ─────────────────────────────────────────────
     mem_before = _get_memory_mb()
@@ -193,6 +287,15 @@ def collect_metrics(
         result.skip_reason = f"synthesize() failed: {exc}"
         return result
     synthesis_end = time.perf_counter()
+
+    # Only engines that inherit the base no-op implementation (SAPI) may
+    # fall back to speak(). An ML engine overriding synthesize() and
+    # returning None has failed this voice and must not be reported as a
+    # successful ~1 ms measurement.
+    if synth_result is None and type(engine).synthesize is not TtsEngine.synthesize:
+        result.skipped = True
+        result.skip_reason = f"synthesize() returned no audio for voice {voice_id!r}"
+        return result
 
     if synth_result is not None:
         result.synthesis_ms = (synthesis_end - t0) * 1000
@@ -312,8 +415,8 @@ def _safe_filename(name: str) -> str:
     return re.sub(r'[<>:"/\\|?*]', "_", name).strip() or "voice"
 
 
-def welcome_phrase_benchmark(save_dir: Path | None = None, sample_format: str = "wav") -> list[PerfResult]:
-    """Speak WELCOME_PHRASE on every available stack/model/voice combination.
+def welcome_phrase_benchmark(save_dir: Path | None = None, sample_format: str = "wav", variant_id: str = "neutral") -> list[PerfResult]:
+    """Speak each voice's localized performance phrase across installed stacks.
 
     Returns a list of PerfResults. Skips unavailable stacks/models gracefully.
 
@@ -346,8 +449,8 @@ def welcome_phrase_benchmark(save_dir: Path | None = None, sample_format: str = 
                     skipped.append(f"{stack_id}: not on Windows")
                     continue
 
-                from src.engines.sapi_win import SapiEngine
-                engine = SapiEngine()
+                from src.engines.sapi_win import SapiEngine, SpeechPlatformEngine
+                engine = SapiEngine() if stack_id == "sapi5" else SpeechPlatformEngine()
                 engine.stack_id = stack_id  # set for perf reporting
                 voices = engine.list_voices()
 
@@ -356,11 +459,15 @@ def welcome_phrase_benchmark(save_dir: Path | None = None, sample_format: str = 
                     continue
 
                 for voice in voices:
+                    phrase_settings = _phrase_settings(stack_id, None, voice.id, variant_id)
                     save_path = (
                         save_dir / stack_id / f"{_safe_filename(voice.id)}.{sample_format}"
                         if save_dir is not None else None
                     )
-                    r = collect_metrics(WELCOME_PHRASE, engine, voice.id, save_path=save_path)
+                    r = collect_metrics(
+                        phrase_settings["phrase"], engine, voice.id,
+                        save_path=save_path, phrase_settings=phrase_settings,
+                    )
                     # Truncate registry path to last segment for display
                     r.voice_id = r.voice_id.split("\\")[-1] if "\\" in r.voice_id else r.voice_id
                     results.append(r)
@@ -399,11 +506,15 @@ def welcome_phrase_benchmark(save_dir: Path | None = None, sample_format: str = 
 
                 voices = engine.list_voices()
                 for voice in voices:
+                    phrase_settings = _phrase_settings(stack_id, model.id, voice.id, variant_id)
                     save_path = (
                         save_dir / stack_id / model.id / f"{_safe_filename(voice.id)}.{sample_format}"
                         if save_dir is not None else None
                     )
-                    r = collect_metrics(WELCOME_PHRASE, engine, voice.id, save_path=save_path)
+                    r = collect_metrics(
+                        phrase_settings["phrase"], engine, voice.id,
+                        save_path=save_path, phrase_settings=phrase_settings,
+                    )
                     # Truncate registry path to last segment for display
                     r.voice_id = r.voice_id.split("\\")[-1] if "\\" in r.voice_id else r.voice_id
                     results.append(r)
@@ -420,8 +531,8 @@ def welcome_phrase_benchmark(save_dir: Path | None = None, sample_format: str = 
     return results
 
 
-def single_case_benchmark(stack_id: str, model_id: str | None, voice_id: str) -> list[PerfResult]:
-    """Run WELCOME_PHRASE on exactly one stack/model/voice combination.
+def single_case_benchmark(stack_id: str, model_id: str | None, voice_id: str, variant_id: str = "neutral") -> list[PerfResult]:
+    """Run the voice-matched localized phrase for one stack/model/voice.
 
     Mirrors welcome_phrase_benchmark()'s engine-loading logic but for a
     single case instead of iterating everything — for a fast targeted
@@ -443,10 +554,11 @@ def single_case_benchmark(stack_id: str, model_id: str | None, voice_id: str) ->
             r.skipped, r.skip_reason = True, f"{stack_id}: not on Windows"
             return [r]
         try:
-            from src.engines.sapi_win import SapiEngine
-            engine = SapiEngine()
+            from src.engines.sapi_win import SapiEngine, SpeechPlatformEngine
+            engine = SapiEngine() if stack_id == "sapi5" else SpeechPlatformEngine()
             engine.stack_id = stack_id
-            r = collect_metrics(WELCOME_PHRASE, engine, voice_id)
+            phrase_settings = _phrase_settings(stack_id, None, voice_id, variant_id)
+            r = collect_metrics(phrase_settings["phrase"], engine, voice_id, phrase_settings=phrase_settings)
             r.voice_id = r.voice_id.split("\\")[-1] if "\\" in r.voice_id else r.voice_id
             return [r]
         except Exception as exc:
@@ -478,7 +590,8 @@ def single_case_benchmark(stack_id: str, model_id: str | None, voice_id: str) ->
             r.skipped, r.skip_reason = True, f"{stack_id}/{model_id}: engine load failed"
             return [r]
         engine.stack_id, engine.model_id = stack_id, model_id
-        r = collect_metrics(WELCOME_PHRASE, engine, voice_id)
+        phrase_settings = _phrase_settings(stack_id, model_id, voice_id, variant_id)
+        r = collect_metrics(phrase_settings["phrase"], engine, voice_id, phrase_settings=phrase_settings)
         r.voice_id = r.voice_id.split("\\")[-1] if "\\" in r.voice_id else r.voice_id
         return [r]
     except Exception as exc:
@@ -542,6 +655,7 @@ def render_console_table(results: list[PerfResult]) -> None:
         "stack": max(8, max(len(r.stack_id) for r in results)),
         "model": max(6, max(len(r.model_id or "-") for r in results)),
         "voice": max(5, max(len(r.voice_id) for r in results)),
+        "language": max(8, min(24, max(len(r.language) for r in results))),
     }
     col_w["dev"]   = 6    # device
     col_w["synth"] = 12   # synthesis_ms
@@ -557,6 +671,7 @@ def render_console_table(results: list[PerfResult]) -> None:
         f"  {{:<{col_w['stack']}}}  "
         f"{{:<{col_w['model']}}}  "
         f"{{:<{col_w['voice']}}}  "
+        f"{{:<{col_w['language']}}}  "
         f"{{:<{col_w['dev']}}}  "
         f"{{:>{col_w['synth']}}}  "
         f"{{:>{col_w['dur']}}}  "
@@ -571,7 +686,7 @@ def render_console_table(results: list[PerfResult]) -> None:
     total_width = sum(col_w.values()) + 2 + 10 * 2
     print(f"\n{'─' * total_width}")
     print(header_fmt.format(
-        "STACK", "MODEL", "VOICE", "DEVICE",
+        "STACK", "MODEL", "VOICE", "LANGUAGE", "DEVICE",
         "SYNTH(ms)", "DUR(s)", "SIZE(KB)", "RATE(Hz)",
         "MEM(MB)", "CPU(%)", "GPU(%)", "GPU(MB)",
     ))
@@ -610,6 +725,7 @@ def render_console_table(results: list[PerfResult]) -> None:
             f"{synth_c}{r.stack_id}{c}",
             r.model_id or "-",
             r.voice_id[:col_w["voice"]],
+            r.language[:col_w["language"]],
             r.device,
             f"{synth_c}{r.synthesis_ms:>8.1f} ms{c}",
             _fmt_dur(r.audio_duration_s),
@@ -663,6 +779,11 @@ def write_json_report(results: list[PerfResult], path: Path) -> None:
             "python": platform.python_version(),
         },
         "welcome_phrase": WELCOME_PHRASE,
+        "performance_phrase_catalog": {
+            "phrase_id": PERF_PHRASE_CATALOG["phrase_id"],
+            "path": "tests/fixtures/performance_phrases.json",
+            "locales": [row["locale"] for row in PERF_PHRASE_CATALOG["locales"]],
+        },
         "thresholds": THRESHOLDS,
         "results": [asdict(r) for r in results],
     }
@@ -749,13 +870,14 @@ def generate_html(json_js_path: str) -> str:
 <body>
 <h1>AlienVox Performance Report</h1>
 <div id="info">Rendering report...</div>
+<p style="color:#bac4dd;font:14px 'Segoe UI',sans-serif">Each voice uses its matching localized phrase where known. Compare timing within the same phrase locale; translation lengths differ. Locale translations are drafts pending native-speaker review.</p>
 <h2>Metrics by Stack/Model/Voice</h2>
 <div id="chart-container"></div>
 <div id="chart-tooltip"></div>
 <h2>Raw Results</h2>
 <table id="results-table">
 <thead><tr>
-    <th>Stack</th><th>Model</th><th>Voice</th><th>Device</th>
+    <th>Stack</th><th>Model</th><th>Voice</th><th>Language</th><th>Phrase chars</th><th>Variant</th><th>Emotion</th><th>Tone</th><th>Device</th>
     <th>Synth (ms)</th><th>Duration (s)</th><th>Size (KB)</th><th>Sample Rate</th>
     <th>Memory (MB)</th><th>CPU (%)</th><th>GPU (%)</th><th>GPU (MB)</th>
 </tr></thead>
@@ -911,7 +1033,7 @@ const WELCOME_PHRASE = {json.dumps(WELCOME_PHRASE)};
         const tr = tbody.insertRow();
         if (d.skipped) {{
             const td = tr.insertCell();
-            td.colSpan = 12;
+            td.colSpan = 17;
             td.className = 'status-na';
             td.textContent = `${{d.stack_id}}${{d.model_id ? '/' + d.model_id : ''}}/${{d.voice_id}} — skipped: ${{d.skip_reason}}`;
             return;
@@ -920,6 +1042,11 @@ const WELCOME_PHRASE = {json.dumps(WELCOME_PHRASE)};
             {{ key: 'stack_id',          fmt: v => v }},
             {{ key: 'model_id',          fmt: v => v ?? '-' }},
             {{ key: 'voice_id',          fmt: v => v }},
+            {{ key: 'language',          fmt: v => v || 'unknown' }},
+            {{ key: 'phrase_chars',      fmt: v => String(v ?? 0) }},
+            {{ key: 'variant_id',        fmt: v => v || 'neutral' }},
+            {{ key: 'emotion',           fmt: v => v || 'neutral' }},
+            {{ key: 'tone',              fmt: v => v || 'measured' }},
             {{ key: 'device',            fmt: v => v ?? '-' }},
             {{ key: 'synthesis_ms',      fmt: v => v >= 0 ? v.toFixed(1) + ' ms' : 'N/A' }},
             {{ key: 'audio_duration_s',  fmt: v => v >= 0 ? v.toFixed(2) + ' s'  : 'N/A' }},
@@ -1009,6 +1136,19 @@ class TestPerfAudioMeasurements:
 
         assert _audio_measurements(np.zeros((8, 2), dtype=np.float32), 0) == (8, -1.0, 32)
 
+    def test_ml_engine_returning_no_audio_is_marked_skipped(self):
+        class NoAudioEngine:
+            stack_id = "ml"
+            model_id = "f5tts"
+
+            def synthesize(self, phrase, voice_id, params):
+                return None
+
+        result = collect_metrics("sample phrase", NoAudioEngine(), "preset", listen=False)
+        assert result.skipped
+        assert "returned no audio" in result.skip_reason
+        assert result.audio_samples == -1
+
 
 class TestConfigPerf:
     """Existing unit benchmarks — timing contracts for config/registry/telemetry."""
@@ -1097,10 +1237,16 @@ class TestTelemetryPerf:
 # ── Helpers (used by benchmarks) ──────────────────────────────────────────────
 
 def _elapsed_ms(fn, *args, **kwargs) -> float:
-    """Measure function execution time in milliseconds."""
-    t0 = time.perf_counter()
-    fn(*args, **kwargs)
-    return (time.perf_counter() - t0) * 1000
+    """Return median warm-call latency to reduce first-call scheduling noise."""
+    import statistics
+
+    fn(*args, **kwargs)  # warm caches and filesystem metadata
+    measurements = []
+    for _ in range(7):
+        t0 = time.perf_counter()
+        fn(*args, **kwargs)
+        measurements.append((time.perf_counter() - t0) * 1000)
+    return statistics.median(measurements)
 
 
 # ── CLI entry point (python -m tests.test_perf _benchmark) ───────────────────
@@ -1120,6 +1266,7 @@ if __name__ == "__main__":
         parser.add_argument("--stack", default=None, help="Run a single stack/model/voice instead of the full sweep")
         parser.add_argument("--model", default=None, help="Required for non-SAPI stacks (e.g. kokoro, vibevoice_realtime)")
         parser.add_argument("--voice", default=None, help="Voice ID within --stack/--model (see stacks.yaml)")
+        parser.add_argument("--variant", choices=tuple(PERF_PHRASE_CATALOG["delivery_profiles"]), default="neutral", help="Localized delivery cue profile")
         parser.add_argument(
             "--save-samples", action="store_true",
             help="Also save one sample per stack/model/voice under .generated/perf_samples/ "
@@ -1142,14 +1289,14 @@ if __name__ == "__main__":
                 print("ERROR: --voice is required when --stack is given.")
                 sys.exit(1)
             print(f"\n  Running single case: stack={args.stack} model={args.model or '-'} voice={args.voice}...\n")
-            results = single_case_benchmark(args.stack, args.model, args.voice)
+            results = single_case_benchmark(args.stack, args.model, args.voice, args.variant)
         else:
             save_dir = None
             if args.save_samples:
                 save_dir = Path(args.samples_dir) if args.samples_dir else ROOT / ".generated" / "perf_samples"
                 print(f"\n  Saving one {args.sample_format.upper()} per voice to {save_dir}\n")
             print("\n  Running welcome-phrase benchmark on all available stacks/models/voices...\n")
-            results = welcome_phrase_benchmark(save_dir=save_dir, sample_format=args.sample_format)
+            results = welcome_phrase_benchmark(save_dir=save_dir, sample_format=args.sample_format, variant_id=args.variant)
 
         render_console_table(results)
         json_path, html_path = generate_reports(results)

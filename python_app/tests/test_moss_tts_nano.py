@@ -56,6 +56,17 @@ def test_empty_text_and_ready_stop_lifecycle_do_not_load_runtime():
     assert engine.wait_until_done(1)
 
 
+def test_worker_failure_is_reported_to_waiter():
+    import pytest
+
+    engine = MossTtsNanoEngine()
+    engine._last_error = ModuleNotFoundError("onnx_tts_runtime")
+    engine._done.set()
+    with pytest.raises(RuntimeError, match="MOSS-TTS-Nano speech failed") as exc_info:
+        engine.wait_until_done(1)
+    assert isinstance(exc_info.value.__cause__, ModuleNotFoundError)
+
+
 @requires_weights("ml/moss_tts_nano")
 def test_real_moss_onnx_cpu_synthesis():
     from src.control.app_controller import SAMPLE_TEXT

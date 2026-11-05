@@ -225,12 +225,21 @@ def _parse_single_case_flags() -> list[str]:
     tests/test_perf.py's own argparse (see single_case_benchmark())."""
     args = sys.argv[2:]
     forwarded = []
-    for flag in ("--stack", "--model", "--voice"):
+    for flag in ("--stack", "--model", "--voice", "--variant"):
         if flag in args:
             i = args.index(flag)
             if i + 1 < len(args):
                 forwarded += [flag, args[i + 1]]
     return forwarded
+
+
+def _parse_variant_flag() -> list[str]:
+    args = sys.argv[2:]
+    if "--variant" in args:
+        i = args.index("--variant")
+        if i + 1 < len(args):
+            return ["--variant", args[i + 1]]
+    return []
 
 
 def _parse_save_samples_flags() -> list[str]:
@@ -278,7 +287,7 @@ def cmd_perf() -> int:
     # ── Real-speech benchmark (standalone — SAPI COM requires STA threading) ─
     _header("Perf — welcome phrase benchmark")
     rc_perf = _run(
-        _venv_python(), "-m", "tests.test_perf", "_benchmark", *_parse_save_samples_flags(),
+        _venv_python(), "-m", "tests.test_perf", "_benchmark", *_parse_save_samples_flags(), *_parse_variant_flag(),
         env=env,
     )
     return rc or rc_perf or 0

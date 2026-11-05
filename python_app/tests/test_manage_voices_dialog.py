@@ -10,12 +10,13 @@ Column layout: Name(0) / Size(1) / Enabled(2) / Install(3) / Preview(4).
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
 
-from src.engines.registry import ModelInfo, StackInfo
+from src.engines.registry import ModelInfo, StackInfo, available_stacks
 from src.model.app_state import AppState
 from src.view.manage_voices_dialog import ManageVoicesDialog
 
@@ -255,5 +256,41 @@ def test_kokoro_voice_rows_show_shared_model_install_action(qapp, tmp_path):
     try:
         item = _find_voice_item(dlg, "kokoro", "af_bella")
         assert dlg._tree.itemWidget(item, 3).text() == "-"
+    finally:
+        dlg.close()
+
+
+def test_new_model_voices_are_listed_in_manage_voices(qapp, tmp_path):
+    """The real bundled catalog must expose the newly added models in the dialog."""
+    catalog_path = Path(__file__).parent / "fixtures" / "stacks.yaml"
+    stacks = available_stacks(catalog_path, tmp_path)
+    state = AppState(stacks, {
+        "engine": "ml", "model": "kokoro", "voice": "af_heart",
+        "rate": 0, "pitch": 0, "volume": 100,
+        "hotkey": "<alt>+<esc>", "ttl_seconds": 30,
+    })
+    dlg = ManageVoicesDialog(state, _FakeController(state), tmp_path)
+    expected = {
+        "pockettts": {"Alba", "Marius"},
+        "supertonic3": {"Male 1", "Female 1"},
+        "moss_tts_nano": {"Ava", "Adam"},
+    }
+    try:
+        ml_item = next(
+            dlg._tree.topLevelItem(i)
+            for i in range(dlg._tree.topLevelItemCount())
+            if dlg._tree.topLevelItem(i).text(0) == "ML / AI"
+        )
+        model_voices = {
+            model.text(0): {model.child(i).text(0) for i in range(model.childCount())}
+            for model in (ml_item.child(i) for i in range(ml_item.childCount()))
+        }
+        catalog_ml = next(stack for stack in stacks if stack.id == "ml")
+        names = {model.id: model.name for model in catalog_ml.models}
+        assert [model.id for model in catalog_ml.models][-3:] == [
+            "pockettts", "supertonic3", "moss_tts_nano"
+        ]
+        for model_id, voices in expected.items():
+            assert model_voices[names[model_id]] >= voices
     finally:
         dlg.close()

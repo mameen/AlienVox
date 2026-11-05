@@ -9,7 +9,7 @@ the portable zip and the Windows installer.
 | Layer | What it gets you | Size | Script | Installs from |
 |---|---|---|---|---|
 | **Base** | Tray + main window, Windows SAPI5/Speech Platform voices, plus the downloader needed for optional Kokoro install | ~150–300MB (PySide6, pywin32, huggingface_hub, ...) | `install.bat` | `install/requirements-base.txt` |
-| **ML** | Local open-source voices (Kokoro, Chatterbox, Piper, F5-TTS, OuteTTS) + LLM text enhancement | multi-GB (torch, transformers, TTS engine packages) | `install_ml.bat` | the root `requirements.txt` |
+| **ML** | Local open-source voices (including Pocket TTS, Supertonic 3, and MOSS-TTS-Nano) + LLM text enhancement | multi-GB (torch, transformers, TTS engine packages) | `install_ml.bat` | root `requirements.txt`, `requirements-moss.txt`, and `requirements-pockettts.txt` |
 
 `install/requirements-base.txt` stays a separate, genuinely base-only file on purpose — it's not
 just a lighter option for `install.bat`, it's a hard requirement for the Windows packaged builds
@@ -17,8 +17,9 @@ just a lighter option for `install.bat`, it's a hard requirement for the Windows
 so keeping that venv free of torch/ML packages is the actual mechanism that keeps the shipped
 `.exe`/portable zip small. There used to be a matching `install/requirements-ml.txt` too, but
 nothing else depended on it being separate from the root `requirements.txt` — it was pure
-duplication (and had already drifted out of sync), so `install_ml.bat` now installs the root file
-directly instead.
+duplication (and had already drifted out of sync), so `install_ml.bat` installs the root file
+directly, followed by the MOSS and Pocket adapters with `--no-deps` to preserve the shared Torch,
+Transformers, and NumPy versions.
 
 Model **weights** (the actual checkpoints — Kokoro ~300MB, Chatterbox ~1-2GB, Dia ~3GB+, the
 Qwen enhancer ~470MB, ...) are never part of either install step. They download **lazily, one
@@ -60,7 +61,7 @@ maintained fork, `winget install sox_ng.sox_ng`), then restart the shell so PATH
 
 `psutil` and `nvidia-ml-py` (used by `tests/test_perf.py` / `python run.py perf` for the
 device/CPU/memory/GPU columns) are declared in the root `requirements.txt`, so `install_ml.bat`
-and `python install\build_install.py ml` both get them automatically. A base-only install (`install.bat`) won't
+gets them automatically. A base-only install (`install.bat`) won't
 have them — `pip install psutil nvidia-ml-py` directly if you want to run `run.py perf` without
 the rest of the ML layer.
 

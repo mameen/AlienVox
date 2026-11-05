@@ -1,0 +1,748 @@
+{
+  "schema_version": 2,
+  "phrase_id": "welcome-performance-v1",
+  "purpose": "Localized speech-synthesis performance prompt. Translations are draft and should receive native-speaker review before comparative quality claims.",
+  "locale_fields": {
+    "language_main": "ISO 639-1 language code, lowercase",
+    "language_sub": "Optional ISO 3166-1 alpha-2 region code, uppercase; null means language-only locale",
+    "locale": "BCP 47 locale derived from language_main and language_sub"
+  },
+  "delivery_profiles": {
+    "neutral": {
+      "emotion": "neutral",
+      "tone": "measured",
+      "expression": "clear and matter-of-fact",
+      "cue": "preserve the original punctuation"
+    },
+    "warm": {
+      "emotion": "welcoming",
+      "tone": "warm",
+      "expression": "friendly and conversational",
+      "cue": "emphasize the welcome with an exclamation mark"
+    },
+    "upbeat": {
+      "emotion": "joyful",
+      "tone": "upbeat",
+      "expression": "bright and energetic, without shouting",
+      "cue": "use an exclamation mark at sentence endings"
+    },
+    "calm": {
+      "emotion": "calm",
+      "tone": "gentle",
+      "expression": "soothing and reassuring",
+      "cue": "use a gentle ellipsis at sentence endings"
+    }
+  },
+  "locales": [
+    {
+      "language_main": "ar",
+      "language_sub": "SA",
+      "locale": "ar-SA",
+      "language_name": "Arabic",
+      "native_name": "العربية",
+      "register": "Modern Standard Arabic; region-neutral wording",
+      "locale_id": "ar-SA"
+    },
+    {
+      "language_main": "bg",
+      "language_sub": "BG",
+      "locale": "bg-BG",
+      "language_name": "Bulgarian",
+      "native_name": "Български",
+      "locale_id": "bg-BG"
+    },
+    {
+      "language_main": "cs",
+      "language_sub": "CZ",
+      "locale": "cs-CZ",
+      "language_name": "Czech",
+      "native_name": "Čeština",
+      "locale_id": "cs-CZ"
+    },
+    {
+      "language_main": "zh",
+      "language_sub": "CN",
+      "locale": "zh-CN",
+      "language_name": "Chinese",
+      "native_name": "简体中文",
+      "locale_id": "zh-CN"
+    },
+    {
+      "language_main": "da",
+      "language_sub": "DK",
+      "locale": "da-DK",
+      "language_name": "Danish",
+      "native_name": "Dansk",
+      "locale_id": "da-DK"
+    },
+    {
+      "language_main": "de",
+      "language_sub": "DE",
+      "locale": "de-DE",
+      "language_name": "German",
+      "native_name": "Deutsch",
+      "locale_id": "de-DE"
+    },
+    {
+      "language_main": "el",
+      "language_sub": "GR",
+      "locale": "el-GR",
+      "language_name": "Greek",
+      "native_name": "Ελληνικά",
+      "locale_id": "el-GR"
+    },
+    {
+      "language_main": "en",
+      "language_sub": null,
+      "locale": "en",
+      "language_name": "English",
+      "native_name": "English",
+      "register": "Neutral wording; no regional reference",
+      "locale_id": "en"
+    },
+    {
+      "language_main": "es",
+      "language_sub": "ES",
+      "locale": "es-ES",
+      "language_name": "Spanish",
+      "native_name": "Español",
+      "locale_id": "es-ES"
+    },
+    {
+      "language_main": "et",
+      "language_sub": "EE",
+      "locale": "et-EE",
+      "language_name": "Estonian",
+      "native_name": "Eesti",
+      "locale_id": "et-EE"
+    },
+    {
+      "language_main": "fi",
+      "language_sub": "FI",
+      "locale": "fi-FI",
+      "language_name": "Finnish",
+      "native_name": "Suomi",
+      "locale_id": "fi-FI"
+    },
+    {
+      "language_main": "fr",
+      "language_sub": "FR",
+      "locale": "fr-FR",
+      "language_name": "French",
+      "native_name": "Français",
+      "locale_id": "fr-FR"
+    },
+    {
+      "language_main": "hi",
+      "language_sub": "IN",
+      "locale": "hi-IN",
+      "language_name": "Hindi",
+      "native_name": "हिन्दी",
+      "locale_id": "hi-IN"
+    },
+    {
+      "language_main": "hr",
+      "language_sub": "HR",
+      "locale": "hr-HR",
+      "language_name": "Croatian",
+      "native_name": "Hrvatski",
+      "locale_id": "hr-HR"
+    },
+    {
+      "language_main": "hu",
+      "language_sub": "HU",
+      "locale": "hu-HU",
+      "language_name": "Hungarian",
+      "native_name": "Magyar",
+      "locale_id": "hu-HU"
+    },
+    {
+      "language_main": "id",
+      "language_sub": "ID",
+      "locale": "id-ID",
+      "language_name": "Indonesian",
+      "native_name": "Bahasa Indonesia",
+      "locale_id": "id-ID"
+    },
+    {
+      "language_main": "it",
+      "language_sub": "IT",
+      "locale": "it-IT",
+      "language_name": "Italian",
+      "native_name": "Italiano",
+      "locale_id": "it-IT"
+    },
+    {
+      "language_main": "ja",
+      "language_sub": "JP",
+      "locale": "ja-JP",
+      "language_name": "Japanese",
+      "native_name": "日本語",
+      "locale_id": "ja-JP"
+    },
+    {
+      "language_main": "ko",
+      "language_sub": "KR",
+      "locale": "ko-KR",
+      "language_name": "Korean",
+      "native_name": "한국어",
+      "locale_id": "ko-KR"
+    },
+    {
+      "language_main": "lt",
+      "language_sub": "LT",
+      "locale": "lt-LT",
+      "language_name": "Lithuanian",
+      "native_name": "Lietuvių",
+      "locale_id": "lt-LT"
+    },
+    {
+      "language_main": "lv",
+      "language_sub": "LV",
+      "locale": "lv-LV",
+      "language_name": "Latvian",
+      "native_name": "Latviešu",
+      "locale_id": "lv-LV"
+    },
+    {
+      "language_main": "nl",
+      "language_sub": "NL",
+      "locale": "nl-NL",
+      "language_name": "Dutch",
+      "native_name": "Nederlands",
+      "locale_id": "nl-NL"
+    },
+    {
+      "language_main": "pl",
+      "language_sub": "PL",
+      "locale": "pl-PL",
+      "language_name": "Polish",
+      "native_name": "Polski",
+      "locale_id": "pl-PL"
+    },
+    {
+      "language_main": "pt",
+      "language_sub": "BR",
+      "locale": "pt-BR",
+      "language_name": "Portuguese",
+      "native_name": "Português",
+      "locale_id": "pt-BR"
+    },
+    {
+      "language_main": "ro",
+      "language_sub": "RO",
+      "locale": "ro-RO",
+      "language_name": "Romanian",
+      "native_name": "Română",
+      "locale_id": "ro-RO"
+    },
+    {
+      "language_main": "ru",
+      "language_sub": "RU",
+      "locale": "ru-RU",
+      "language_name": "Russian",
+      "native_name": "Русский",
+      "locale_id": "ru-RU"
+    },
+    {
+      "language_main": "sk",
+      "language_sub": "SK",
+      "locale": "sk-SK",
+      "language_name": "Slovak",
+      "native_name": "Slovenčina",
+      "locale_id": "sk-SK"
+    },
+    {
+      "language_main": "sl",
+      "language_sub": "SI",
+      "locale": "sl-SI",
+      "language_name": "Slovenian",
+      "native_name": "Slovenščina",
+      "locale_id": "sl-SI"
+    },
+    {
+      "language_main": "sv",
+      "language_sub": "SE",
+      "locale": "sv-SE",
+      "language_name": "Swedish",
+      "native_name": "Svenska",
+      "locale_id": "sv-SE"
+    },
+    {
+      "language_main": "tr",
+      "language_sub": "TR",
+      "locale": "tr-TR",
+      "language_name": "Turkish",
+      "native_name": "Türkçe",
+      "locale_id": "tr-TR"
+    },
+    {
+      "language_main": "uk",
+      "language_sub": "UA",
+      "locale": "uk-UA",
+      "language_name": "Ukrainian",
+      "native_name": "Українська",
+      "locale_id": "uk-UA"
+    },
+    {
+      "language_main": "vi",
+      "language_sub": "VN",
+      "locale": "vi-VN",
+      "language_name": "Vietnamese",
+      "native_name": "Tiếng Việt",
+      "locale_id": "vi-VN"
+    }
+  ],
+  "samples": [
+    {
+      "sample_id": "welcome-performance-v1:ar-SA",
+      "locale_id": "ar-SA",
+      "content_profile": "localized_product_brand",
+      "script_profile": "mixed",
+      "text": "مرحبًا بك في AlienVox. هذا اختبار لأداء تحويل النص إلى كلام. إذا كنت تسمع هذا، فنظامك يعمل بشكل صحيح.",
+      "review_status": "pending_native_review",
+      "text_variants": {
+        "neutral": "مرحبًا بك في AlienVox. هذا اختبار لأداء تحويل النص إلى كلام. إذا كنت تسمع هذا، فنظامك يعمل بشكل صحيح.",
+        "warm": "مرحبًا بك في AlienVox! هذا اختبار لأداء تحويل النص إلى كلام. إذا كنت تسمع هذا، فنظامك يعمل بشكل صحيح.",
+        "upbeat": "مرحبًا بك في AlienVox! هذا اختبار لأداء تحويل النص إلى كلام! إذا كنت تسمع هذا، فنظامك يعمل بشكل صحيح!",
+        "calm": "مرحبًا بك في AlienVox… هذا اختبار لأداء تحويل النص إلى كلام… إذا كنت تسمع هذا، فنظامك يعمل بشكل صحيح…"
+      },
+      "register": "Modern Standard Arabic; region-neutral wording"
+    },
+    {
+      "sample_id": "welcome-performance-v1:bg-BG",
+      "locale_id": "bg-BG",
+      "content_profile": "localized_product_brand",
+      "script_profile": "mixed",
+      "text": "Добре дошли в AlienVox. Това е тест за производителността на синтеза на реч. Ако чувате това, системата ви работи правилно.",
+      "review_status": "pending_native_review",
+      "text_variants": {
+        "neutral": "Добре дошли в AlienVox. Това е тест за производителността на синтеза на реч. Ако чувате това, системата ви работи правилно.",
+        "warm": "Добре дошли в AlienVox! Това е тест за производителността на синтеза на реч. Ако чувате това, системата ви работи правилно.",
+        "upbeat": "Добре дошли в AlienVox! Това е тест за производителността на синтеза на реч! Ако чувате това, системата ви работи правилно!",
+        "calm": "Добре дошли в AlienVox… Това е тест за производителността на синтеза на реч… Ако чувате това, системата ви работи правилно…"
+      }
+    },
+    {
+      "sample_id": "welcome-performance-v1:cs-CZ",
+      "locale_id": "cs-CZ",
+      "content_profile": "localized_product_brand",
+      "script_profile": "mixed",
+      "text": "Vítejte v AlienVox. Toto je test výkonu převodu textu na řeč. Pokud to slyšíte, váš systém funguje správně.",
+      "review_status": "pending_native_review",
+      "text_variants": {
+        "neutral": "Vítejte v AlienVox. Toto je test výkonu převodu textu na řeč. Pokud to slyšíte, váš systém funguje správně.",
+        "warm": "Vítejte v AlienVox! Toto je test výkonu převodu textu na řeč. Pokud to slyšíte, váš systém funguje správně.",
+        "upbeat": "Vítejte v AlienVox! Toto je test výkonu převodu textu na řeč! Pokud to slyšíte, váš systém funguje správně!",
+        "calm": "Vítejte v AlienVox… Toto je test výkonu převodu textu na řeč… Pokud to slyšíte, váš systém funguje správně…"
+      }
+    },
+    {
+      "sample_id": "welcome-performance-v1:zh-CN",
+      "locale_id": "zh-CN",
+      "content_profile": "localized_product_brand",
+      "script_profile": "mixed",
+      "text": "欢迎使用 AlienVox。这是一项语音合成性能测试。如果您能听到这段语音，说明系统运行正常。",
+      "review_status": "pending_native_review",
+      "text_variants": {
+        "neutral": "欢迎使用 AlienVox。这是一项语音合成性能测试。如果您能听到这段语音，说明系统运行正常。",
+        "warm": "欢迎使用 AlienVox。这是一项语音合成性能测试。如果您能听到这段语音，说明系统运行正常。!",
+        "upbeat": "欢迎使用 AlienVox。这是一项语音合成性能测试。如果您能听到这段语音，说明系统运行正常。",
+        "calm": "欢迎使用 AlienVox。这是一项语音合成性能测试。如果您能听到这段语音，说明系统运行正常。"
+      }
+    },
+    {
+      "sample_id": "welcome-performance-v1:da-DK",
+      "locale_id": "da-DK",
+      "content_profile": "localized_product_brand",
+      "script_profile": "mixed",
+      "text": "Velkommen til AlienVox. Dette er en ydelsestest af tekst til tale. Hvis du kan høre dette, fungerer dit system korrekt.",
+      "review_status": "pending_native_review",
+      "text_variants": {
+        "neutral": "Velkommen til AlienVox. Dette er en ydelsestest af tekst til tale. Hvis du kan høre dette, fungerer dit system korrekt.",
+        "warm": "Velkommen til AlienVox! Dette er en ydelsestest af tekst til tale. Hvis du kan høre dette, fungerer dit system korrekt.",
+        "upbeat": "Velkommen til AlienVox! Dette er en ydelsestest af tekst til tale! Hvis du kan høre dette, fungerer dit system korrekt!",
+        "calm": "Velkommen til AlienVox… Dette er en ydelsestest af tekst til tale… Hvis du kan høre dette, fungerer dit system korrekt…"
+      }
+    },
+    {
+      "sample_id": "welcome-performance-v1:de-DE",
+      "locale_id": "de-DE",
+      "content_profile": "localized_product_brand",
+      "script_profile": "mixed",
+      "text": "Willkommen bei AlienVox. Dies ist ein Leistungstest für die Sprachsynthese. Wenn Sie das hören, funktioniert Ihr System einwandfrei.",
+      "review_status": "pending_native_review",
+      "text_variants": {
+        "neutral": "Willkommen bei AlienVox. Dies ist ein Leistungstest für die Sprachsynthese. Wenn Sie das hören, funktioniert Ihr System einwandfrei.",
+        "warm": "Willkommen bei AlienVox! Dies ist ein Leistungstest für die Sprachsynthese. Wenn Sie das hören, funktioniert Ihr System einwandfrei.",
+        "upbeat": "Willkommen bei AlienVox! Dies ist ein Leistungstest für die Sprachsynthese! Wenn Sie das hören, funktioniert Ihr System einwandfrei!",
+        "calm": "Willkommen bei AlienVox… Dies ist ein Leistungstest für die Sprachsynthese… Wenn Sie das hören, funktioniert Ihr System einwandfrei…"
+      }
+    },
+    {
+      "sample_id": "welcome-performance-v1:el-GR",
+      "locale_id": "el-GR",
+      "content_profile": "localized_product_brand",
+      "script_profile": "mixed",
+      "text": "Καλώς ήρθατε στο AlienVox. Αυτή είναι μια δοκιμή απόδοσης σύνθεσης ομιλίας. Αν ακούτε αυτό το μήνυμα, το σύστημά σας λειτουργεί σωστά.",
+      "review_status": "pending_native_review",
+      "text_variants": {
+        "neutral": "Καλώς ήρθατε στο AlienVox. Αυτή είναι μια δοκιμή απόδοσης σύνθεσης ομιλίας. Αν ακούτε αυτό το μήνυμα, το σύστημά σας λειτουργεί σωστά.",
+        "warm": "Καλώς ήρθατε στο AlienVox! Αυτή είναι μια δοκιμή απόδοσης σύνθεσης ομιλίας. Αν ακούτε αυτό το μήνυμα, το σύστημά σας λειτουργεί σωστά.",
+        "upbeat": "Καλώς ήρθατε στο AlienVox! Αυτή είναι μια δοκιμή απόδοσης σύνθεσης ομιλίας! Αν ακούτε αυτό το μήνυμα, το σύστημά σας λειτουργεί σωστά!",
+        "calm": "Καλώς ήρθατε στο AlienVox… Αυτή είναι μια δοκιμή απόδοσης σύνθεσης ομιλίας… Αν ακούτε αυτό το μήνυμα, το σύστημά σας λειτουργεί σωστά…"
+      }
+    },
+    {
+      "sample_id": "welcome-performance-v1:en",
+      "locale_id": "en",
+      "content_profile": "localized_product_brand",
+      "script_profile": "native_script",
+      "text": "Welcome to AlienVox. This is a performance test of your TTS engine. If you can hear this, your system is working correctly.",
+      "review_status": "source",
+      "text_variants": {
+        "neutral": "Welcome to AlienVox. This is a performance test of your TTS engine. If you can hear this, your system is working correctly.",
+        "warm": "Welcome to AlienVox! This is a performance test of your TTS engine. If you can hear this, your system is working correctly.",
+        "upbeat": "Welcome to AlienVox! This is a performance test of your TTS engine! If you can hear this, your system is working correctly!",
+        "calm": "Welcome to AlienVox… This is a performance test of your TTS engine… If you can hear this, your system is working correctly…"
+      },
+      "register": "Neutral wording; no regional reference"
+    },
+    {
+      "sample_id": "welcome-performance-v1:es-ES",
+      "locale_id": "es-ES",
+      "content_profile": "localized_product_brand",
+      "script_profile": "mixed",
+      "text": "Te damos la bienvenida a AlienVox. Esta es una prueba de rendimiento de síntesis de voz. Si puedes oírlo, tu sistema funciona correctamente.",
+      "review_status": "pending_native_review",
+      "text_variants": {
+        "neutral": "Te damos la bienvenida a AlienVox. Esta es una prueba de rendimiento de síntesis de voz. Si puedes oírlo, tu sistema funciona correctamente.",
+        "warm": "Te damos la bienvenida a AlienVox! Esta es una prueba de rendimiento de síntesis de voz. Si puedes oírlo, tu sistema funciona correctamente.",
+        "upbeat": "Te damos la bienvenida a AlienVox! Esta es una prueba de rendimiento de síntesis de voz! Si puedes oírlo, tu sistema funciona correctamente!",
+        "calm": "Te damos la bienvenida a AlienVox… Esta es una prueba de rendimiento de síntesis de voz… Si puedes oírlo, tu sistema funciona correctamente…"
+      }
+    },
+    {
+      "sample_id": "welcome-performance-v1:et-EE",
+      "locale_id": "et-EE",
+      "content_profile": "localized_product_brand",
+      "script_profile": "mixed",
+      "text": "Tere tulemast AlienVoxi. See on kõnesünteesi jõudlustest. Kui kuuled seda, töötab sinu süsteem õigesti.",
+      "review_status": "pending_native_review",
+      "text_variants": {
+        "neutral": "Tere tulemast AlienVoxi. See on kõnesünteesi jõudlustest. Kui kuuled seda, töötab sinu süsteem õigesti.",
+        "warm": "Tere tulemast AlienVoxi! See on kõnesünteesi jõudlustest. Kui kuuled seda, töötab sinu süsteem õigesti.",
+        "upbeat": "Tere tulemast AlienVoxi! See on kõnesünteesi jõudlustest! Kui kuuled seda, töötab sinu süsteem õigesti!",
+        "calm": "Tere tulemast AlienVoxi… See on kõnesünteesi jõudlustest… Kui kuuled seda, töötab sinu süsteem õigesti…"
+      }
+    },
+    {
+      "sample_id": "welcome-performance-v1:fi-FI",
+      "locale_id": "fi-FI",
+      "content_profile": "localized_product_brand",
+      "script_profile": "mixed",
+      "text": "Tervetuloa AlienVoxiin. Tämä on puhesynteesin suorituskykytesti. Jos kuulet tämän, järjestelmäsi toimii oikein.",
+      "review_status": "pending_native_review",
+      "text_variants": {
+        "neutral": "Tervetuloa AlienVoxiin. Tämä on puhesynteesin suorituskykytesti. Jos kuulet tämän, järjestelmäsi toimii oikein.",
+        "warm": "Tervetuloa AlienVoxiin! Tämä on puhesynteesin suorituskykytesti. Jos kuulet tämän, järjestelmäsi toimii oikein.",
+        "upbeat": "Tervetuloa AlienVoxiin! Tämä on puhesynteesin suorituskykytesti! Jos kuulet tämän, järjestelmäsi toimii oikein!",
+        "calm": "Tervetuloa AlienVoxiin… Tämä on puhesynteesin suorituskykytesti… Jos kuulet tämän, järjestelmäsi toimii oikein…"
+      }
+    },
+    {
+      "sample_id": "welcome-performance-v1:fr-FR",
+      "locale_id": "fr-FR",
+      "content_profile": "localized_product_brand",
+      "script_profile": "mixed",
+      "text": "Bienvenue dans AlienVox. Ceci est un test de performance de la synthèse vocale. Si vous entendez ce message, votre système fonctionne correctement.",
+      "review_status": "pending_native_review",
+      "text_variants": {
+        "neutral": "Bienvenue dans AlienVox. Ceci est un test de performance de la synthèse vocale. Si vous entendez ce message, votre système fonctionne correctement.",
+        "warm": "Bienvenue dans AlienVox! Ceci est un test de performance de la synthèse vocale. Si vous entendez ce message, votre système fonctionne correctement.",
+        "upbeat": "Bienvenue dans AlienVox! Ceci est un test de performance de la synthèse vocale! Si vous entendez ce message, votre système fonctionne correctement!",
+        "calm": "Bienvenue dans AlienVox… Ceci est un test de performance de la synthèse vocale… Si vous entendez ce message, votre système fonctionne correctement…"
+      }
+    },
+    {
+      "sample_id": "welcome-performance-v1:hi-IN",
+      "locale_id": "hi-IN",
+      "content_profile": "localized_product_brand",
+      "script_profile": "mixed",
+      "text": "AlienVox में आपका स्वागत है। यह वाक् संश्लेषण के प्रदर्शन की जाँच है। यदि आपको यह सुनाई दे रहा है, तो आपका सिस्टम ठीक से काम कर रहा है।",
+      "review_status": "pending_native_review",
+      "text_variants": {
+        "neutral": "AlienVox में आपका स्वागत है। यह वाक् संश्लेषण के प्रदर्शन की जाँच है। यदि आपको यह सुनाई दे रहा है, तो आपका सिस्टम ठीक से काम कर रहा है।",
+        "warm": "AlienVox में आपका स्वागत है। यह वाक् संश्लेषण के प्रदर्शन की जाँच है। यदि आपको यह सुनाई दे रहा है, तो आपका सिस्टम ठीक से काम कर रहा है।!",
+        "upbeat": "AlienVox में आपका स्वागत है। यह वाक् संश्लेषण के प्रदर्शन की जाँच है। यदि आपको यह सुनाई दे रहा है, तो आपका सिस्टम ठीक से काम कर रहा है।",
+        "calm": "AlienVox में आपका स्वागत है। यह वाक् संश्लेषण के प्रदर्शन की जाँच है। यदि आपको यह सुनाई दे रहा है, तो आपका सिस्टम ठीक से काम कर रहा है।"
+      }
+    },
+    {
+      "sample_id": "welcome-performance-v1:hr-HR",
+      "locale_id": "hr-HR",
+      "content_profile": "localized_product_brand",
+      "script_profile": "mixed",
+      "text": "Dobro došli u AlienVox. Ovo je test brzine sinteze govora. Ako ovo čujete, vaš sustav radi ispravno.",
+      "review_status": "pending_native_review",
+      "text_variants": {
+        "neutral": "Dobro došli u AlienVox. Ovo je test brzine sinteze govora. Ako ovo čujete, vaš sustav radi ispravno.",
+        "warm": "Dobro došli u AlienVox! Ovo je test brzine sinteze govora. Ako ovo čujete, vaš sustav radi ispravno.",
+        "upbeat": "Dobro došli u AlienVox! Ovo je test brzine sinteze govora! Ako ovo čujete, vaš sustav radi ispravno!",
+        "calm": "Dobro došli u AlienVox… Ovo je test brzine sinteze govora… Ako ovo čujete, vaš sustav radi ispravno…"
+      }
+    },
+    {
+      "sample_id": "welcome-performance-v1:hu-HU",
+      "locale_id": "hu-HU",
+      "content_profile": "localized_product_brand",
+      "script_profile": "mixed",
+      "text": "Üdvözöljük az AlienVoxban. Ez egy beszédszintézis-teljesítményteszt. Ha ezt hallja, a rendszere megfelelően működik.",
+      "review_status": "pending_native_review",
+      "text_variants": {
+        "neutral": "Üdvözöljük az AlienVoxban. Ez egy beszédszintézis-teljesítményteszt. Ha ezt hallja, a rendszere megfelelően működik.",
+        "warm": "Üdvözöljük az AlienVoxban! Ez egy beszédszintézis-teljesítményteszt. Ha ezt hallja, a rendszere megfelelően működik.",
+        "upbeat": "Üdvözöljük az AlienVoxban! Ez egy beszédszintézis-teljesítményteszt! Ha ezt hallja, a rendszere megfelelően működik!",
+        "calm": "Üdvözöljük az AlienVoxban… Ez egy beszédszintézis-teljesítményteszt… Ha ezt hallja, a rendszere megfelelően működik…"
+      }
+    },
+    {
+      "sample_id": "welcome-performance-v1:id-ID",
+      "locale_id": "id-ID",
+      "content_profile": "localized_product_brand",
+      "script_profile": "native_script",
+      "text": "Selamat datang di AlienVox. Ini adalah uji kinerja sintesis suara. Jika Anda dapat mendengar ini, sistem Anda berfungsi dengan baik.",
+      "review_status": "pending_native_review",
+      "text_variants": {
+        "neutral": "Selamat datang di AlienVox. Ini adalah uji kinerja sintesis suara. Jika Anda dapat mendengar ini, sistem Anda berfungsi dengan baik.",
+        "warm": "Selamat datang di AlienVox! Ini adalah uji kinerja sintesis suara. Jika Anda dapat mendengar ini, sistem Anda berfungsi dengan baik.",
+        "upbeat": "Selamat datang di AlienVox! Ini adalah uji kinerja sintesis suara! Jika Anda dapat mendengar ini, sistem Anda berfungsi dengan baik!",
+        "calm": "Selamat datang di AlienVox… Ini adalah uji kinerja sintesis suara… Jika Anda dapat mendengar ini, sistem Anda berfungsi dengan baik…"
+      }
+    },
+    {
+      "sample_id": "welcome-performance-v1:it-IT",
+      "locale_id": "it-IT",
+      "content_profile": "localized_product_brand",
+      "script_profile": "mixed",
+      "text": "Benvenuto in AlienVox. Questo è un test delle prestazioni della sintesi vocale. Se riesci a sentire questo messaggio, il sistema funziona correttamente.",
+      "review_status": "pending_native_review",
+      "text_variants": {
+        "neutral": "Benvenuto in AlienVox. Questo è un test delle prestazioni della sintesi vocale. Se riesci a sentire questo messaggio, il sistema funziona correttamente.",
+        "warm": "Benvenuto in AlienVox! Questo è un test delle prestazioni della sintesi vocale. Se riesci a sentire questo messaggio, il sistema funziona correttamente.",
+        "upbeat": "Benvenuto in AlienVox! Questo è un test delle prestazioni della sintesi vocale! Se riesci a sentire questo messaggio, il sistema funziona correttamente!",
+        "calm": "Benvenuto in AlienVox… Questo è un test delle prestazioni della sintesi vocale… Se riesci a sentire questo messaggio, il sistema funziona correttamente…"
+      }
+    },
+    {
+      "sample_id": "welcome-performance-v1:ja-JP",
+      "locale_id": "ja-JP",
+      "content_profile": "localized_product_brand",
+      "script_profile": "mixed",
+      "text": "AlienVox へようこそ。これは音声合成の性能テストです。この音声が聞こえれば、システムは正常に動作しています。",
+      "review_status": "pending_native_review",
+      "text_variants": {
+        "neutral": "AlienVox へようこそ。これは音声合成の性能テストです。この音声が聞こえれば、システムは正常に動作しています。",
+        "warm": "AlienVox へようこそ。これは音声合成の性能テストです。この音声が聞こえれば、システムは正常に動作しています。!",
+        "upbeat": "AlienVox へようこそ。これは音声合成の性能テストです。この音声が聞こえれば、システムは正常に動作しています。",
+        "calm": "AlienVox へようこそ。これは音声合成の性能テストです。この音声が聞こえれば、システムは正常に動作しています。"
+      }
+    },
+    {
+      "sample_id": "welcome-performance-v1:ko-KR",
+      "locale_id": "ko-KR",
+      "content_profile": "localized_product_brand",
+      "script_profile": "mixed",
+      "text": "AlienVox에 오신 것을 환영합니다. 이 문장은 음성 합성 성능 테스트입니다. 이 소리가 들리면 시스템이 정상적으로 작동하고 있습니다.",
+      "review_status": "pending_native_review",
+      "text_variants": {
+        "neutral": "AlienVox에 오신 것을 환영합니다. 이 문장은 음성 합성 성능 테스트입니다. 이 소리가 들리면 시스템이 정상적으로 작동하고 있습니다.",
+        "warm": "AlienVox에 오신 것을 환영합니다! 이 문장은 음성 합성 성능 테스트입니다. 이 소리가 들리면 시스템이 정상적으로 작동하고 있습니다.",
+        "upbeat": "AlienVox에 오신 것을 환영합니다! 이 문장은 음성 합성 성능 테스트입니다! 이 소리가 들리면 시스템이 정상적으로 작동하고 있습니다!",
+        "calm": "AlienVox에 오신 것을 환영합니다… 이 문장은 음성 합성 성능 테스트입니다… 이 소리가 들리면 시스템이 정상적으로 작동하고 있습니다…"
+      }
+    },
+    {
+      "sample_id": "welcome-performance-v1:lt-LT",
+      "locale_id": "lt-LT",
+      "content_profile": "localized_product_brand",
+      "script_profile": "mixed",
+      "text": "Sveiki atvykę į AlienVox. Tai yra kalbos sintezės našumo testas. Jei girdite šį pranešimą, jūsų sistema veikia tinkamai.",
+      "review_status": "pending_native_review",
+      "text_variants": {
+        "neutral": "Sveiki atvykę į AlienVox. Tai yra kalbos sintezės našumo testas. Jei girdite šį pranešimą, jūsų sistema veikia tinkamai.",
+        "warm": "Sveiki atvykę į AlienVox! Tai yra kalbos sintezės našumo testas. Jei girdite šį pranešimą, jūsų sistema veikia tinkamai.",
+        "upbeat": "Sveiki atvykę į AlienVox! Tai yra kalbos sintezės našumo testas! Jei girdite šį pranešimą, jūsų sistema veikia tinkamai!",
+        "calm": "Sveiki atvykę į AlienVox… Tai yra kalbos sintezės našumo testas… Jei girdite šį pranešimą, jūsų sistema veikia tinkamai…"
+      }
+    },
+    {
+      "sample_id": "welcome-performance-v1:lv-LV",
+      "locale_id": "lv-LV",
+      "content_profile": "localized_product_brand",
+      "script_profile": "mixed",
+      "text": "Laipni lūdzam AlienVox. Šis ir runas sintēzes veiktspējas tests. Ja dzirdat šo ziņojumu, jūsu sistēma darbojas pareizi.",
+      "review_status": "pending_native_review",
+      "text_variants": {
+        "neutral": "Laipni lūdzam AlienVox. Šis ir runas sintēzes veiktspējas tests. Ja dzirdat šo ziņojumu, jūsu sistēma darbojas pareizi.",
+        "warm": "Laipni lūdzam AlienVox! Šis ir runas sintēzes veiktspējas tests. Ja dzirdat šo ziņojumu, jūsu sistēma darbojas pareizi.",
+        "upbeat": "Laipni lūdzam AlienVox! Šis ir runas sintēzes veiktspējas tests! Ja dzirdat šo ziņojumu, jūsu sistēma darbojas pareizi!",
+        "calm": "Laipni lūdzam AlienVox… Šis ir runas sintēzes veiktspējas tests… Ja dzirdat šo ziņojumu, jūsu sistēma darbojas pareizi…"
+      }
+    },
+    {
+      "sample_id": "welcome-performance-v1:nl-NL",
+      "locale_id": "nl-NL",
+      "content_profile": "localized_product_brand",
+      "script_profile": "native_script",
+      "text": "Welkom bij AlienVox. Dit is een prestatietest voor spraaksynthese. Als u dit kunt horen, werkt uw systeem goed.",
+      "review_status": "pending_native_review",
+      "text_variants": {
+        "neutral": "Welkom bij AlienVox. Dit is een prestatietest voor spraaksynthese. Als u dit kunt horen, werkt uw systeem goed.",
+        "warm": "Welkom bij AlienVox! Dit is een prestatietest voor spraaksynthese. Als u dit kunt horen, werkt uw systeem goed.",
+        "upbeat": "Welkom bij AlienVox! Dit is een prestatietest voor spraaksynthese! Als u dit kunt horen, werkt uw systeem goed!",
+        "calm": "Welkom bij AlienVox… Dit is een prestatietest voor spraaksynthese… Als u dit kunt horen, werkt uw systeem goed…"
+      }
+    },
+    {
+      "sample_id": "welcome-performance-v1:pl-PL",
+      "locale_id": "pl-PL",
+      "content_profile": "localized_product_brand",
+      "script_profile": "mixed",
+      "text": "Witamy w AlienVox. To jest test wydajności syntezy mowy. Jeśli to słyszysz, Twój system działa prawidłowo.",
+      "review_status": "pending_native_review",
+      "text_variants": {
+        "neutral": "Witamy w AlienVox. To jest test wydajności syntezy mowy. Jeśli to słyszysz, Twój system działa prawidłowo.",
+        "warm": "Witamy w AlienVox! To jest test wydajności syntezy mowy. Jeśli to słyszysz, Twój system działa prawidłowo.",
+        "upbeat": "Witamy w AlienVox! To jest test wydajności syntezy mowy! Jeśli to słyszysz, Twój system działa prawidłowo!",
+        "calm": "Witamy w AlienVox… To jest test wydajności syntezy mowy… Jeśli to słyszysz, Twój system działa prawidłowo…"
+      }
+    },
+    {
+      "sample_id": "welcome-performance-v1:pt-BR",
+      "locale_id": "pt-BR",
+      "content_profile": "localized_product_brand",
+      "script_profile": "mixed",
+      "text": "Boas-vindas ao AlienVox. Este é um teste de desempenho de síntese de fala. Se você consegue ouvir esta mensagem, seu sistema está funcionando corretamente.",
+      "review_status": "pending_native_review",
+      "text_variants": {
+        "neutral": "Boas-vindas ao AlienVox. Este é um teste de desempenho de síntese de fala. Se você consegue ouvir esta mensagem, seu sistema está funcionando corretamente.",
+        "warm": "Boas-vindas ao AlienVox! Este é um teste de desempenho de síntese de fala. Se você consegue ouvir esta mensagem, seu sistema está funcionando corretamente.",
+        "upbeat": "Boas-vindas ao AlienVox! Este é um teste de desempenho de síntese de fala! Se você consegue ouvir esta mensagem, seu sistema está funcionando corretamente!",
+        "calm": "Boas-vindas ao AlienVox… Este é um teste de desempenho de síntese de fala… Se você consegue ouvir esta mensagem, seu sistema está funcionando corretamente…"
+      }
+    },
+    {
+      "sample_id": "welcome-performance-v1:ro-RO",
+      "locale_id": "ro-RO",
+      "content_profile": "localized_product_brand",
+      "script_profile": "mixed",
+      "text": "Bun venit la AlienVox. Acesta este un test de performanță pentru sinteza vocală. Dacă auzi acest mesaj, sistemul tău funcționează corect.",
+      "review_status": "pending_native_review",
+      "text_variants": {
+        "neutral": "Bun venit la AlienVox. Acesta este un test de performanță pentru sinteza vocală. Dacă auzi acest mesaj, sistemul tău funcționează corect.",
+        "warm": "Bun venit la AlienVox! Acesta este un test de performanță pentru sinteza vocală. Dacă auzi acest mesaj, sistemul tău funcționează corect.",
+        "upbeat": "Bun venit la AlienVox! Acesta este un test de performanță pentru sinteza vocală! Dacă auzi acest mesaj, sistemul tău funcționează corect!",
+        "calm": "Bun venit la AlienVox… Acesta este un test de performanță pentru sinteza vocală… Dacă auzi acest mesaj, sistemul tău funcționează corect…"
+      }
+    },
+    {
+      "sample_id": "welcome-performance-v1:ru-RU",
+      "locale_id": "ru-RU",
+      "content_profile": "localized_product_brand",
+      "script_profile": "mixed",
+      "text": "Добро пожаловать в AlienVox. Это тест производительности синтеза речи. Если вы слышите это сообщение, ваша система работает правильно.",
+      "review_status": "pending_native_review",
+      "text_variants": {
+        "neutral": "Добро пожаловать в AlienVox. Это тест производительности синтеза речи. Если вы слышите это сообщение, ваша система работает правильно.",
+        "warm": "Добро пожаловать в AlienVox! Это тест производительности синтеза речи. Если вы слышите это сообщение, ваша система работает правильно.",
+        "upbeat": "Добро пожаловать в AlienVox! Это тест производительности синтеза речи! Если вы слышите это сообщение, ваша система работает правильно!",
+        "calm": "Добро пожаловать в AlienVox… Это тест производительности синтеза речи… Если вы слышите это сообщение, ваша система работает правильно…"
+      }
+    },
+    {
+      "sample_id": "welcome-performance-v1:sk-SK",
+      "locale_id": "sk-SK",
+      "content_profile": "localized_product_brand",
+      "script_profile": "mixed",
+      "text": "Vitajte v AlienVox. Toto je test výkonu syntézy reči. Ak to počujete, váš systém funguje správne.",
+      "review_status": "pending_native_review",
+      "text_variants": {
+        "neutral": "Vitajte v AlienVox. Toto je test výkonu syntézy reči. Ak to počujete, váš systém funguje správne.",
+        "warm": "Vitajte v AlienVox! Toto je test výkonu syntézy reči. Ak to počujete, váš systém funguje správne.",
+        "upbeat": "Vitajte v AlienVox! Toto je test výkonu syntézy reči! Ak to počujete, váš systém funguje správne!",
+        "calm": "Vitajte v AlienVox… Toto je test výkonu syntézy reči… Ak to počujete, váš systém funguje správne…"
+      }
+    },
+    {
+      "sample_id": "welcome-performance-v1:sl-SI",
+      "locale_id": "sl-SI",
+      "content_profile": "localized_product_brand",
+      "script_profile": "mixed",
+      "text": "Dobrodošli v AlienVoxu. To je preizkus zmogljivosti sinteze govora. Če to slišite, vaš sistem deluje pravilno.",
+      "review_status": "pending_native_review",
+      "text_variants": {
+        "neutral": "Dobrodošli v AlienVoxu. To je preizkus zmogljivosti sinteze govora. Če to slišite, vaš sistem deluje pravilno.",
+        "warm": "Dobrodošli v AlienVoxu! To je preizkus zmogljivosti sinteze govora. Če to slišite, vaš sistem deluje pravilno.",
+        "upbeat": "Dobrodošli v AlienVoxu! To je preizkus zmogljivosti sinteze govora! Če to slišite, vaš sistem deluje pravilno!",
+        "calm": "Dobrodošli v AlienVoxu… To je preizkus zmogljivosti sinteze govora… Če to slišite, vaš sistem deluje pravilno…"
+      }
+    },
+    {
+      "sample_id": "welcome-performance-v1:sv-SE",
+      "locale_id": "sv-SE",
+      "content_profile": "localized_product_brand",
+      "script_profile": "mixed",
+      "text": "Välkommen till AlienVox. Det här är ett prestandatest av talsyntes. Om du hör det här fungerar ditt system som det ska.",
+      "review_status": "pending_native_review",
+      "text_variants": {
+        "neutral": "Välkommen till AlienVox. Det här är ett prestandatest av talsyntes. Om du hör det här fungerar ditt system som det ska.",
+        "warm": "Välkommen till AlienVox! Det här är ett prestandatest av talsyntes. Om du hör det här fungerar ditt system som det ska.",
+        "upbeat": "Välkommen till AlienVox! Det här är ett prestandatest av talsyntes! Om du hör det här fungerar ditt system som det ska!",
+        "calm": "Välkommen till AlienVox… Det här är ett prestandatest av talsyntes… Om du hör det här fungerar ditt system som det ska…"
+      }
+    },
+    {
+      "sample_id": "welcome-performance-v1:tr-TR",
+      "locale_id": "tr-TR",
+      "content_profile": "localized_product_brand",
+      "script_profile": "mixed",
+      "text": "AlienVox'a hoş geldiniz. Bu, konuşma sentezi performans testidir. Bunu duyabiliyorsanız sisteminiz düzgün çalışıyor demektir.",
+      "review_status": "pending_native_review",
+      "text_variants": {
+        "neutral": "AlienVox'a hoş geldiniz. Bu, konuşma sentezi performans testidir. Bunu duyabiliyorsanız sisteminiz düzgün çalışıyor demektir.",
+        "warm": "AlienVox'a hoş geldiniz! Bu, konuşma sentezi performans testidir. Bunu duyabiliyorsanız sisteminiz düzgün çalışıyor demektir.",
+        "upbeat": "AlienVox'a hoş geldiniz! Bu, konuşma sentezi performans testidir! Bunu duyabiliyorsanız sisteminiz düzgün çalışıyor demektir!",
+        "calm": "AlienVox'a hoş geldiniz… Bu, konuşma sentezi performans testidir… Bunu duyabiliyorsanız sisteminiz düzgün çalışıyor demektir…"
+      }
+    },
+    {
+      "sample_id": "welcome-performance-v1:uk-UA",
+      "locale_id": "uk-UA",
+      "content_profile": "localized_product_brand",
+      "script_profile": "mixed",
+      "text": "Вітаємо в AlienVox. Це тест швидкодії синтезу мовлення. Якщо ви чуєте це повідомлення, ваша система працює належним чином.",
+      "review_status": "pending_native_review",
+      "text_variants": {
+        "neutral": "Вітаємо в AlienVox. Це тест швидкодії синтезу мовлення. Якщо ви чуєте це повідомлення, ваша система працює належним чином.",
+        "warm": "Вітаємо в AlienVox! Це тест швидкодії синтезу мовлення. Якщо ви чуєте це повідомлення, ваша система працює належним чином.",
+        "upbeat": "Вітаємо в AlienVox! Це тест швидкодії синтезу мовлення! Якщо ви чуєте це повідомлення, ваша система працює належним чином!",
+        "calm": "Вітаємо в AlienVox… Це тест швидкодії синтезу мовлення… Якщо ви чуєте це повідомлення, ваша система працює належним чином…"
+      }
+    },
+    {
+      "sample_id": "welcome-performance-v1:vi-VN",
+      "locale_id": "vi-VN",
+      "content_profile": "localized_product_brand",
+      "script_profile": "mixed",
+      "text": "Chào mừng bạn đến với AlienVox. Đây là bài kiểm tra hiệu năng tổng hợp giọng nói. Nếu bạn nghe được câu này, hệ thống đang hoạt động bình thường.",
+      "review_status": "pending_native_review",
+      "text_variants": {
+        "neutral": "Chào mừng bạn đến với AlienVox. Đây là bài kiểm tra hiệu năng tổng hợp giọng nói. Nếu bạn nghe được câu này, hệ thống đang hoạt động bình thường.",
+        "warm": "Chào mừng bạn đến với AlienVox! Đây là bài kiểm tra hiệu năng tổng hợp giọng nói. Nếu bạn nghe được câu này, hệ thống đang hoạt động bình thường.",
+        "upbeat": "Chào mừng bạn đến với AlienVox! Đây là bài kiểm tra hiệu năng tổng hợp giọng nói! Nếu bạn nghe được câu này, hệ thống đang hoạt động bình thường!",
+        "calm": "Chào mừng bạn đến với AlienVox… Đây là bài kiểm tra hiệu năng tổng hợp giọng nói… Nếu bạn nghe được câu này, hệ thống đang hoạt động bình thường…"
+      }
+    }
+  ]
+}

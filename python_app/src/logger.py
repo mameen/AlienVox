@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import sys
 import threading
+import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TextIO
@@ -106,3 +107,11 @@ class _Logger:
 
     def error(self, msg: str, *args: object) -> None:
         _write("ERROR", self._c, msg % args if args else msg)
+
+    def exception(self, msg: str, *args: object) -> None:
+        """Log an error with the active exception traceback when available."""
+        rendered = msg % args if args else msg
+        traceback_text = traceback.format_exc()
+        if traceback_text.strip() != "NoneType: None":
+            rendered = f"{rendered}\n{traceback_text.rstrip()}"
+        _write("ERROR", self._c, rendered)

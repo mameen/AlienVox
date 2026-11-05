@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 
 
 def test_get_logger_returns_logger():
@@ -35,13 +34,25 @@ def test_logger_all_levels(capsys):
     assert "ERROR" in captured.err
 
 
+def test_logger_exception_includes_traceback(capsys):
+    from src.logger import get_logger
+
+    log = get_logger("failure")
+    try:
+        raise RuntimeError("expected test failure")
+    except RuntimeError:
+        log.exception("synthesis failed")
+    captured = capsys.readouterr()
+    assert "synthesis failed" in captured.err
+    assert "RuntimeError: expected test failure" in captured.err
+
+
 def test_init_creates_log_file(tmp_path, monkeypatch):
     if sys.platform == "win32":
         monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
     else:
         monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
 
-    import importlib
     import src.logger as logger_mod
     # Reset module state so init() re-runs cleanly
     logger_mod._log_file = None

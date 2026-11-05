@@ -1,0 +1,4 @@
+# Pocket TTS currently declares NumPy >=2, which conflicts with the app's
+# Chatterbox-compatible NumPy <2 runtime. Install this pinned runtime without
+# dependencies; its shared dependencies are installed from requirements.txt.
+pocket-tts==4.0.1

@@ -84,71 +84,6 @@ stacks:
           sentence_silence: { min: 0.0, max: 2.0, default: 0.2,   applies: true }
           ttl_seconds:      { applies: false }
 
-      - id: pockettts
-        name: Pocket TTS ~100M
-        weights_subpath: ml/pockettts
-        auto_download: false
-        approx_size_mb: 400
-        voices:
-          - { id: alba,   label: "Alba" }
-          - { id: marius, label: "Marius" }
-        controls:
-          rate:        { applies: false }
-          pitch:       { applies: false }
-          volume:      { min: 0, max: 100, default: 100, applies: true }
-          ttl_seconds: { min: 0, max: 300, default: 30, applies: true }
-
-      - id: supertonic3
-        name: Supertonic 3 (ONNX)
-        weights_subpath: ml/supertonic3
-        auto_download: false
-        approx_size_mb: 400
-        voices:
-          - { id: M1, label: "Male 1" }
-          - { id: M2, label: "Male 2" }
-          - { id: M3, label: "Male 3" }
-          - { id: M4, label: "Male 4" }
-          - { id: M5, label: "Male 5" }
-          - { id: F1, label: "Female 1" }
-          - { id: F2, label: "Female 2" }
-          - { id: F3, label: "Female 3" }
-          - { id: F4, label: "Female 4" }
-          - { id: F5, label: "Female 5" }
-        controls:
-          rate: { applies: false }
-          pitch: { applies: false }
-          volume: { min: 0, max: 100, default: 100, applies: true }
-          ttl_seconds: { min: 0, max: 300, default: 30, applies: true }
-
-      - id: moss_tts_nano
-        name: MOSS-TTS-Nano (ONNX)
-        weights_subpath: ml/moss_tts_nano
-        approx_size_mb: 350
-        voices:
-          - { id: Junhao, label: "Junhao" }
-          - { id: Zhiming, label: "Zhiming" }
-          - { id: Weiguo, label: "Weiguo" }
-          - { id: Xiaoyu, label: "Xiaoyu" }
-          - { id: Yuewen, label: "Yuewen" }
-          - { id: Lingyu, label: "Lingyu" }
-          - { id: Trump, label: "Trump" }
-          - { id: Ava, label: "Ava" }
-          - { id: Bella, label: "Bella" }
-          - { id: Adam, label: "Adam" }
-          - { id: Nathan, label: "Nathan" }
-          - { id: Soyo, label: "Soyo" }
-          - { id: Saki, label: "Saki" }
-          - { id: Mortis, label: "Mortis" }
-          - { id: Umiri, label: "Umiri" }
-          - { id: Mei, label: "Mei" }
-          - { id: Anon, label: "Anon" }
-          - { id: Arisa, label: "Arisa" }
-        controls:
-          rate: { applies: false }
-          pitch: { applies: false }
-          volume: { min: 0, max: 100, default: 100, applies: true }
-          ttl_seconds: { min: 0, max: 300, default: 30, applies: true }
-
       - id: chatterbox
         name: Chatterbox 0.5B
         weights_subpath: ml/chatterbox
@@ -246,3 +181,68 @@ stacks:
           pitch:       { applies: false }
           volume:      { min: 0, max: 100, default: 100, applies: true }
           ttl_seconds: { min: 0, max: 300, default: 30,  applies: true }
+
+      - id: pockettts
+        name: Pocket TTS ~100M
+        weights_subpath: ml/pockettts
+        auto_download: false
+        approx_size_mb: 400
+        voices:
+          - { id: alba,   label: "Alba" }
+          - { id: marius, label: "Marius" }
+        controls:
+          rate:        { applies: false }
+          pitch:       { applies: false }
+          volume:      { min: 0, max: 100, default: 100, applies: true }
+          ttl_seconds: { min: 0, max: 300, default: 30, applies: true }
+
+      - id: supertonic3
+        name: Supertonic 3 (ONNX)
+        weights_subpath: ml/supertonic3
+        auto_download: false
+        approx_size_mb: 400
+        voices:
+          - { id: M1, label: "Male 1" }
+          - { id: M2, label: "Male 2" }
+          - { id: M3, label: "Male 3" }
+          - { id: M4, label: "Male 4" }
+          - { id: M5, label: "Male 5" }
+          - { id: F1, label: "Female 1" }
+          - { id: F2, label: "Female 2" }
+          - { id: F3, label: "Female 3" }
+          - { id: F4, label: "Female 4" }
+          - { id: F5, label: "Female 5" }
+        controls:
+          rate: { applies: false }
+          pitch: { applies: false }
+          volume: { min: 0, max: 100, default: 100, applies: true }
+          ttl_seconds: { min: 0, max: 300, default: 30, applies: true }
+
+      - id: moss_tts_nano
+        name: MOSS-TTS-Nano (ONNX)
+        weights_subpath: ml/moss_tts_nano
+        approx_size_mb: 350
+        voices:
+          - { id: Junhao, label: "Junhao" }
+          - { id: Zhiming, label: "Zhiming" }
+          - { id: Weiguo, label: "Weiguo" }
+          - { id: Xiaoyu, label: "Xiaoyu" }
+          - { id: Yuewen, label: "Yuewen" }
+          - { id: Lingyu, label: "Lingyu" }
+          - { id: Trump, label: "Trump" }
+          - { id: Ava, label: "Ava" }
+          - { id: Bella, label: "Bella" }
+          - { id: Adam, label: "Adam" }
+          - { id: Nathan, label: "Nathan" }
+          - { id: Soyo, label: "Soyo" }
+          - { id: Saki, label: "Saki" }
+          - { id: Mortis, label: "Mortis" }
+          - { id: Umiri, label: "Umiri" }
+          - { id: Mei, label: "Mei" }
+          - { id: Anon, label: "Anon" }
+          - { id: Arisa, label: "Arisa" }
+        controls:
+          rate: { applies: false }
+          pitch: { applies: false }
+          volume: { min: 0, max: 100, default: 100, applies: true }
+          ttl_seconds: { min: 0, max: 300, default: 30, applies: true }
