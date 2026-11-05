@@ -1,11 +1,32 @@
-# Kokoro-82M Voice Roster
+# Offline Voice Roster
 
-The only engine this skill's vendored `alienvox_tts` currently ships (`engine=kokoro`, the default). All 7 voices load
+## Piper voices (trial default engine)
+
+Voice files are separate ONNX downloads. Current trial default: Amy Medium, CPU-only,
+~63 MB on disk; it measured 0.421 s warm latency and 4.50 CPU-seconds for the canonical
+123-character phrase, with a brief ~10.3-core burst. The Southern English Low alternative
+measured 0.224 s and 2.53 CPU-seconds, with a brief ~11.5-core burst.
+Piper voice files must be installed under the AlienVox models root (`ml/piper`);
+set `ALIENVOX_MODELS_DIR` when using a different root.
+
+| Voice id | Notes |
+|---|---|
+| `en_GB-southern_english_female-low` | Southern English (UK) female, low resource |
+| `en_US-kathleen-low` | US English female, low resource |
+| `en_US-lessac-medium` | US English male, medium |
+| `en_US-amy-medium` | US English female, medium; current default |
+| `en_US-ryan-high` | US English male, high quality |
+| `en_GB-jenny_dioco-medium` | UK English female, medium |
+| `en_GB-alan-medium` | UK English male, medium |
+
+## Kokoro voices (former overall favorite)
+
+Kokoro is a local alternative (`engine=kokoro`). All 7 voices load
 from the same ~300MB model download — picking a different voice doesn't trigger a new download.
 
 | Voice id | Label | Accent | Gender |
 |---|---|---|---|
-| `af_heart` | American F · Heart | American English | Female | **default**
+| `af_heart` | American F · Heart | American English | Female | available
 | `af_bella` | American F · Bella | American English | Female |
 | `af_nicole` | American F · Nicole | American English | Female |
 | `am_adam` | American M · Adam | American English | Male |
@@ -25,7 +46,7 @@ reporting this fallback to the user explicitly rather than staying quiet about i
 
 ## Adding another engine
 
-This skill's vendored `alienvox_tts` ships Kokoro and `edge` (below) (see the parent repo's
+This skill's vendored `alienvox_tts` ships Piper, Kokoro, and `edge` (below) (see the parent repo's
 `docs/20260816_agentic_requiremetns_and_plan.md` for why). To add one:
 
 1. Create `alienvox_tts/engines/<name>.py` (in this skill folder), subclass `TtsEngine` from

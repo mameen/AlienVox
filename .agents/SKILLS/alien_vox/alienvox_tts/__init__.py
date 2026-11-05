@@ -34,7 +34,7 @@ from __future__ import annotations
 
 from .base import SpeakParams, TtsEngine, Voice
 from .device import cuda_available, select_device
-from .engines import EdgeEngine, KokoroEngine
+from .engines import EdgeEngine, KokoroEngine, PiperEngine
 from .volume import get_volume, set_volume, volume_down, volume_up
 
 # Engine registry — the extension point for adding more engines later (see
@@ -43,14 +43,15 @@ from .volume import get_volume, set_volume, volume_down, volume_up
 # so tooling built against this library and the app agree on naming.
 ENGINES: dict[str, type[TtsEngine]] = {
     "kokoro": KokoroEngine,
+    "piper": PiperEngine,
     "edge": EdgeEngine,   # NETWORKED (Microsoft online service) — see engines/edge.py
 }
 
-DEFAULT_ENGINE = "kokoro"
-DEFAULT_VOICE = "af_heart"  # American F · Heart (the default engine's default voice)
+DEFAULT_ENGINE = "piper"
+DEFAULT_VOICE = "en_US-amy-medium"
 # Voice used when the caller names an engine but no voice; ids are engine-specific,
 # so one global default would be invalid for every engine but Kokoro.
-DEFAULT_VOICES = {"kokoro": "af_heart", "edge": "ar-SA-HamedNeural"}
+DEFAULT_VOICES = {"kokoro": "af_heart", "piper": DEFAULT_VOICE, "edge": "ar-SA-HamedNeural"}
 DEFAULT_DEVICE = "cpu"      # project-wide CPU-first default — see module docstring
 
 # Process-lifetime engine instances, keyed by (engine_id, resolved_device)
@@ -73,7 +74,7 @@ def get_engine(engine: str = DEFAULT_ENGINE, device: str = DEFAULT_DEVICE) -> Tt
             f"Unknown engine {engine!r}. Available: {sorted(ENGINES)}. "
             "See engines/__init__.py's docstring to add a new one."
         )
-    resolved_device = select_device(prefer=device)
+    resolved_device = "cpu" if engine == "piper" else select_device(prefer=device)
     key = (engine, resolved_device)
     if key not in _engine_instances:
         _engine_instances[key] = ENGINES[engine](device=resolved_device)

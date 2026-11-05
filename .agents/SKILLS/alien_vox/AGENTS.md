@@ -34,7 +34,7 @@ the same reason.
 
 - `scripts/speak.py` — the CLI wrapper; thin by design (arg parsing + reporting only), all real
   synthesis logic lives in `alienvox_tts/`.
-- `alienvox_tts/` — the vendored TTS library (Kokoro-82M engine, `af_heart` default voice,
+- `alienvox_tts/` — the vendored TTS library (Piper trial default, Kokoro and Edge alternatives,
   CPU-default device policy, persistent volume state). See its own module docstrings for details.
 - `references/voices.md` — voice roster, controls, and how to add another engine.
 - `build.py` — packages this folder into `.build/alien_vox.zip` for deployment (see README.md).

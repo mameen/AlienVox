@@ -34,7 +34,7 @@ this folder's `alienvox_tts/` and re-run `python run.py test`.
 
 - `tools.py` — pure domain logic, zero `mcp` SDK imports (testable without the SDK installed).
 - `server.py` — MCP protocol registration only, delegates to `tools.py`.
-- `alienvox_tts/` — vendored TTS library (Kokoro-82M engine, `af_heart` default voice, CPU-default
+- `alienvox_tts/` — vendored TTS library (Piper trial default, `en_US-amy-medium`, CPU-default
   device policy, persistent volume state). See its own module docstrings for details.
 - Anti-mocking test philosophy throughout (see `python_app/.agents/SKILLS/testing/SKILL.md` in this
   repo for the rationale) — tests do real synthesis and real MCP SDK calls, no mocking internals.

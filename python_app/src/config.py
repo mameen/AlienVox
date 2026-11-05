@@ -25,9 +25,9 @@ import yaml
 # ── Built-in defaults (Layer 1) ──────────────────────────────────────────────
 
 DEFAULTS: dict[str, Any] = {
-    "engine": "sapi5",
-    "model": "",
-    "voice": "",
+    "engine": "ml",
+    "model": "piper",
+    "voice": "en_US-amy-medium",
     "rate": 0,
     "pitch": 0,
     "volume": 100,

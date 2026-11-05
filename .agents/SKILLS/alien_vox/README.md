@@ -1,8 +1,7 @@
 # alien_vox — AlienVox TTS Claude Code Skill
 
-Speaks text aloud through the local speakers using AlienVox's Kokoro-82M TTS engine — local,
-offline, no API keys. Default voice: `af_heart` ("American F · Heart"). Default device: CPU
-(pass `--device gpu` to opt into CUDA if available).
+Speaks text aloud through the local speakers using AlienVox local TTS. Trial default: Piper
+`en_US-amy-medium` (offline, CPU-only); Kokoro remains the overall quality favorite.
 
 **Fully self-sufficient**: `alienvox_tts` is vendored directly inside this folder
 (`./alienvox_tts/`) — no sibling `../../../python_lib` dependency. Copy this skill folder alone to
@@ -22,11 +21,11 @@ pip install -r scripts/requirements.txt
 ## Use
 
 ```bat
-python scripts/speak.py "Text to speak here" [--voice af_heart] [--device cpu|gpu] [--no-play] [--out output.wav]
+python scripts/speak.py "Text to speak here" [--engine piper|kokoro|edge] [--voice VOICE_ID] [--device cpu|gpu] [--no-play] [--out output.wav]
 ```
 
 Plays through the local default audio device by default. See [`references/voices.md`](references/voices.md)
-for the full 7-voice roster and controls (rate/pitch/volume).
+for Piper and Kokoro voice rosters and controls (rate/pitch/volume).
 
 ## Test
 

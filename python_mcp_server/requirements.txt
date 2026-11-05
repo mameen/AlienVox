@@ -15,8 +15,8 @@
 mcp>=2.0.0
 
 # alienvox_tts (vendored in ./alienvox_tts/) — same version floors/ceilings
-# as python_app/requirements.txt, kept consistent even though only the
-# Kokoro engine ships for now.
+# as the vendored engines require. Piper, Supertonic, and Kokoro are all
+# available in this standalone server; Piper and Supertonic use ONNX Runtime.
 torch>=2.0.0
 transformers>=4.30.0
 huggingface_hub[hf_xet]>=0.20.0

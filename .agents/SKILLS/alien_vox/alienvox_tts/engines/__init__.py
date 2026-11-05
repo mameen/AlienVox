@@ -1,20 +1,17 @@
-"""Concrete TtsEngine implementations.
+"""Concrete engines supported by this portable skill package.
 
-`kokoro` (local, offline, the default) and `edge` (networked Microsoft neural voices; Arabic) ship in this version of the library — see the repo's
-`docs/20260816_agentic_requiremetns_and_plan.md` for why (Kokoro is the
-confirmed default and the simplest engine to extract cleanly; the other 8
-engines in `python_app/src/engines/` are a documented future addition, not
-implemented here yet).
+Piper and Kokoro are local/offline engines. Edge uses Microsoft's network
+service and remains opt-in. Piper is the current trial default.
 
 To add a new engine:
 1. Create `engines/<name>.py`, subclass `..base.TtsEngine`, implement
    `list_voices`/`speak`/`stop` at minimum (see `kokoro.py` for the full
    reference shape, including `synthesize()` for raw-audio capture).
 2. Register it in `alienvox_tts/__init__.py`'s `ENGINES` dict.
-No other file needs to change — `synthesize()`, the skill's `speak.py`, and
-the MCP server's `speak_text` tool all work with any registered engine.
+The MCP server maintains a separate vendored engine package.
 """
 from .edge import EdgeEngine
 from .kokoro import KokoroEngine
+from .piper import PiperEngine
 
-__all__ = ["EdgeEngine", "KokoroEngine"]
+__all__ = ["EdgeEngine", "KokoroEngine", "PiperEngine"]

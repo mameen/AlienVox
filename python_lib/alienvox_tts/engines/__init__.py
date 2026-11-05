@@ -1,18 +1,15 @@
-"""Concrete TtsEngine implementations.
+"""Concrete TtsEngine implementations shipped by this standalone library.
 
-Only `kokoro` ships in this version of the library — see the repo's
-`docs/20260816_agentic_requiremetns_and_plan.md` for why (Kokoro is the
-confirmed default and the simplest engine to extract cleanly; the other 8
-engines in `python_app/src/engines/` are a documented future addition, not
-implemented here yet).
+The library currently includes Kokoro, Piper, and Supertonic 3. Piper is the
+current default; the desktop and MCP server keep independent vendored copies
+so each surface can run without depending on a sibling package.
 
 To add a new engine:
 1. Create `engines/<name>.py`, subclass `..base.TtsEngine`, implement
    `list_voices`/`speak`/`stop` at minimum (see `kokoro.py` for the full
    reference shape, including `synthesize()` for raw-audio capture).
 2. Register it in `alienvox_tts/__init__.py`'s `ENGINES` dict.
-No other file needs to change — `synthesize()`, the skill's `speak.py`, and
-the MCP server's `speak_text` tool all work with any registered engine.
+The skill and MCP server maintain their own copies of this engine registry.
 """
 from .kokoro import KokoroEngine
 from .piper import PiperEngine

@@ -6,7 +6,7 @@ needs no API key, and the service is used unofficially (the same endpoint the
 Edge browser uses), so it can change or rate-limit without notice. Use it for
 languages Kokoro does not ship (Arabic above all) or when a more natural voice
 is wanted and the text is fine to leave the machine. Never pick it for text
-that must stay private; Kokoro is the offline default for that reason.
+that must stay private; Piper is the default local engine for that reason.
 
 Voices are Microsoft neural voices identified by their service short name,
 for example "ar-SA-HamedNeural" or "en-US-AriaNeural". The service has

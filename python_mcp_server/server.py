@@ -42,7 +42,7 @@ from mcp.server.mcpserver import MCPServer
 
 # alienvox_tts is vendored directly inside this folder (./alienvox_tts/) —
 # this server is self-sufficient, no sibling ../python_lib dependency.
-from alienvox_tts import DEFAULT_VOICE
+from alienvox_tts import DEFAULT_ENGINE, DEFAULT_VOICE
 
 import tools
 
@@ -51,7 +51,7 @@ app = MCPServer(
     version="0.1.0",
     instructions=(
         "Local, offline text-to-speech via Kokoro, Supertonic 3, Piper, and on Windows installed SAPI voices. "
-        "Default voice: af_heart (American F, Heart). Default device: CPU "
+        "Trial default: Piper en_US-amy-medium; it has much lower latency and total CPU time than Kokoro af_heart, but briefly uses more cores. Default device: CPU "
         "— pass device='gpu' to speak_text to use CUDA if available. "
         "speak_text plays through local speakers by default (pass save=True "
         "for a .wav file instead/as well). Volume is a persistent, process-"
@@ -71,7 +71,7 @@ app = MCPServer(
 def speak_text(
     text: str,
     voice: str = DEFAULT_VOICE,
-    engine: str = "kokoro",
+    engine: str = DEFAULT_ENGINE,
     device: str = "cpu",
     rate: int = 0,
     volume: int | None = None,
@@ -82,9 +82,10 @@ def speak_text(
     """Synthesize text to speech using an AlienVox local offline engine
     (Kokoro, Supertonic 3, Piper, or installed Windows SAPI voices) and play it through the local default
     audio device (play=True, the default — this server runs on the same
-    machine as the user). Default voice: af_heart (American F, Heart).
-    Default device: CPU — pass device='gpu' to use a CUDA GPU if one is
-    available (falls back to CPU automatically if not). volume=None (the
+    machine as the user). Default voice: Piper en_US-amy-medium.
+    If you change only the engine to Kokoro, its af_heart voice is selected automatically.
+    Default device: CPU; Piper and Supertonic always use CPU. Other supported
+    engines can opt into GPU with device='gpu'. volume=None (the
     default) uses the current persistent volume level — see
     get_volume/set_volume/volume_up/volume_down — pass an explicit 0..100
     to override just this call. Pass save=True to also write a real .wav
@@ -97,10 +98,9 @@ def speak_text(
 
 
 @app.tool()
-def list_voices(engine: str = "kokoro") -> dict:
+def list_voices(engine: str = DEFAULT_ENGINE) -> dict:
     """List every voice available for a given TTS engine. Default engine
-    is 'kokoro', whose default voice is
-    'af_heart' (American F, Heart)."""
+    is the current default engine, Piper."""
     return tools.do_list_voices(engine)
 
 
@@ -114,6 +114,12 @@ def list_engines() -> dict:
 def get_recommendations() -> dict:
     """Get subjective top voices and CPU/resource-aware alternatives, including Windows SAPI candidates."""
     return tools.do_get_recommendations()
+
+
+@app.tool()
+def get_tts_catalog() -> dict:
+    """Return one JSON catalog with technologies, models, voices, defaults, and measured resource trade-offs."""
+    return tools.do_get_catalog()
 
 
 @app.tool()
@@ -160,6 +166,12 @@ def voices_resource() -> str:
 def engines_resource() -> str:
     """Every registered TTS engine id, as a passively-readable resource."""
     return json.dumps(tools.do_list_engines(), indent=2)
+
+
+@app.resource("alienvox://catalog", name="TTS technology and model catalog", mime_type="application/json")
+def catalog_resource() -> str:
+    """Full client-readable engine/model/voice catalog and trial-default tradeoff."""
+    return json.dumps(tools.do_get_catalog(), indent=2)
 
 
 @app.resource("alienvox://recommendations", name="Developer voice recommendations", mime_type="application/json")

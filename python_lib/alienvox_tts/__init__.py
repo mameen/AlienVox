@@ -20,8 +20,9 @@ loaded model instead of reloading it every time — see `ENGINES`):
     engine = KokoroEngine()  # device="cpu" by default — see KokoroEngine's own docstring
     audio, sample_rate = engine.synthesize("Hello!", "af_heart", SpeakParams())
 
-Default engine: Kokoro-82M. Default voice: `af_heart` ("American F ·
-Heart") — matches the AlienVox app's own `stacks.yaml` default. Default
+Default engine: Piper. Default voice: `en_US-amy-medium`.
+This is a trial default selected for low latency and low total CPU time;
+it uses more cores briefly than Kokoro. Default
 device: CPU, everywhere — an explicit `device="gpu"`/`"cuda"` opt-in is
 required to use a GPU (matches AlienVox's own project-wide CPU-first
 default; see `KokoroEngine`'s docstring for why this differs from
@@ -51,8 +52,13 @@ ENGINES: dict[str, type[TtsEngine]] = {
 if __import__("sys").platform == "win32":
     ENGINES.update({"sapi5": lambda device="cpu": SapiEngine("sapi5"), "speech_platform": lambda device="cpu": SapiEngine("speech_platform")})
 
-DEFAULT_ENGINE = "kokoro"
-DEFAULT_VOICE = "af_heart"  # American F · Heart
+DEFAULT_ENGINE = "piper"
+DEFAULT_VOICE = "en_US-amy-medium"
+DEFAULT_VOICES = {
+    "kokoro": "af_heart",
+    "piper": DEFAULT_VOICE,
+    "supertonic3": "F1",
+}
 DEFAULT_DEVICE = "cpu"      # project-wide CPU-first default — see module docstring
 
 # Process-lifetime engine instances, keyed by (engine_id, resolved_device)
@@ -75,7 +81,7 @@ def get_engine(engine: str = DEFAULT_ENGINE, device: str = DEFAULT_DEVICE) -> Tt
             f"Unknown engine {engine!r}. Available: {sorted(ENGINES)}. "
             "See engines/__init__.py's docstring to add a new one."
         )
-    resolved_device = select_device(prefer=device)
+    resolved_device = "cpu" if engine == "piper" else select_device(prefer=device)
     key = (engine, resolved_device)
     if key not in _engine_instances:
         _engine_instances[key] = ENGINES[engine](device=resolved_device)
@@ -91,7 +97,7 @@ def list_voices(engine: str = DEFAULT_ENGINE) -> list[Voice]:
 
 def synthesize(
     text: str,
-    voice: str = DEFAULT_VOICE,
+    voice: str | None = None,
     engine: str = DEFAULT_ENGINE,
     *,
     device: str = DEFAULT_DEVICE,
@@ -118,6 +124,7 @@ def synthesize(
     after whitespace stripping) — callers should treat this as a real
     failure, not silently ignore it.
     """
+    voice = voice or DEFAULT_VOICES.get(engine, DEFAULT_VOICE)
     eng = get_engine(engine, device)
     effective_volume = get_volume() if volume is None else volume
     result = eng.synthesize(text, voice, SpeakParams(rate=rate, pitch=pitch, volume=effective_volume))
@@ -131,7 +138,7 @@ def synthesize(
 
 def speak(
     text: str,
-    voice: str = DEFAULT_VOICE,
+    voice: str | None = None,
     engine: str = DEFAULT_ENGINE,
     *,
     device: str = DEFAULT_DEVICE,
@@ -147,6 +154,7 @@ def speak(
 
     device="cpu" (default) and volume=None (persistent level) — see
     synthesize()'s docstring for both."""
+    voice = voice or DEFAULT_VOICES.get(engine, DEFAULT_VOICE)
     eng = get_engine(engine, device)
     effective_volume = get_volume() if volume is None else volume
     params = SpeakParams(rate=rate, pitch=pitch, volume=effective_volume)
@@ -164,6 +172,7 @@ __all__ = [
     "ENGINES",
     "DEFAULT_ENGINE",
     "DEFAULT_VOICE",
+    "DEFAULT_VOICES",
     "DEFAULT_DEVICE",
     "cuda_available",
     "select_device",

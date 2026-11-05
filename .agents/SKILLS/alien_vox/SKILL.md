@@ -1,8 +1,8 @@
 ---
 name: alien_vox
-description: Speak text aloud through the local speakers using AlienVox's Kokoro-82M TTS engine — local, offline, no API keys. Use when asked to speak text aloud, read something out loud, or narrate a passage; also generates a WAV file on request. Default voice is Kokoro af_heart ("American F · Heart"); other Kokoro voices are selectable. Runs on CPU by default, GPU if available. An optional networked `edge` engine (Microsoft neural voices, sends the text online) covers Arabic and other languages Kokoro lacks.
+description: Speak text aloud through AlienVox local TTS. Trial default is Piper en_US-amy-medium (CPU, offline); Kokoro and optional networked Edge are selectable. Use when asked to speak text aloud, read something out loud, or narrate a passage; also generates a WAV file on request.
 license: MIT
-compatibility: Python 3.11+, Windows/macOS/Linux; self-sufficient — requires scripts/requirements.txt installed (torch, kokoro, sounddevice, soundfile) in this skill folder's own venv.
+compatibility: Python 3.11+, Windows/macOS/Linux; requires scripts/requirements.txt and the selected engine's local voice/model files.
 metadata:
   author: AlienTech.Software
   version: "0.1.20260827122124"
@@ -155,13 +155,12 @@ one project.
 ## Purpose
 
 Turn text into real, locally-synthesized speech, played immediately through the local default
-audio output device, using AlienVox's Kokoro-82M engine — no network calls at inference time (only
-the one-time ~300MB model download from Hugging Face Hub on first use), no API keys. A `.wav` file
+audio output device, using Piper by default — CPU-only and offline once its voice model is installed. Kokoro is also available locally; Edge is networked and opt-in. A `.wav` file
 is only written when explicitly requested (`--out`) — playing it is the default outcome, not
 producing a file nobody opens.
 
-Not for: editing/transcribing existing audio, speech-to-text, or any TTS engine other than Kokoro
-and the optional networked `edge` engine (the only two this skill's vendored [`alienvox_tts`](alienvox_tts/) library ships today — see
+Not for: editing/transcribing existing audio or speech-to-text. This skill supports Piper and Kokoro
+locally, plus the optional networked `edge` engine — see
 `references/voices.md` for why, and how to add another engine later).
 
 ## When To Use
@@ -172,7 +171,7 @@ and the optional networked `edge` engine (the only two this skill's vendored [`a
 - "Narrate this passage"
 
 Not for: requests naming a different TTS engine/provider (ElevenLabs, Azure, OpenAI TTS, etc.) —
-this skill only wraps AlienVox's local Kokoro engine and the `edge` engine below. Not for
+this skill wraps AlienVox's local Piper and Kokoro engines and the `edge` engine below. Not for
 speech-to-text/transcription requests.
 
 ## The `edge` engine (networked — opt in per request)
@@ -181,8 +180,7 @@ speech-to-text/transcription requests.
 engine here that is **not** local: **the text is sent to Microsoft's online service**, it needs an
 internet connection, and it uses the Edge Read Aloud endpoint unofficially (it can change or
 rate-limit without notice). No API key. Use it only when the caller asks for it or needs a language
-Kokoro does not ship (Arabic above all), and never for text that must stay private. Kokoro stays the
-default. Voice ids are service short names (`ar-SA-HamedNeural`, `en-US-AriaNeural`, ...); the
+Kokoro does not ship (Arabic above all), and never for text that must stay private. Voice ids are service short names (`ar-SA-HamedNeural`, `en-US-AriaNeural`, ...); the
 default for `edge` is `ar-SA-HamedNeural`. A malformed voice id is an error, never a silent
 fallback. Rate and pitch are honored (Kokoro ignores pitch).
 
@@ -191,8 +189,8 @@ fallback. Rate and pitch are honored (Kokoro ignores pitch).
 ## Required Inputs
 
 - The text to speak (required).
-- Voice (optional — defaults to `af_heart`, "American F · Heart"). See
-  [references/voices.md](references/voices.md) for the full roster of 7 voices.
+- Voice (optional — defaults to `en_US-amy-medium` for Piper). See
+  [references/voices.md](references/voices.md) for Piper and Kokoro voice choices.
 - Device (optional — defaults to `cpu`, the real enforced default; pass `--device gpu` to opt into
   CUDA if a real GPU is present, falls back to CPU automatically if not).
 - Whether a `.wav` file is also wanted (optional — off by default; playback alone is the default
@@ -240,7 +238,7 @@ do not introduce a persistent MCP server solely for that optimization.
    ```
 2. Run [`scripts/speak.py`](scripts/speak.py):
    ```
-   python scripts/speak.py "Text to speak here" [--voice af_heart] [--device cpu|gpu] [--no-play] [--out output.wav]
+   python scripts/speak.py "Text to speak here" [--engine piper|kokoro|edge] [--voice VOICE_ID] [--device cpu|gpu] [--no-play] [--out output.wav]
    ```
 3. By default the script plays the audio through the local default output device and prints
    `sample_rate`/`duration_s`/`played: true`. Pass `--out` to also write a real `.wav` file (its
@@ -251,8 +249,12 @@ do not introduce a persistent MCP server solely for that optimization.
 
 ### Cold Starts And Resource Use
 
-- `--device cpu` is the enforced default. It prevents GPU use, but does **not** set a memory cap:
-  Torch and the Kokoro model still use normal system RAM while loading and synthesizing.
+- `--device cpu` is the enforced default. It prevents GPU use, but does **not** set a memory cap.
+  The Piper trial default en_US-amy-medium measured 0.421 s warm latency and 4.50 CPU-seconds
+  per canonical sample, with a brief ~10.3-core burst and a ~63 MB voice file. Kokoro af_heart
+  measured 2.11 s and 8.42 CPU-seconds at ~4 cores. The en_GB-southern_english_female-low
+  alternative measured 0.224 s and 2.53 CPU-seconds, with a brief ~11.5-core burst. These are
+  measurements from one test machine, not guarantees.
 - On first use, model download and initialization can take longer than a short terminal timeout.
   `device: cpu` or model-loading warnings are not a success result. Only report playback after the
   script prints a non-zero `duration_s` and `played: true` (or an output path when a WAV was
@@ -260,7 +262,7 @@ do not introduce a persistent MCP server solely for that optimization.
 
 ## Safety And Escalation
 
-- The default Kokoro engine is purely local, offline synthesis (after the one-time model download); the `edge` engine is the exception and sends text online (see its section). Kokoro: no data leaves the
+- Piper and Kokoro are local, offline synthesis once models are installed; the `edge` engine is the exception and sends text online (see its section). No text leaves the
   machine, no confirmation checkpoint needed for the synthesis itself.
 - Playback uses the local audio output device and **will make audible sound on the user's
   machine by default** — that's the intended, expected outcome for a "speak this" request; only
@@ -325,7 +327,7 @@ about it, since it's not what they asked for.
 
 - [scripts/speak.py](scripts/speak.py) — the CLI wrapper (imports the vendored `alienvox_tts/` directly).
 - [alienvox_tts/](alienvox_tts/) — the vendored TTS library itself (self-sufficient copy).
-- [references/voices.md](references/voices.md) — full Kokoro voice roster and how to add engines.
+- [references/voices.md](references/voices.md) — Piper and Kokoro voice rosters and how to add engines.
 - [assets/sample_af_heart.wav](assets/sample_af_heart.wav) — a real, pre-generated sample of the
   default voice, for reference/comparison (not required to run anything).
 - [AGENTS.md](AGENTS.md) — standalone-copy checklist for this skill folder.

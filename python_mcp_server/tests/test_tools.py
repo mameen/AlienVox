@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tools import (  # noqa: E402
     do_get_volume,
+    do_get_catalog,
     do_list_engines,
     do_list_voices,
     do_set_volume,
@@ -38,6 +39,34 @@ def test_list_engines_includes_kokoro():
     assert {"kokoro", "piper", "supertonic3"} <= detail_ids
 
 
+def test_catalog_is_one_json_ready_inventory_with_trial_default_tradeoff():
+    catalog = do_get_catalog()
+    assert catalog["schema_version"] == 1
+    assert catalog["default"] == {
+        "engine": "piper",
+        "voice": "en_US-amy-medium",
+        "device": "cpu",
+    }
+    assert catalog["trial_default"] is True
+    assert catalog["tradeoff"]["voice"] == "en_US-amy-medium"
+    assert catalog["tradeoff"]["warm_latency_seconds"] == 0.4214
+    assert catalog["tradeoff"]["warm_cpu_seconds"] == 4.5
+    piper = next(item for item in catalog["engines"] if item["id"] == "piper")
+    assert piper["technology"] == "ONNX neural TTS"
+    assert "en_GB-southern_english_female-low" in {v["id"] for v in piper["voices"]}
+    southern_model = next(m for m in piper["models"] if m["id"] == "en_GB-southern_english_female-low")
+    assert southern_model["approx_file_mb"] == 63
+    assert any(item["id"] == "kokoro" for item in catalog["engines"])
+
+
+def test_default_voice_listing_uses_current_trial_engine():
+    result = do_list_voices()
+    assert result["engine"] == "piper"
+    assert result["default_voice"] == "en_US-amy-medium"
+    assert "en_GB-southern_english_female-low" in {voice["id"] for voice in result["voices"]}
+    assert any(voice["is_default"] for voice in result["voices"])
+
+
 def test_recommendations_include_top_voices_and_resource_priority():
     from tools import do_get_recommendations
     recs = do_get_recommendations()
@@ -50,7 +79,7 @@ def test_recommendations_include_top_voices_and_resource_priority():
         "en_GB-jenny_dioco-medium",
     }
     assert recs["sapi_preferred_voice"] == "MSTTS_V110_enUS_ZiraM"
-    assert "does not replace the overall Kokoro default" in recs["sapi_note"]
+    assert "not a quality verdict" in recs["sapi_note"]
 
 
 def test_new_engine_rosters_are_available_without_loading_models():
@@ -89,7 +118,7 @@ def test_speak_text_default_plays_and_writes_no_file():
     speakers, DON'T write a file nobody asked for. This actually plays
     real audio briefly — consistent with how python_app's own engine
     tests play real audio too (see e.g. test_kokoro.py in that repo)."""
-    result = do_speak_text("Real MCP synthesis test, played by default.", voice="af_heart")
+    result = do_speak_text("Real MCP synthesis test, played by default.", voice="af_heart", engine="kokoro")
     assert "error" not in result
     assert result["device_requested"] == "cpu"  # confirms the CPU default
     assert result["played"] is True
@@ -99,7 +128,7 @@ def test_speak_text_default_plays_and_writes_no_file():
 
 @requires_kokoro
 def test_speak_text_save_true_writes_a_real_wav_file():
-    result = do_speak_text("File-only synthesis test.", voice="af_heart", play=False, save=True)
+    result = do_speak_text("File-only synthesis test.", voice="af_heart", engine="kokoro", play=False, save=True)
     assert "error" not in result
     assert result["played"] is False
     wav_path = Path(result["path"])
@@ -125,7 +154,7 @@ def test_volume_absolute_and_relative():
 def test_speak_text_volume_used_reflects_persistent_level_when_not_overridden():
     try:
         do_set_volume(42)
-        result = do_speak_text("volume reporting test", voice="af_heart", play=False, save=True)
+        result = do_speak_text("volume reporting test", voice="af_heart", engine="kokoro", play=False, save=True)
         assert result["volume_used"] == 42
         Path(result["path"]).unlink()
     finally:

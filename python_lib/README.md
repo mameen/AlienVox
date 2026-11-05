@@ -25,7 +25,7 @@ pip install -r requirements.txt
 from alienvox_tts import synthesize
 import soundfile as sf
 
-audio, sample_rate = synthesize("Hello, world!")   # Kokoro, af_heart, device auto-detected
+audio, sample_rate = synthesize("Hello, world!")   # Piper, Amy Medium, CPU
 sf.write("out.wav", audio, sample_rate)
 ```
 
@@ -55,18 +55,14 @@ device = select_device(prefer="cpu")                                  # "cpu" al
   visible devices).
 - **`alienvox_tts.audio`** — `play_audio()`/`stop_playback()` — shared playback via `sounddevice`,
   including a real WASAPI hardware-buffer-tail fix already found and shipped in the app.
-- **`alienvox_tts.engines.kokoro`** — `KokoroEngine`, the default engine. Kokoro-82M (Apache 2.0),
-  via the `kokoro` PyPI package, auto-downloads ~300MB from Hugging Face Hub on first use. 7
-  voices; default `af_heart` ("American F · Heart").
+- **`alienvox_tts.engines.piper`** ? `PiperEngine`, the current trial default (CPU-only ONNX inference).
+- **`alienvox_tts.engines.piper`** - `PiperEngine`, current trial default; CPU-only ONNX inference.
+- **`alienvox_tts.engines.kokoro`** - `KokoroEngine`, former overall quality favorite. Kokoro-82M (Apache 2.0), via PyPI; downloads ~300 MB on first use. Seven voices; `af_heart` is its default voice.
+- **`alienvox_tts.engines.supertonic3`** - multilingual ONNX CPU engine with 31 language options.
 
-## Only Kokoro ships in this version
+## Available engines
 
-`python_app` has 9 engines total (SAPI5, Kokoro, Piper, Chatterbox, Dia, F5-TTS, OuteTTS,
-VibeVoice, Qwen3-TTS). This library currently ships **Kokoro only** — it's both the confirmed
-default and the simplest engine to extract cleanly (plain PyPI package, no custom weights path, no
-reference-audio/voice-cloning complexity). Adding another engine is a small, well-defined addition,
-not a redesign — see [`alienvox_tts/engines/__init__.py`](alienvox_tts/engines/__init__.py)'s
-docstring for the exact steps.
+`python_app` has 9 engines total. This library ships Kokoro, Piper, and Supertonic 3; Piper is the current trial default. See `alienvox_tts/engines/__init__.py` for extension steps.
 
 ## Testing
 

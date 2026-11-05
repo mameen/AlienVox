@@ -19,7 +19,7 @@ import pytest
 # (.agents/SKILLS/alien_vox/tests -> alien_vox/alienvox_tts).
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from alienvox_tts import DEFAULT_VOICE, ENGINES, SpeakParams, list_voices, synthesize
+from alienvox_tts import DEFAULT_ENGINE, DEFAULT_VOICE, DEFAULT_VOICES, ENGINES, SpeakParams, list_voices, synthesize
 from alienvox_tts.device import select_device
 from alienvox_tts.engines.kokoro import KokoroEngine, _rate_to_speed
 from alienvox_tts.volume import set_volume
@@ -38,11 +38,13 @@ requires_kokoro = pytest.mark.skipif(
 
 # ── Pure logic — no model, no network, always runs ─────────────────────────
 
-def test_default_voice_is_af_heart():
-    assert DEFAULT_VOICE == "af_heart"
+def test_trial_default_is_amy_piper():
+    assert DEFAULT_ENGINE == "piper"
+    assert DEFAULT_VOICE == "en_US-amy-medium"
+    assert DEFAULT_VOICES["kokoro"] == "af_heart"
 
 
-def test_kokoro_registered_as_default_engine():
+def test_kokoro_remains_available_as_an_alternative():
     assert "kokoro" in ENGINES
     assert ENGINES["kokoro"] is KokoroEngine
 

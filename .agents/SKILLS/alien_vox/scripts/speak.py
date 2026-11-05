@@ -41,11 +41,11 @@ sys.path.insert(0, str(_SKILL_ROOT))
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Synthesize speech with AlienVox's Kokoro-82M TTS engine (local, offline).",
+        description="Synthesize speech with AlienVox local TTS (Piper default; Kokoro and Edge selectable).",
     )
     parser.add_argument("text", help="Text to speak")
-    parser.add_argument("--voice", default=None, help="Voice id (default: the engine's own default: af_heart for kokoro, ar-SA-HamedNeural for edge). See references/voices.md.")
-    parser.add_argument("--engine", default="kokoro", help="Engine id: kokoro (default; local, offline) or edge (Microsoft neural voices; NETWORKED, sends the text online).")
+    parser.add_argument("--voice", default=None, help="Voice id (default: Southern English low for Piper, af_heart for Kokoro, ar-SA-HamedNeural for Edge). See references/voices.md.")
+    parser.add_argument("--engine", default="piper", help="Engine id: piper (default; local CPU, requires its voice file), kokoro (local; higher resource use), or edge (NETWORKED).")
     parser.add_argument("--device", default="cpu", choices=["cpu", "gpu"],
                          help="Device (default: cpu — the real, enforced default; pass gpu to opt into CUDA if available).")
     parser.add_argument("--no-play", action="store_true", help="Suppress local playback (default: plays).")
@@ -83,7 +83,8 @@ def main() -> int:
     # Same resolution synthesize() itself applies internally (get_engine() ->
     # select_device()) — computed again here only so it can be printed for
     # visibility, not a separate/parallel decision.
-    print(f"device: {select_device(prefer=args.device)}", file=sys.stderr)
+    resolved_device = "cpu" if args.engine == "piper" else select_device(prefer=args.device)
+    print(f"device: {resolved_device}", file=sys.stderr)
 
     try:
         audio, sample_rate = synthesize(

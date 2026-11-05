@@ -24,13 +24,13 @@ requires_mcp = pytest.mark.skipif(not _MCP_INSTALLED, reason="mcp package not in
 
 
 @requires_mcp
-def test_app_registers_all_eight_tools():
+def test_app_registers_all_nine_tools():
     import server
     tool_list = asyncio.run(server.app.list_tools())
     names = {t.name for t in tool_list}
     assert names == {
         "speak_text", "list_voices", "list_engines", "get_recommendations",
-        "get_volume", "set_volume", "volume_up", "volume_down",
+        "get_volume", "set_volume", "volume_up", "volume_down", "get_tts_catalog",
     }
 
 
@@ -43,6 +43,8 @@ def test_speak_text_tool_schema_defaults_device_to_cpu():
     # older inputSchema camelCase — verified for real against the
     # installed package rather than assumed from older SDK docs/examples.
     assert speak_tool.input_schema["properties"]["device"]["default"] == "cpu"
+    assert speak_tool.input_schema["properties"]["engine"]["default"] == "piper"
+    assert speak_tool.input_schema["properties"]["voice"]["default"] == "en_US-amy-medium"
     assert speak_tool.input_schema["properties"]["language"]["default"] == "en"
 
 
@@ -51,7 +53,19 @@ def test_app_registers_both_resources():
     import server
     resource_list = asyncio.run(server.app.list_resources())
     uris = {str(r.uri) for r in resource_list}
-    assert uris == {"alienvox://voices", "alienvox://engines", "alienvox://recommendations"}
+    assert uris == {"alienvox://voices", "alienvox://engines", "alienvox://recommendations", "alienvox://catalog"}
+
+
+@requires_mcp
+def test_get_tts_catalog_tool_returns_default_and_model_inventory():
+    import json
+    import server
+
+    result = asyncio.run(server.app.call_tool("get_tts_catalog", {}))
+    payload = json.loads(result.content[0].text)
+    assert payload["default"]["engine"] == "piper"
+    assert payload["default"]["voice"] == "en_US-amy-medium"
+    assert any(item["id"] == "kokoro" for item in payload["engines"])
 
 
 @requires_mcp
