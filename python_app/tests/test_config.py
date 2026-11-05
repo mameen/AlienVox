@@ -31,7 +31,7 @@ def test_list_stacks_empty_for_missing_file(tmp_path):
     assert list_stacks(tmp_path / "no_stacks.yaml") == []
 
 
-_ALL_ML_MODEL_IDS = ["kokoro", "piper", "chatterbox", "dia", "f5tts", "outetts"]
+_ALL_ML_MODEL_IDS = ["kokoro", "piper", "chatterbox", "dia", "f5tts", "outetts", "pockettts", "supertonic3", "moss_tts_nano", "qwen3tts"]
 
 
 def test_list_models_under_ml(stacks_yaml):
@@ -90,6 +90,9 @@ def test_get_voices_sapi5_empty_in_catalog(stacks_yaml):
     ("dia",        ["s1", "s2"]),
     ("f5tts",      ["en_female_calm", "en_male_warm"]),
     ("outetts",    ["male_1", "female_1"]),
+    ("pockettts",  ["alba", "marius"]),
+    ("supertonic3", ["M1", "F1"]),
+    ("moss_tts_nano", ["Ava", "Adam"]),
 ])
 def test_voices_present_for_all_ml_models(stacks_yaml, model_id, expected_voice_ids):
     voices = get_voices("ml", model_id, stacks_yaml)
@@ -105,7 +108,7 @@ def test_all_ml_models_have_volume_control(stacks_yaml, model_id):
         f"volume control missing or disabled for {model_id!r}"
 
 
-@pytest.mark.parametrize("model_id", ["chatterbox", "dia", "f5tts", "outetts"])
+@pytest.mark.parametrize("model_id", ["chatterbox", "dia", "f5tts", "outetts", "pockettts", "supertonic3", "moss_tts_nano"])
 def test_new_ml_models_pitch_not_applicable(stacks_yaml, model_id):
     ctrl = get_controls("ml", model_id, stacks_yaml)
     assert ctrl.get("pitch", {}).get("applies") is not True, \

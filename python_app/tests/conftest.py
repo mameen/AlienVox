@@ -44,6 +44,9 @@ _ALL_ML_MODELS = [
     "ml/outetts",
     "ml/vibevoice_realtime",
     "ml/qwen3tts",
+    "ml/pockettts",
+    "ml/supertonic3",
+    "ml/moss_tts_nano",
 ]
 
 def _real_models_root() -> Path:
@@ -115,11 +118,13 @@ def models_root(tmp_path_factory) -> Path:
 def models_root_with_weights(tmp_path_factory) -> Path:
     """Models root where ALL ML model weight directories exist.
 
-    Empty dirs simulate installed weights for every model in stacks.yaml.
+    An empty marker file makes each catalog path count as present to the registry.
     """
     mr = tmp_path_factory.mktemp("models_with_weights")
     for subpath in _ALL_ML_MODELS:
-        (mr / subpath).mkdir(parents=True)
+        path = mr / subpath
+        path.mkdir(parents=True)
+        (path / ".installed-test-fixture").touch()
     return mr
 
 

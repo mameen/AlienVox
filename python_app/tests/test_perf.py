@@ -30,14 +30,11 @@ import re
 import shutil
 import sys
 import tempfile
-import threading
 import time
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-
-import pytest
 
 from src.control.app_controller import SAMPLE_TEXT as WELCOME_PHRASE
 
@@ -112,9 +109,9 @@ class PerfResult:
     latency_ms: float = 0.0        # speak() call overhead (legacy alias for synthesis_ms)
     completion_ms: float = 0.0     # speak() → wait_until_done()
     # Audio characteristics (from synthesize() on ML engines)
-    audio_samples: int = -1        # total samples in output
-    audio_duration_s: float = -1.0 # duration in seconds = audio_samples / sample_rate
-    audio_bytes: int = -1          # raw PCM size (int16) = audio_samples * 2
+    audio_samples: int = -1        # frames in output; for mono, equals scalar samples
+    audio_duration_s: float = -1.0 # duration in seconds = frames / sample_rate
+    audio_bytes: int = -1          # raw PCM size (int16), including all channels
     audio_sample_rate: int = -1    # engine sample rate
     # System
     device: str = "cpu"            # "cuda" or "cpu" — what select_device() picked for this run
@@ -124,6 +121,17 @@ class PerfResult:
     gpu_mb: float = -1.0
     skipped: bool = False
     skip_reason: str = ""
+
+
+def _audio_measurements(audio: Any, sample_rate: int) -> tuple[int, float, int]:
+    """Return frame count, duration, and PCM16 byte size for mono or multichannel audio."""
+    import numpy as np
+
+    arr = np.asarray(audio)
+    frames = int(arr.size if arr.ndim == 1 else arr.shape[0])
+    total_samples = int(arr.size)
+    duration = frames / sample_rate if sample_rate > 0 else -1.0
+    return frames, duration, total_samples * 2
 
 
 def collect_metrics(
@@ -199,13 +207,8 @@ def collect_metrics(
             audio_arr, sr = synth_result, getattr(engine, "_SAMPLE_RATE", 24000)
 
         try:
-            import numpy as np
-            arr = np.asarray(audio_arr)
-            n_samples = arr.size if arr.ndim == 1 else arr.shape[-1]
-            result.audio_samples = int(n_samples)
+            result.audio_samples, result.audio_duration_s, result.audio_bytes = _audio_measurements(audio_arr, int(sr))
             result.audio_sample_rate = int(sr)
-            result.audio_duration_s = n_samples / sr if sr > 0 else -1.0
-            result.audio_bytes = int(n_samples * 2)  # int16 = 2 bytes/sample
         except Exception:
             pass  # numpy not available or array format unexpected
 
@@ -332,7 +335,7 @@ def welcome_phrase_benchmark(save_dir: Path | None = None, sample_format: str = 
     models_root = _config_models_root()  # same resolution every engine actually uses
 
     # Load stack catalog
-    catalog = load_stacks_catalog(stacks_yaml)
+    load_stacks_catalog(stacks_yaml)
     stack_ids = list_stacks(stacks_yaml)
 
     for stack_id in stack_ids:
@@ -512,6 +515,15 @@ def _load_ml_engine(stack_id: str, model_info: Any) -> Any | None:
         elif model_id == "qwen3tts":
             from src.engines.qwen3tts_engine import Qwen3TTSEngine
             return Qwen3TTSEngine()
+        elif model_id == "pockettts":
+            from src.engines.pockettts_engine import PocketTTSEngine
+            return PocketTTSEngine()
+        elif model_id == "supertonic3":
+            from src.engines.supertonic3_engine import Supertonic3Engine
+            return Supertonic3Engine()
+        elif model_id == "moss_tts_nano":
+            from src.engines.moss_tts_nano_engine import MossTtsNanoEngine
+            return MossTtsNanoEngine()
     except Exception:
         pass
     return None
@@ -976,6 +988,27 @@ def generate_reports(results: list[PerfResult]) -> tuple[Path, Path]:
 
 
 # ── Unit-level benchmarks (no audio required) ─────────────────────────────────
+
+class TestPerfAudioMeasurements:
+    def test_mono_audio_metrics(self):
+        import numpy as np
+
+        assert _audio_measurements(np.zeros(24_000, dtype=np.float32), 24_000) == (
+            24_000, 1.0, 48_000
+        )
+
+    def test_stereo_audio_uses_frames_and_counts_both_channels(self):
+        import numpy as np
+
+        assert _audio_measurements(np.zeros((48_000, 2), dtype=np.float32), 48_000) == (
+            48_000, 1.0, 192_000
+        )
+
+    def test_nonpositive_sample_rate_has_unknown_duration(self):
+        import numpy as np
+
+        assert _audio_measurements(np.zeros((8, 2), dtype=np.float32), 0) == (8, -1.0, 32)
+
 
 class TestConfigPerf:
     """Existing unit benchmarks — timing contracts for config/registry/telemetry."""

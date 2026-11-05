@@ -147,7 +147,7 @@ class AboutDialog(QDialog):
                     ("UI Framework", "PySide6 — Qt6 for Windows and macOS"),
                     ("System Tray", "QSystemTrayIcon — platform-native integration"),
                     ("TTS — OS", "Windows SAPI 5 via pywin32 COM"),
-                    ("TTS — ML", "Kokoro-82M, Piper, Dia, VibeVoice, Qwen3-TTS (in-process ONNX/PyTorch)"),
+                    ("TTS — ML", "Kokoro-82M, Piper, Pocket TTS, Supertonic 3, MOSS-TTS-Nano, Dia, VibeVoice, Qwen3-TTS (local inference)"),
                     ("Config", "stacks.yaml bundled next to executable"),
                 ],
             ),
@@ -156,6 +156,9 @@ class AboutDialog(QDialog):
                 None,
                 [
                     ("Kokoro-82M", "Primary local neural TTS. Open weights, Apache 2.0, ~82 M parameters."),
+                    ("Pocket TTS", "CPU-first local TTS with preset voices. The public model weights support preset voices and are managed under the local model directory."),
+                    ("Supertonic 3", "Local ONNX TTS with 31-language support. MIT SDK; OpenRAIL-M model license."),
+                    ("MOSS-TTS-Nano", "Multilingual local CPU ONNX TTS, 48 kHz stereo. Apache-2.0 model exports."),
                     ("Native OS TTS", "Windows SAPI 5 — always available as the reliability floor."),
                     ("Piper", "Small offline neural TTS (MIT). Stable fallback."),
                     ("VibeVoice-Realtime-0.5B", "Streaming TTS (MIT, Microsoft research-stage model). Not real-time on CPU — GPU recommended."),

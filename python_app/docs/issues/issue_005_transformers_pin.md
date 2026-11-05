@@ -1,7 +1,6 @@
 # Issue #005: transformers version conflict between chatterbox-tts and VibeVoice
 
-**Status:** Resolved — `transformers==4.51.3` pinned for the whole main venv, overriding
-chatterbox-tts's own declared pin. Verified for real, not just import checks.
+**Status:** Reopened — current pin is `transformers==4.57.3` for Qwen3-TTS.
 
 **Reported:** 2026-07-22
 
@@ -22,7 +21,7 @@ was reverted in favor of a single shared venv after real testing (below) showed 
 every engine, not just VibeVoice — the extra process boundary, IPC protocol, and second venv to provision
 were unneeded complexity once that was confirmed.
 
-## Real verification that 4.51.3 works for everything
+## Earlier verification that 4.51.3 worked for the tested engines
 
 Before committing to the single-venv approach, every ML engine in this app was tested for real under
 `transformers==4.51.3` — actual `from_pretrained()` calls against actual downloaded weights, actual
@@ -64,12 +63,26 @@ load time — cosmetic, doesn't affect generation; confirmed by the same real-ge
 
 ## The fix
 
+### 2026-11-04 update: Qwen3-TTS requires 4.57.3
+
+Real local CPU synthesis tests for the installed `qwen-tts` package failed under
+4.51.3 because `transformers.utils.auto_docstring` is unavailable. The same real
+tests passed after upgrading the test environment to 4.57.3 (18 Qwen tests passed,
+including generation from local weights). `setup.py` now pins 4.57.3 so its final
+dependency step no longer makes the already-installed Qwen engine unusable.
+
+VibeVoice was installed in the temporary environment and its suite passed under 4.57.3
+(20 passed, 1 skipped). Chatterbox's test suite also passed under 4.57.3 (13 passed,
+2 skipped), including real local synthesis. Its package metadata still declares
+transformers 5.2.0, but the tested inference path works with the application's 4.57.3
+pin.
+
 `setup.py`'s `main()`:
 1. Installs `requirements.txt` normally — chatterbox-tts pulls in `transformers==5.2.0` as part of this.
 2. Re-asserts `numpy`/`protobuf` pins (pre-existing step, for Dia's deps).
-3. **New:** re-asserts `transformers==4.51.3` (overriding chatterbox-tts's pin — verified safe above).
+3. **Current:** re-asserts `transformers==4.57.3` (overriding chatterbox-tts's pin; Qwen real-tested).
 4. **New:** installs `vibevoice[streamingtts]` from GitHub, now compatible with the already-pinned
-   `transformers==4.51.3`.
+   `transformers==4.57.3`; its compatibility needs real verification.
 
 `requirements-ml.txt` documents this pin decision inline. `vibevoice_engine.py` needs zero
 transformers-version workarounds under this pin — it's a plain in-process engine, same shape as every

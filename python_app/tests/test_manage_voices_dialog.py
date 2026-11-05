@@ -40,6 +40,13 @@ class _FakeController:
     def preview_voice_async(self, stack_id, model_id, voice_id) -> None:
         self.previewed.append((stack_id, model_id, voice_id))
 
+    def sample_asset_path(self, stack_id, model_id, voice_id):
+        return None
+
+    def piper_voice_installed(self, voice_id, models_root):
+        piper_dir = models_root / "ml" / "piper"
+        return bool(piper_dir.exists() and list(piper_dir.rglob(f"{voice_id}.onnx")))
+
     def uninstall_model(self, stack_id, model_id, models_root) -> None:
         self.uninstalled_models.append((stack_id, model_id))
 
@@ -133,13 +140,15 @@ def test_toggling_off_calls_controller_and_updates_state(qapp, tmp_path):
 
 
 def test_preview_button_calls_controller(qapp, tmp_path):
+    from PySide6.QtWidgets import QPushButton
+
     state = _make_state()
     ctrl = _FakeController(state)
     dlg = ManageVoicesDialog(state, ctrl, tmp_path)
     try:
         item = _find_voice_item(dlg, "kokoro", "af_bella")
-        preview_btn = dlg._tree.itemWidget(item, 4)
-        preview_btn.click()
+        preview_cell = dlg._tree.itemWidget(item, 4)
+        preview_cell.findChild(QPushButton).click()
         assert ctrl.previewed == [("ml", "kokoro", "af_bella")]
     finally:
         dlg.close()
@@ -175,7 +184,7 @@ def test_model_row_shows_uninstall_when_present(qapp, tmp_path):
     try:
         model_item = _find_model_item(dlg, "kokoro")
         btn = dlg._tree.itemWidget(model_item, 3)
-        assert btn.text() == "Uninstall"
+        assert btn.text() == "-"
     finally:
         dlg.close()
 
@@ -186,7 +195,7 @@ def test_model_row_shows_install_when_absent(qapp, tmp_path):
     try:
         model_item = _find_model_item(dlg, "kokoro")
         btn = dlg._tree.itemWidget(model_item, 3)
-        assert btn.text() == "Install"
+        assert btn.text() == "+"
     finally:
         dlg.close()
 
@@ -219,7 +228,7 @@ def test_piper_voice_row_shows_size_and_install(qapp, tmp_path):
         item = _find_voice_item(dlg, "piper", "en_US-lessac-medium")
         assert item.text(1) == "~63 MB"
         btn = dlg._tree.itemWidget(item, 3)
-        assert btn.text() == "Install"
+        assert btn.text() == "+"
     finally:
         dlg.close()
 
@@ -234,18 +243,17 @@ def test_piper_voice_row_shows_uninstall_when_file_present(qapp, tmp_path):
     try:
         item = _find_voice_item(dlg, "piper", "en_US-lessac-medium")
         btn = dlg._tree.itemWidget(item, 3)
-        assert btn.text() == "Uninstall"
+        assert btn.text() == "-"
     finally:
         dlg.close()
 
 
-def test_kokoro_voice_rows_have_no_own_install_button(qapp, tmp_path):
-    """Kokoro shares one weights blob across voices — only the model row
-    gets Install/Uninstall, not each voice under it (unlike Piper)."""
+def test_kokoro_voice_rows_show_shared_model_install_action(qapp, tmp_path):
+    """Shared-weight ML voice rows expose the parent model install state."""
     state = _make_state()
     dlg = ManageVoicesDialog(state, _FakeController(state), tmp_path)
     try:
         item = _find_voice_item(dlg, "kokoro", "af_bella")
-        assert dlg._tree.itemWidget(item, 3) is None
+        assert dlg._tree.itemWidget(item, 3).text() == "-"
     finally:
         dlg.close()

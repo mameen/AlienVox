@@ -11,7 +11,7 @@ from src.engines.registry import available_stacks, get_stack, StackInfo, ModelIn
 
 # ── Catalog reading ───────────────────────────────────────────────────────────
 
-_ALL_ML_MODEL_IDS = ["kokoro", "piper", "chatterbox", "dia", "f5tts", "outetts"]
+_ALL_ML_MODEL_IDS = ["kokoro", "piper", "chatterbox", "dia", "f5tts", "outetts", "pockettts", "supertonic3", "moss_tts_nano", "qwen3tts"]
 
 
 def test_returns_all_stacks(stacks_yaml, models_root):
@@ -90,7 +90,7 @@ def test_all_ml_models_available_when_weights_exist(stacks_yaml, models_root_wit
     assert model.available is True, f"Model {model_id!r} should be available with weights"
 
 
-@pytest.mark.parametrize("model_id", ["piper"])  # only non-auto_download models fail without weights
+@pytest.mark.parametrize("model_id", ["piper", "pockettts", "supertonic3", "moss_tts_nano"])
 def test_non_auto_download_models_unavailable_without_weights(stacks_yaml, models_root, model_id):
     stacks = available_stacks(stacks_yaml, models_root)
     ml = next(s for s in stacks if s.id == "ml")

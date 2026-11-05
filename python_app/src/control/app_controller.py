@@ -71,6 +71,9 @@ _ML_ENGINES: dict[str, tuple[str, str]] = {
     "outetts":    ("outetts_engine",    "OuteTTSEngine"),
     "vibevoice_realtime": ("vibevoice_engine", "VibeVoiceEngine"),
     "qwen3tts":         ("qwen3tts_engine",         "Qwen3TTSEngine"),
+    "pockettts":        ("pockettts_engine",        "PocketTTSEngine"),
+    "supertonic3":      ("supertonic3_engine",      "Supertonic3Engine"),
+    "moss_tts_nano":    ("moss_tts_nano_engine",    "MossTtsNanoEngine"),
 }
 
 

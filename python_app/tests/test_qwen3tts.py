@@ -11,17 +11,10 @@ import numpy as np
 import pytest
 
 from src.engines.base import SpeakParams
-from unittest.mock import patch
-
-import numpy as np
-import pytest
-
-from src.engines.base import SpeakParams
 from src.engines.qwen3tts_engine import (
-    Qwen3TTSEngine,
-    _DEFAULT_VOICE,
     _VALID_VOICE_IDS,
     _VOICES,
+    Qwen3TTSEngine,
     apply_volume,
     resolve_language,
     resolve_speaker_name,
@@ -111,3 +104,36 @@ class TestEngineConstruction:
         eng = Qwen3TTSEngine()
         ids = {v.id for v in eng.list_voices()}
         assert ids == _VALID_VOICE_IDS
+
+    def test_empty_synthesis_and_ready_stop_lifecycle_do_not_load_model(self):
+        eng = Qwen3TTSEngine()
+        assert eng.synthesize("  ", "vivian", SpeakParams()) is None
+        assert eng.wait_until_done(1)
+        eng.speak("  ", "vivian", SpeakParams())
+        eng.stop()
+        assert eng.wait_until_done(1)
+        eng._do_speak("", "vivian", SpeakParams())
+        assert eng.wait_until_done(1)
+
+
+@requires_qwen3tts_weights
+@pytest.mark.parametrize("voice_id", ["vivian", "dylan"])
+def test_real_qwen_synthesis_has_valid_audio(voice_id):
+    """Exercise real local weights with the shared canonical benchmark phrase."""
+    from src.control.app_controller import SAMPLE_TEXT
+
+    audio, sample_rate = Qwen3TTSEngine().synthesize(SAMPLE_TEXT, voice_id, SpeakParams())
+    assert sample_rate > 0
+    assert audio.ndim == 1 and audio.size > sample_rate // 2
+    assert np.isfinite(audio).all()
+    assert float(np.max(np.abs(audio))) <= 1.0
+
+
+@requires_qwen3tts_weights
+def test_real_qwen_volume_mute_is_silent():
+    from src.control.app_controller import SAMPLE_TEXT
+
+    audio, _ = Qwen3TTSEngine().synthesize(
+        SAMPLE_TEXT, "vivian", SpeakParams(volume=0)
+    )
+    assert np.count_nonzero(audio) == 0

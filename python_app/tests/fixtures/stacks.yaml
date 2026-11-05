@@ -138,3 +138,41 @@ stacks:
           pitch:       { applies: false }
           volume:      { min: 0, max: 100, default: 100, applies: true }
           ttl_seconds: { min: 0, max: 300, default: 30,  applies: true }
+
+      - id: pockettts
+        name: Pocket TTS ~100M
+        weights_subpath: ml/pockettts
+        auto_download: false
+        voices:
+          - { id: alba, label: "Alba" }
+          - { id: marius, label: "Marius" }
+        controls:
+          rate: { applies: false }
+          pitch: { applies: false }
+          volume: { min: 0, max: 100, default: 100, applies: true }
+          ttl_seconds: { min: 0, max: 300, default: 30, applies: true }
+
+      - id: supertonic3
+        name: Supertonic 3 (ONNX)
+        weights_subpath: ml/supertonic3
+        auto_download: false
+        voices:
+          - { id: M1, label: "Male 1" }
+          - { id: F1, label: "Female 1" }
+        controls:
+          rate: { applies: false }
+          pitch: { applies: false }
+          volume: { min: 0, max: 100, default: 100, applies: true }
+          ttl_seconds: { min: 0, max: 300, default: 30, applies: true }
+
+      - id: moss_tts_nano
+        name: MOSS-TTS-Nano (ONNX)
+        weights_subpath: ml/moss_tts_nano
+        voices:
+          - { id: Ava, label: "Ava" }
+          - { id: Adam, label: "Adam" }
+        controls:
+          rate: { applies: false }
+          pitch: { applies: false }
+          volume: { min: 0, max: 100, default: 100, applies: true }
+          ttl_seconds: { min: 0, max: 300, default: 30, applies: true }

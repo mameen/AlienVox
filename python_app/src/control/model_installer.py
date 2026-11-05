@@ -35,6 +35,16 @@ _HF_REPOS = {
     "f5tts": "SWivid/F5-TTS",
     "outetts": "OuteAI/OuteTTS-0.3-500M",
     "vibevoice_realtime": "microsoft/VibeVoice-Realtime-0.5B",
+    "supertonic3": "supertone-oss-archive/supertonic-3",
+}
+_MOSS_REPOS = {
+    "MOSS-TTS-Nano-100M-ONNX": "OpenMOSS-Team/MOSS-TTS-Nano-100M-ONNX",
+    "MOSS-Audio-Tokenizer-Nano-ONNX": "OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX",
+}
+_HF_REVISIONS = {
+    # Upstream archived this model repo; pin the verified snapshot so installs
+    # reproduce the file layout expected by the Supertonic 3 adapter.
+    "supertonic3": "aafc6e32416a594460b32413efc49d7fe4ce6d46",
 }
 _PIPER_HF_REPO = "rhasspy/piper-voices"
 _VIBEVOICE_VOICE_PT_BASE_URL = (
@@ -79,6 +89,23 @@ def download_model(
         _download_piper_voice(voice_id, models_root, on_progress)
         return
 
+    if model_id == "pockettts":
+        _download_pockettts(models_root, on_progress)
+        return
+
+    if model_id == "moss_tts_nano":
+        from huggingface_hub import snapshot_download
+
+        dest = models_root / "ml" / model_id
+        for folder, repo in _MOSS_REPOS.items():
+            on_progress(0, 2, f"Downloading {folder}…")
+            snapshot_download(
+                repo_id=repo,
+                local_dir=str(dest / folder),
+                tqdm_class=None,
+            )
+        return
+
     if model_id not in _HF_REPOS:
         raise ValueError(f"no download strategy for model '{model_id}'")
 
@@ -96,7 +123,10 @@ def download_model(
         on_progress(transferred, total, f"{model_id}  {transferred // 1_048_576} / {max(total, 1) // 1_048_576} MB")
 
     _log.info("downloading %s to %s", model_id, dest)
-    snapshot_download(repo_id=_HF_REPOS[model_id], local_dir=str(dest), tqdm_class=None)
+    download_args = {"repo_id": _HF_REPOS[model_id], "local_dir": str(dest), "tqdm_class": None}
+    if model_id in _HF_REVISIONS:
+        download_args["revision"] = _HF_REVISIONS[model_id]
+    snapshot_download(**download_args)
     _log.info("%s download complete -> %s", model_id, dest)
 
     if model_id == "vibevoice_realtime":
@@ -117,6 +147,54 @@ def _download_vibevoice_voices(dest: Path, on_progress: ProgressCb) -> None:
             _log.error("failed to download %s: %s", filename, exc)
             raise
     _log.info("VibeVoice preset voices ready -> %s", voices_dir)
+
+
+def _download_pockettts(models_root: Path, on_progress: ProgressCb) -> None:
+    """Install the public no-voice-cloning checkpoint and preset embeddings locally."""
+    try:
+        import yaml
+        from huggingface_hub import hf_hub_download
+        from pocket_tts.utils.config import CONFIGS_DIR
+    except ImportError as exc:
+        raise RuntimeError(
+            "Pocket TTS is an optional dependency; install it with `pip install --no-deps pocket-tts==4.0.1` "
+            "after confirming it is compatible with this environment."
+        ) from exc
+
+    dest = models_root / "ml" / "pockettts"
+    voices_dir = dest / "voices"
+    voices_dir.mkdir(parents=True, exist_ok=True)
+    repo = "kyutai/pocket-tts-without-voice-cloning"
+    revision = "a7056f505a4a8ca72d8b5fb1440071d6f1a35739"
+    files = [
+        "languages/english/model.safetensors",
+        "languages/english/tokenizer.json",
+        "languages/english/embeddings/alba.safetensors",
+        "languages/english/embeddings/marius.safetensors",
+    ]
+    downloaded: dict[str, Path] = {}
+    for index, filename in enumerate(files, 1):
+        on_progress(index - 1, len(files), f"Pocket TTS {filename.rsplit('/', 1)[-1]}")
+        downloaded[filename] = Path(hf_hub_download(
+            repo_id=repo,
+            filename=filename,
+            revision=revision,
+            local_dir=str(dest),
+        ))
+
+    import yaml
+    config = yaml.safe_load((Path(CONFIGS_DIR) / "english.yaml").read_text(encoding="utf-8"))
+    config["weights_path"] = str(downloaded[files[0]])
+    config["weights_path_without_voice_cloning"] = None
+    config["flow_lm"]["lookup_table"]["tokenizer_path"] = str(downloaded[files[1]])
+    (dest / "english.yaml").write_text(
+        yaml.safe_dump(config, sort_keys=False), encoding="utf-8"
+    )
+    for voice, filename in (("alba", files[2]), ("marius", files[3])):
+        target = voices_dir / f"{voice}.safetensors"
+        if downloaded[filename] != target:
+            shutil.copy2(downloaded[filename], target)
+    on_progress(len(files), len(files), "Pocket TTS installed")
 
 
 def _download_piper_voice(voice_id: str, models_root: Path, on_progress: ProgressCb) -> None:

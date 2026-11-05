@@ -14,10 +14,9 @@ Performance note: CPU inference is ~5–10× real-time factor on this model
 (RTF > 1.0 means synthesis takes longer than the audio). GPU is strongly
 recommended for interactive use. CPU is suitable for batch/async scenarios.
 
-transformers compatibility: qwen-tts 0.1.1 requires transformers>=4.45.
-We run transformers==4.51.3 (our current pin, see issue_005) — confirmed
-compatible by running real from_pretrained() + generate_custom_voice()
-against real weights before writing this file.
+transformers compatibility: qwen-tts 0.1.1 requires transformers==4.57.3.
+The setup script pins that version; see issue_005 for shared-stack constraints.
+Real CPU generation was verified with local weights under Transformers 4.57.3.
 """
 from __future__ import annotations
 

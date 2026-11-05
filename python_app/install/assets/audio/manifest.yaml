@@ -1,5 +1,17 @@
 samples:
 - stack_id: ml
+  model_id: pockettts
+  voice_id: alba
+  file: ml/pockettts/alba.mp3
+- stack_id: ml
+  model_id: supertonic3
+  voice_id: M1
+  file: ml/supertonic3/M1.mp3
+- stack_id: ml
+  model_id: moss_tts_nano
+  voice_id: Ava
+  file: ml/moss_tts_nano/Ava.mp3
+- stack_id: ml
   model_id: chatterbox
   voice_id: default
   file: ml/chatterbox/default.mp3

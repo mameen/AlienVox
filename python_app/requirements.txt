@@ -36,9 +36,13 @@ pymupdf>=1.24.0    # imported as `fitz` — pdfplumber is a fallback in the code
 
 # ── Core ML / inference (lazy-imported — not loaded at startup) ───────────────
 torch>=2.0.0
+torchaudio>=2.0.0
 transformers>=4.30.0
 safetensors>=0.4.0
 accelerate>=0.20.0
+beartype>=0.22.5  # Pocket TTS runtime (installed with --no-deps to preserve NumPy<2)
+onnxruntime>=1.20.0
+sentencepiece>=0.2.1
 
 # ── Performance testing (used by tests/test_perf.py / `run.py perf`) ──────────
 # The `; extra == "perf"` marker this line used to have never actually
@@ -53,14 +57,20 @@ nvidia-ml-py>=12.0.0  # provides the `pynvml` module — GPU %/memory columns
 
 # ── TTS engines ───────────────────────────────────────────────────────────────
 kokoro>=0.9.0
+# Pocket TTS is intentionally opt-in: upstream requires numpy>=2 while the
+# Chatterbox engine in this shared runtime requires numpy<2. Installing it
+# here would break one of the engines. See docs/issues/todo_011_lightweight_tts_engines.md.
+# supertonic has no conflicting NumPy/Torch pins and runs locally via ONNX.
+# setup.py installs Pocket TTS with --no-deps after its declared dependencies
+# are installed; its inference path was exercised here with NumPy 1.26.
+supertonic>=1.3.1,<2.0
 piper-tts>=1.2.0
 chatterbox-tts>=0.1.7
 f5-tts>=0.1.0
 outetts>=0.3.0
-# qwen-tts: no stable PyPI release — install manually with:
-#   pip install qwen-tts
-# Verify transformers pin compatibility with existing ML deps before use,
-# see issue_005 for the pattern (VibeVoice forced transformers==4.51.3).
+# qwen-tts is installed by setup.py as qwen-tts==0.1.1 with --no-deps, after
+# setup pins transformers==4.57.3. Installing its full dependency tree here
+# conflicts with Chatterbox's declared transformers==5.2.0 requirement.
 # qwen-tts pulls in the `sox` PyPI wrapper, which shells out to a real SoX
 # CLI binary — not a pip package, and not installed by this file. Missing
 # SoX prints a noisy (but harmless) warning on import; only worth installing
@@ -76,8 +86,8 @@ outetts>=0.3.0
 # (aiortc/gradio/fastapi/uvicorn for the upstream repo's websocket demo/
 # server, none of which AlienVox's in-process generate() call needs).
 # `python setup.py` installs it as its own explicit step, into this same
-# venv, after re-asserting the transformers==4.51.3 pin above — see
-# setup.py's main() and docs/issues/issue_005_transformers_pin.md. Install
+# venv, after pinning transformers==4.57.3 — see setup.py and
+# docs/issues/issue_005_transformers_pin.md. Install
 # manually with:
 #   pip install "vibevoice[streamingtts] @ git+https://github.com/microsoft/VibeVoice.git"
 # if you're not using setup.py.

@@ -16,13 +16,7 @@ ROOT = Path(r"C:\dev\personal\.repos\tts\python_app")
 SAMPLES_DIR = ROOT / "install" / "assets" / "audio" / "ml" / "qwen3tts"
 MANIFEST = ROOT / "install" / "assets" / "audio" / "manifest.yaml"
 
-# Same text used by all other ML engines for consistent comparison.
-# This is the canonical sample phrase — defined in app_controller.py as SAMPLE_TEXT.
-# All offline voice samples across the product use this exact phrase.
-SAMPLE_TEXT = (
-    "Welcome to AlienVox. This is a performance test of your TTS engine. "
-    "If you can hear this, your system is working correctly."
-)
+from src.control.app_controller import SAMPLE_TEXT
 
 _VOICES = [
     ("vivian",   "Vivian (F · ZH/EN)"),

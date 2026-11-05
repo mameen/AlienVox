@@ -36,8 +36,8 @@ def _ensure_bootstrap_deps() -> None:
 
 _ensure_bootstrap_deps()
 
-from dotenv import load_dotenv  # noqa: E402
 import yaml  # noqa: E402
+from dotenv import load_dotenv  # noqa: E402
 
 # Load .env so HF_TOKEN is available for gated repos
 _load_dotenv = load_dotenv(ROOT / ".env", override=False)
@@ -169,6 +169,8 @@ def _download_auto(models_root: Path, model_id: str, force: bool = False) -> Non
         "outetts": (_OUTETTS_HF_REPO, "~1 GB"),
         "vibevoice_realtime": (_VIBEVOICE_REALTIME_HF_REPO, "~2 GB"),
         "qwen3tts": (_QWEN3TTS_HF_REPO, "~1.5 GB"),
+        "supertonic3": ("supertone-oss-archive/supertonic-3", "~400 MB"),
+        "moss_tts_nano": ("OpenMOSS-Team/MOSS-TTS-Nano-100M-ONNX", "~350 MB"),
     }
     if model_id not in downloads:
         print(f"  ⊘ No download strategy for '{model_id}'.")
@@ -182,11 +184,19 @@ def _download_auto(models_root: Path, model_id: str, force: bool = False) -> Non
     dest.mkdir(parents=True, exist_ok=True)
     print(f"\n  Downloading {model_id} from {repo} (~{size}) to {dest}...")
     from huggingface_hub import snapshot_download
-    snapshot_download(
-        repo_id=repo,
-        local_dir=str(dest),
-        tqdm_class=None,
-    )
+    if model_id == "moss_tts_nano":
+        snapshot_download(repo_id=repo, local_dir=str(dest / "MOSS-TTS-Nano-100M-ONNX"), tqdm_class=None)
+        snapshot_download(
+            repo_id="OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX",
+            local_dir=str(dest / "MOSS-Audio-Tokenizer-Nano-ONNX"),
+            tqdm_class=None,
+        )
+        print(f"  ✓ {model_id} download complete → {dest}")
+        return
+    download_args = {"repo_id": repo, "local_dir": str(dest), "tqdm_class": None}
+    if model_id == "supertonic3":
+        download_args["revision"] = "aafc6e32416a594460b32413efc49d7fe4ce6d46"
+    snapshot_download(**download_args)
     print(f"  ✓ {model_id} download complete → {dest}")
 
     if model_id == "f5tts":
@@ -195,7 +205,6 @@ def _download_auto(models_root: Path, model_id: str, force: bool = False) -> Non
         _provision_chatterbox_reference_voices(dest)
     elif model_id == "vibevoice_realtime":
         _provision_vibevoice_realtime_voices(dest, force=force)
-
 
 
 
@@ -397,6 +406,14 @@ def cmd_download_models(models_root: Path, stacks_yaml: Path, force: bool = Fals
                 _download_kokoro(models_root, force=force)
             elif mid == "piper":
                 _download_piper(models_root, stacks_yaml, force=force)
+            elif mid == "pockettts":
+                from src.control.model_installer import _download_pockettts
+                _download_pockettts(
+                    models_root,
+                    lambda done, total, description: print(f"  {description}"),
+                )
+            elif mid in {"supertonic3", "moss_tts_nano"}:
+                _download_auto(models_root, mid, force=force)
             elif auto_dl:
                 _download_auto(models_root, mid, force=force)
 
@@ -542,17 +559,17 @@ def main() -> int:
     # chatterbox-tts's own wheel metadata hard-pins transformers==5.2.0,
     # which requirements.txt just installed — but VibeVoice (installed next)
     # declares transformers<5.0.0, an unresolvable conflict with that exact
-    # pin. Downgrading is safe: verified for real (real from_pretrained() +
-    # real generate() against real weights, every ML engine in this app,
-    # not just imports) that everything actually works fine under 4.51.3
-    # despite chatterbox-tts's stricter declared pin — see
-    # docs/issues/issue_005_transformers_pin.md. Re-assert as the last
-    # transformers-touching step, same pattern as the numpy/protobuf
-    # reassertion above.
-    print("\nDowngrading transformers to 4.51.3 for VibeVoice compatibility")
-    print("(chatterbox-tts's own transformers==5.2.0 pin is overridden — verified")
-    print("compatible for real, see docs/issues/issue_005_transformers_pin.md)...")
-    run([python, "-m", "pip", "install", "transformers==4.51.3"])
+    # pin. Re-assert a tested Qwen-compatible version as the last
+    # transformers-touching step. Qwen was real-tested under 4.57.3;
+    # VibeVoice compatibility with this version remains to be verified.
+    # See docs/issues/issue_005_transformers_pin.md.
+    print("\nPinning transformers to 4.57.3 for Qwen3-TTS compatibility")
+    print("(chatterbox-tts's own transformers==5.2.0 pin is overridden; VibeVoice")
+    print("compatibility with this newer <5.0 release needs a real model check)...")
+    run([python, "-m", "pip", "install", "transformers==4.57.3"])
+
+    print("\nInstalling Qwen3-TTS 0.1.1 without upstream pins...")
+    run([python, "-m", "pip", "install", "--no-deps", "qwen-tts==0.1.1"])
 
     print("\nInstalling VibeVoice-Realtime (no stable PyPI release)...")
     print("(pulls a genuinely heavy, mostly-unrelated dependency set — aiortc/")
@@ -561,6 +578,13 @@ def main() -> int:
     run([python, "-m", "pip", "install",
          "vibevoice[streamingtts] @ git+https://github.com/microsoft/VibeVoice.git"])
 
+    print("\nInstalling the MOSS-TTS-Nano in-process ONNX runtime (without upstream pins)...")
+    run([python, "-m", "pip", "install", "--no-deps",
+         "moss-tts-nano @ git+https://github.com/OpenMOSS/MOSS-TTS-Nano.git@8b7bcc9341b3b4ef3a3a58ba1338a7d85ff133eb"])
+
+    print("\nInstalling Pocket TTS runtime without its incompatible NumPy requirement...")
+    run([python, "-m", "pip", "install", "--no-deps", "pocket-tts==4.0.1"])
+
     # ── Auto-detect missing models and offer download ───────────────────────
     models_root = ROOT / ".models"
     models_root.mkdir(exist_ok=True)
@@ -568,7 +592,7 @@ def main() -> int:
 
     print("\nBootstrap complete.")
     print(f"Activate venv:  {VENV_DIR}\\Scripts\\activate")
-    print(f"\nTo download ML models later:  python setup.py download")
+    print("\nTo download ML models later:  python setup.py download")
     print("Run app:        python -m src.main")
     return 0
 
