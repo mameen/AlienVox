@@ -34,13 +34,24 @@ tr:hover { background: #edf4fb; }
 .rating-star.selected { color: #ffd34e; }
 .listen-button { background: #087f23; color: white; border: 0; border-radius: 4px; padding: 5px 8px; cursor: pointer; }
 .listen-button:disabled { background: #555; cursor: default; }
+.listening-help { color: #40516a; font-size: 13px; margin: 10px 0; }
+tbody tr:focus-visible { outline: 3px solid #176b9c; outline-offset: -3px; }
+tbody tr.selected-voice-row td { background: #dceafa !important; color: #182433 !important; box-shadow: inset 0 2px #6c96c3, inset 0 -2px #6c96c3; }
 .table-wrap { overflow-x: auto; }
 .raw-results-panel { background: #fff; border: 1px solid #cbd6e4; border-radius: 9px; padding: 16px; margin: 15px 0; }
 .raw-results-panel h2 { margin-top: 0; }
-.model-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin: 10px 0 14px; }
-.model-nav-label { color: #40516a; font-weight: 600; margin-right: 3px; }
-.model-nav button { background: #edf3fa; color: #174a7e; border: 1px solid #9fb4ca; border-radius: 5px; padding: 6px 10px; cursor: pointer; }
-.model-nav button:hover, .model-nav button:focus-visible { background: #d8e9f8; outline: 2px solid #4d8fc8; outline-offset: 1px; }
+.report-filters { display: grid; gap: 8px; margin: 10px 0 14px; }
+.filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; padding: 7px 0; border-bottom: 1px solid #d6deea; }
+.filter-row-label { min-width: 125px; color: #40516a; font-weight: 700; }
+.filter-toggle-group { display: flex; flex-wrap: wrap; gap: 7px; }
+.filter-subgroup { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 5px; margin: 2px 10px 2px 0; }
+.filter-subgroup-label { color: #526176; font-size: 13px; font-weight: 600; }
+.filter-chip { background: #edf3fa; color: #174a7e; border: 1px solid #9fb4ca; border-radius: 5px; padding: 6px 10px; cursor: pointer; }
+.filter-row input[type="search"] { min-width: min(420px, 100%); max-width: 100%; box-sizing: border-box; background: #fff; color: #182433; border: 1px solid #9fb4ca; border-radius: 5px; padding: 7px 9px; font: inherit; }
+.filter-chip[aria-pressed="true"] { background: #174a7e; color: #fff; border-color: #174a7e; }
+.filter-chip:hover, .filter-chip:focus-visible { outline: 2px solid #4d8fc8; outline-offset: 1px; }
+.filter-summary { flex: 0 0 100%; width: 100%; box-sizing: border-box; color: #526176; font-size: 13px; font-weight: 700; margin: 2px 0 0 132px; }
+.filter-help { color: #526176; font-size: 13px; margin: 2px 0 0; }
 .model-row-highlight { animation: model-row-flash 1.4s ease-out; }
 @keyframes model-row-flash { from { background: #ffe89a; } to { background: transparent; } }
 button.export { padding: 8px 12px; background: #176b9c; border: 0; border-radius: 5px; color: white; cursor: pointer; }
@@ -77,9 +88,14 @@ button.export:hover { background: #2189c4; }
 .theme-dark #info { background: #1e293b; color: #e5edf7; }
 .theme-dark .report-note, .theme-dark .quality-panel p { color: #c5d2e3; }
 .theme-dark table, .theme-dark .raw-results-panel, .theme-dark .quality-panel { background: #1e293b; border-color: #42536a; color: #e5edf7; }
-.theme-dark .model-nav-label { color: #d8e3f0; }
-.theme-dark .model-nav button { background: #263750; color: #d6eaff; border-color: #607792; }
-.theme-dark .model-nav button:hover, .theme-dark .model-nav button:focus-visible { background: #344d6a; }
+.theme-dark .filter-row { border-color: #42536a; }
+.theme-dark .filter-row-label, .theme-dark .filter-summary { color: #d8e3f0; }
+.theme-dark .filter-subgroup-label { color: #c5d2e3; }
+.theme-dark .filter-chip { background: #263750; color: #d6eaff; border-color: #607792; }
+.theme-dark .filter-row input[type="search"] { background: #172235; color: #e5edf7; border-color: #607792; }
+.theme-dark .filter-row input[type="search"]::placeholder { color: #a8b8cc; }
+.theme-dark .filter-chip[aria-pressed="true"] { background: #285e91; color: #fff; border-color: #8ecbff; }
+.theme-dark .filter-help { color: #c5d2e3; }
 .theme-dark th { background: #263750; color: #d6eaff; }
 .theme-dark td { border-color: #384a61; }
 .theme-dark tr:hover { background: #2a3a50; }
@@ -87,6 +103,9 @@ button.export:hover { background: #2189c4; }
 .theme-dark .status-warn { color: #ffd17c; }
 .theme-dark .status-error { color: #ff9b9b; }
 .theme-dark .status-na { color: #b3c0d0; }
+.theme-dark .listening-help { color: #c5d2e3; }
+.theme-dark tbody tr:focus-visible { outline-color: #8ecbff; }
+.theme-dark tbody tr.selected-voice-row td { background: #243248 !important; color: #e5edf7 !important; box-shadow: inset 0 2px #648ab5, inset 0 -2px #648ab5; }
 .theme-dark .legend-item { color: #e5edf7; }
 .theme-dark .legend-item:hover { background: #30445f; }
 .theme-dark .legend-hint { color: #bdcadd; }
@@ -95,6 +114,7 @@ button.export:hover { background: #2189c4; }
 .theme-dark #chart-tooltip { background: #263750; color: #f3f7fc; border-color: #8ecbff; }
 .theme-dark #chart-tooltip b { color: #8ecbff; }
 .theme-dark .quality-legend button { background: #263750; color: #f3f7fc; border-color: #607792; }
+.theme-dark .quality-legend { color: #e5edf7; }
 .theme-toggle:hover { filter: brightness(1.1); }
 .chart-panel { background: #fff; border: 1px solid #cbd6e4; border-radius: 8px; padding: 16px; margin: 18px 0; }
 .chart-panel > summary { color: #23476d; cursor: pointer; font-size: 20px; font-weight: 700; }
@@ -111,6 +131,9 @@ button.export:hover { background: #2189c4; }
 .quality-legend { display: flex; gap: 18px; color: #26364c; margin: 6px 0 12px; }
 .quality-legend span { display: inline-flex; gap: 6px; align-items: center; }
 .quality-legend i { width: 12px; height: 12px; display: inline-block; border-radius: 50%; }
+.quality-legend .quality-legend-group { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.quality-legend .quality-legend-item { white-space: nowrap; }
+.quality-legend i.metric-diamond { border-radius: 1px; transform: rotate(45deg) scale(.78); }
 .quality-legend button { background: #edf3fa; color: #26364c; border: 1px solid #a9b9cb; border-radius: 5px; padding: 5px 9px; cursor: pointer; }
 .quality-legend button.inactive { opacity: .45; }
 .metric-legend .legend-item { color: #26364c; }
@@ -133,19 +156,26 @@ button.export:hover { background: #2189c4; }
 <div id="chart-tooltip"></div>
 <details class="chart-panel quality-panel" id="quality-panel">
 <summary>Quality vs latency</summary>
-<p>Subjective voice ratings (1–5 stars) compared with latency percentiles across rated voices. CPU appears as an additional series when usable measurements are available.</p>
+<p>Subjective voice ratings (1–5 stars) compared with latency percentiles across rated voices. Point color identifies model/technology; point shape identifies the metric (circle: latency, diamond: CPU). CPU appears when usable measurements are available.</p>
 <div class="quality-legend" id="quality-legend"></div>
 <div id="quality-chart"></div>
 </details>
 <section class="raw-results-panel">
 <h2>Raw Results</h2>
-<div id="model-nav" class="model-nav" aria-label="Jump to model results"></div>
+<div class="report-filters" aria-label="Filter raw results">
+  <p class="filter-help">Any selected value within a group matches; active groups combine with AND. Search keywords across all row text, including notes and tags.</p>
+  <div class="filter-row"><span class="filter-row-label">Models</span><div id="model-filter-buttons" class="filter-toggle-group" role="group" aria-label="Model filters"></div></div>
+  <div class="filter-row"><span class="filter-row-label">Languages</span><div class="filter-subgroup"><span class="filter-subgroup-label">Model</span><div id="model-language-filter" class="filter-toggle-group" role="group" aria-label="Model or voice language filters"></div></div><div class="filter-subgroup"><span class="filter-subgroup-label">Sample</span><div id="sample-language-filter" class="filter-toggle-group" role="group" aria-label="Sample language filters"></div></div></div>
+  <div class="filter-row"><span class="filter-row-label">Gender &amp; attributes</span><div class="filter-subgroup"><span class="filter-subgroup-label">Gender</span><div id="gender-filter" class="filter-toggle-group" role="group" aria-label="Voice gender filters"></div></div><div class="filter-subgroup"><span class="filter-subgroup-label">Tier</span><div id="tier-filter" class="filter-toggle-group" role="group" aria-label="Voice model tier filters"></div></div><div class="filter-subgroup"><span class="filter-subgroup-label">Variant</span><div id="variant-filter" class="filter-toggle-group" role="group" aria-label="Voice variant filters"></div></div><div class="filter-subgroup"><span class="filter-subgroup-label">Emotion</span><div id="emotion-filter" class="filter-toggle-group" role="group" aria-label="Voice emotion filters"></div></div><div class="filter-subgroup"><span class="filter-subgroup-label">Tone</span><div id="tone-filter" class="filter-toggle-group" role="group" aria-label="Voice tone filters"></div></div><div class="filter-subgroup"><span class="filter-subgroup-label">Expression</span><div id="expression-filter" class="filter-toggle-group" role="group" aria-label="Voice expression filters"></div></div></div>
+  <div class="filter-row keyword-filter-row"><label class="filter-row-label" for="keyword-filter">Keyword</label><input id="keyword-filter" type="search" placeholder="Search voice, model, note, language, emotion…" aria-label="Search keywords anywhere in result rows"><p class="filter-summary" id="filter-summary" role="status" aria-live="polite"></p></div>
+</div>
 <p><button class="export" id="export-ratings" type="button">Download metrics + ratings JSON</button></p>
+<p class="listening-help">Listening: Tab to the first sample row; use ↑/↓ or Home/End to select a voice, then Enter or Space to play or pause. The selected row stays highlighted.</p>
 <div class="table-wrap"><table id="results-table">
 <thead><tr>
-    <th>Stack</th><th>Model</th><th>Voice</th><th>Voice profile</th><th>Voice language</th><th>Sample language</th><th>Phrase chars</th><th>Variant</th><th>Emotion</th><th>Tone</th><th>Device</th>
+    <th>Stack</th><th>Model</th><th>Voice</th><th>Voice profile</th><th>Voice tier</th><th>Voice language</th><th>Sample language</th><th>Phrase chars</th><th>Variant</th><th>Emotion</th><th>Tone</th><th>Expression</th><th>Note / tags</th><th>Device</th>
     <th>Synth (ms)</th><th>Duration (s)</th><th>Size (KB)</th><th>Sample Rate</th>
-    <th>Memory (MB)</th><th>CPU (%)</th><th>GPU (%)</th><th>GPU (MB)</th><th>Sample</th><th>Rating</th>
+    <th>Memory (MB)</th><th>CPU (%)</th><th>GPU (%)</th><th>GPU (MB)</th><th>Sample</th><th>Error</th><th>Rating</th>
 </tr></thead>
 <tbody id="results-body"></tbody>
 </table></div>
@@ -311,6 +341,48 @@ const WELCOME_PHRASE = "Welcome to AlienVox. This is a performance test of your 
     const voiceRatings = loadFeedback(ratingsKey, ['alienvox-voice-ratings-', 'alienvox-voice-quality-']);
     const voiceErrors = loadFeedback(errorsKey, ['alienvox-voice-ratings-', 'alienvox-voice-quality-'], true);
     const rowKey = d => d.model_id ? d.model_id + '/' + d.voice_id : d.stack_id + '/' + d.voice_id;
+    let selectedVoiceRow = null;
+    let hasInitialKeyboardRow = false;
+    const playableRows = () => Array.from(tbody.querySelectorAll('tr')).filter(row => !row.hidden && row.querySelector('.listen-button'));
+    const selectVoiceRow = (row, focus = false) => {
+        if (!row || !row.querySelector('.listen-button')) return;
+        if (selectedVoiceRow && selectedVoiceRow !== row) {
+            selectedVoiceRow.classList.remove('selected-voice-row');
+            selectedVoiceRow.tabIndex = -1;
+            selectedVoiceRow.querySelectorAll('audio').forEach(audio => { audio.pause(); audio.currentTime = 0; });
+            const oldPlay = selectedVoiceRow.querySelector('.listen-button');
+            if (oldPlay) oldPlay.textContent = 'Play';
+        }
+        selectedVoiceRow = row;
+        row.classList.add('selected-voice-row');
+        row.tabIndex = 0;
+        if (focus) {
+            row.focus({preventScroll: true});
+            row.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+        }
+    };
+    tbody.addEventListener('focusin', event => {
+        const row = event.target.closest('tr');
+        if (row) selectVoiceRow(row);
+    });
+    tbody.addEventListener('keydown', event => {
+        const row = event.target.closest('tr');
+        if (!row || !row.querySelector('.listen-button')) return;
+        const rows = playableRows();
+        const index = rows.indexOf(row);
+        let nextIndex = null;
+        if (event.key === 'ArrowDown') nextIndex = Math.min(rows.length - 1, index + 1);
+        else if (event.key === 'ArrowUp') nextIndex = Math.max(0, index - 1);
+        else if (event.key === 'Home') nextIndex = 0;
+        else if (event.key === 'End') nextIndex = rows.length - 1;
+        if (nextIndex !== null) {
+            event.preventDefault();
+            selectVoiceRow(rows[nextIndex], true);
+        } else if ((event.key === 'Enter' || event.key === ' ') && event.target === row) {
+            event.preventDefault();
+            row.querySelector('.listen-button').click();
+        }
+    });
     const renderQualityChart = () => {
         if (!document.getElementById('quality-panel').open) return;
         const root = document.getElementById('quality-chart'); root.replaceChildren();
@@ -361,23 +433,39 @@ const WELCOME_PHRASE = "Welcome to AlienVox. This is a performance test of your 
             tooltip.style.left = Math.max(edge, left) + 'px';
             tooltip.style.top = Math.max(edge, top) + 'px';
         };
+        const modelKey = row => row.model_id ? `${row.stack_id}/${row.model_id}` : row.stack_id;
+        const modelGroups = Array.from(new Map(ratedRows.map(row => [modelKey(row), {key: modelKey(row), label: row.model_id || row.stack_id}])).values())
+            .sort((a, b) => a.label.localeCompare(b.label));
+        const modelColors = new Map(modelGroups.map((group, index) => [group.key,
+            d3.interpolateRainbow((index + 0.5) / Math.max(1, modelGroups.length))]));
         const qualityMarks = svg.selectAll('.quality-point').data(points).enter().append('path')
             .attr('class', 'quality-point').attr('transform', d => `translate(${x(d.percentile)},${y(d.score)})`)
             .attr('d', d => d3.symbol().type(d.cost.shape).size(100)())
-            .attr('fill', d => d.cost.color).attr('stroke', '#26364c').attr('stroke-width', 1)
+            .attr('fill', d => modelColors.get(modelKey(d.row))).attr('stroke', '#26364c').attr('stroke-width', 1)
             .on('mousemove', (evt, d) => {
                 tooltip.innerHTML = `<b>${d.cost.label} vs quality</b><br>${d.row.model_id || d.row.stack_id}/${d.row.voice_id}<br>Quality: ${d.score} / 5<br>${d.cost.label}: P${Math.round(d.percentile)} (${Number(d.row[d.cost.key]).toFixed(1)} ${d.cost.unit})`;
                 tooltip.style.display = 'block'; positionTooltip(evt);
             }).on('mouseleave', () => { tooltip.style.display = 'none'; });
-        const legend = d3.select('#quality-legend');
+        const legend = d3.select('#quality-legend'); legend.selectAll('*').remove();
+        const modelLegend = legend.append('div').attr('class', 'quality-legend-group');
+        modelLegend.append('strong').text('Model / technology:');
+        modelGroups.forEach(group => {
+            const item = modelLegend.append('span').attr('class', 'quality-legend-item').attr('title', group.key);
+            item.append('i').style('background', modelColors.get(group.key));
+            item.append('span').text(group.label);
+        });
+        const metricLegend = legend.append('div').attr('class', 'quality-legend-group');
+        metricLegend.append('strong').text('Metric:');
         costs.forEach(cost => {
-            const item = legend.append('span');
-            item.append('i').style('background', cost.color);
+            const item = metricLegend.append('span').attr('class', 'quality-legend-item');
+            item.append('i').attr('class', cost.shape === d3.symbolDiamond ? 'metric-diamond' : '')
+                .style('background', '#536b85');
             item.append('span').text(cost.label);
         });
     };
-    const addRatingCell = (tr, d) => {
-        const td = tr.insertCell();
+    const addFeedbackCells = (tr, d) => {
+        const errorCell = tr.insertCell();
+        const ratingCell = tr.insertCell();
         const wrap = document.createElement('span'); wrap.className = 'star-rating';
         const key = rowKey(d);
         if (voiceErrors[key] === true && Object.prototype.hasOwnProperty.call(voiceRatings, key)) {
@@ -402,7 +490,7 @@ const WELCOME_PHRASE = "Welcome to AlienVox. This is a performance test of your 
             try { localStorage.setItem(errorsKey, JSON.stringify(voiceErrors)); } catch (_) { alert('Browser storage is unavailable; export the JSON to keep error reports.'); }
             renderQualityChart();
         });
-        wrap.appendChild(error);
+        errorCell.appendChild(error);
         for (let score = 1; score <= 5; score++) {
             const star = document.createElement('button'); star.type = 'button'; star.className = 'rating-star'; star.textContent = '★';
             star.title = 'Rate ' + key + ' ' + score + ' out of 5'; star.setAttribute('aria-label', star.title);
@@ -418,7 +506,7 @@ const WELCOME_PHRASE = "Welcome to AlienVox. This is a performance test of your 
             });
             wrap.appendChild(star);
         }
-        td.appendChild(wrap);
+        ratingCell.appendChild(wrap);
     };
     document.getElementById('export-ratings').addEventListener('click', () => {
         const payload = { schema_version: 1, benchmark_timestamp: data.timestamp, welcome_phrase: data.welcome_phrase,
@@ -430,32 +518,114 @@ const WELCOME_PHRASE = "Welcome to AlienVox. This is a performance test of your 
         a.href = url; a.download = 'alienvox-performance-ratings-' + data.timestamp + '.json'; a.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
     });
-    const modelNav = document.getElementById('model-nav');
     const navModelKey = d => d.model_id ? `${d.stack_id}/${d.model_id}` : d.stack_id;
-    const firstRowByModel = new Map();
     const modelGroups = Array.from(new Map(data.results.map(d => [navModelKey(d), {key: navModelKey(d), label: d.model_id || d.stack_id}])).values());
-    const navLabel = document.createElement('span'); navLabel.className = 'model-nav-label'; navLabel.textContent = 'Jump to model:';
-    modelNav.appendChild(navLabel);
-    modelGroups.forEach(group => {
-        const button = document.createElement('button'); button.type = 'button'; button.textContent = group.label;
-        button.title = 'Scroll to ' + group.key; button.setAttribute('aria-label', 'Jump to ' + group.key);
-        button.addEventListener('click', () => {
-            const row = firstRowByModel.get(group.key);
-            if (row) {
-                row.scrollIntoView({behavior: 'smooth', block: 'center'});
-                row.classList.remove('model-row-highlight'); void row.offsetWidth; row.classList.add('model-row-highlight');
-            }
+    const modelFilterButtons = document.getElementById('model-filter-buttons');
+    const selectedModelKeys = new Set();
+    const modelButtons = new Map();
+    const filterSpecs = [
+        {id: 'model-language-filter', key: 'modelLanguage', source: 'voice_locale', all: 'All'},
+        {id: 'sample-language-filter', key: 'sampleLanguage', source: 'phrase_locale', all: 'All'},
+        {id: 'gender-filter', key: 'gender', source: 'voice_profile', all: 'All'},
+        {id: 'tier-filter', key: 'voiceTier', source: 'voice_tier', all: 'All'},
+        {id: 'variant-filter', key: 'variant', source: 'variant_id', all: 'All'},
+        {id: 'emotion-filter', key: 'emotion', source: 'emotion', all: 'All'},
+        {id: 'tone-filter', key: 'tone', source: 'tone', all: 'All'},
+        {id: 'expression-filter', key: 'expression', source: 'expression', all: 'All'},
+    ];
+    const filterValue = value => value === null || value === undefined || value === '' ? 'Unknown' : String(value);
+    const selectedFilterValues = Object.fromEntries(filterSpecs.map(spec => [spec.key, new Set()]));
+    const filterButtonsByValue = new Map(filterSpecs.map(spec => [spec.key, new Map()]));
+    const allFilterButtons = new Map();
+    const makeFilterButton = (text, pressed, title) => {
+        const button = document.createElement('button'); button.type = 'button'; button.className = 'filter-chip';
+        button.textContent = text; button.setAttribute('aria-pressed', pressed); button.title = title;
+        return button;
+    };
+    const allModelsButton = makeFilterButton('All models', true, 'Show all models');
+    allModelsButton.addEventListener('click', () => { selectedModelKeys.clear(); applyRawFilters(); });
+    modelFilterButtons.appendChild(allModelsButton);
+    filterSpecs.forEach(spec => {
+        const group = document.getElementById(spec.id);
+        const selectedValues = selectedFilterValues[spec.key];
+        const allButton = makeFilterButton(spec.all, true, 'Do not filter by ' + spec.key);
+        allButton.addEventListener('click', () => { selectedValues.clear(); applyRawFilters(); });
+        allFilterButtons.set(spec.key, allButton);
+        group.appendChild(allButton);
+        const values = Array.from(new Set(data.results.map(row => filterValue(row[spec.source]))));
+        if (spec.key === 'gender') {
+            const order = ['Child', 'Male', 'Female', 'Neutral', 'Unknown'];
+            values.sort((a, b) => (order.indexOf(a) < 0 ? 99 : order.indexOf(a)) - (order.indexOf(b) < 0 ? 99 : order.indexOf(b)) || a.localeCompare(b));
+        } else if (spec.key === 'voiceTier') {
+            const order = ['X-Low', 'Low', 'Medium', 'High', 'Unknown'];
+            values.sort((a, b) => (order.indexOf(a) < 0 ? 99 : order.indexOf(a)) - (order.indexOf(b) < 0 ? 99 : order.indexOf(b)) || a.localeCompare(b));
+        } else values.sort((a, b) => a.localeCompare(b));
+        values.forEach(value => {
+            const button = makeFilterButton(value, false, 'Toggle ' + value + ' filter');
+            button.dataset.filterValue = value;
+            button.addEventListener('click', () => {
+                if (selectedValues.has(value)) selectedValues.delete(value);
+                else selectedValues.add(value);
+                applyRawFilters();
+            });
+            filterButtonsByValue.get(spec.key).set(value, button);
+            group.appendChild(button);
         });
-        modelNav.appendChild(button);
+    });
+    const filterSummary = document.getElementById('filter-summary');
+    const keywordFilter = document.getElementById('keyword-filter');
+    const applyRawFilters = () => {
+        allModelsButton.setAttribute('aria-pressed', selectedModelKeys.size === 0);
+        modelButtons.forEach((button, key) => button.setAttribute('aria-pressed', selectedModelKeys.has(key)));
+        filterSpecs.forEach(spec => {
+            const selectedValues = selectedFilterValues[spec.key];
+            allFilterButtons.get(spec.key).setAttribute('aria-pressed', selectedValues.size === 0);
+            filterButtonsByValue.get(spec.key).forEach((button, value) => button.setAttribute('aria-pressed', selectedValues.has(value)));
+        });
+        const terms = keywordFilter.value.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+        let visibleCount = 0;
+        Array.from(tbody.rows).forEach(row => {
+            const matches = (selectedModelKeys.size === 0 || selectedModelKeys.has(row.dataset.modelKey)) &&
+                terms.every(term => row.dataset.searchText.includes(term)) && filterSpecs.every(spec => {
+                const values = selectedFilterValues[spec.key];
+                return values.size === 0 || values.has(row.dataset[spec.key]);
+            });
+            row.hidden = !matches;
+            if (matches) visibleCount++;
+        });
+        if (selectedVoiceRow && selectedVoiceRow.hidden) {
+            selectedVoiceRow.querySelectorAll('audio').forEach(audio => { audio.pause(); audio.currentTime = 0; });
+            const play = selectedVoiceRow.querySelector('.listen-button');
+            if (play) play.textContent = 'Play';
+            selectedVoiceRow.classList.remove('selected-voice-row'); selectedVoiceRow.tabIndex = -1;
+            selectedVoiceRow = null;
+        }
+        const visiblePlayable = Array.from(tbody.rows).filter(row => !row.hidden && row.querySelector('.listen-button'));
+        visiblePlayable.forEach((row, index) => { row.tabIndex = row === selectedVoiceRow || (!selectedVoiceRow && index === 0) ? 0 : -1; });
+        filterSummary.textContent = `Showing ${visibleCount} of ${tbody.rows.length} results`;
+    };
+    keywordFilter.addEventListener('input', applyRawFilters);
+    modelGroups.forEach(group => {
+        const button = document.createElement('button'); button.type = 'button'; button.className = 'filter-chip'; button.textContent = group.label;
+        button.title = 'Filter Raw Results to ' + group.key; button.setAttribute('aria-label', 'Filter by model ' + group.key);
+        button.addEventListener('click', () => {
+            if (selectedModelKeys.has(group.key)) selectedModelKeys.delete(group.key);
+            else selectedModelKeys.add(group.key);
+            applyRawFilters();
+        });
+        modelButtons.set(group.key, button);
+        modelFilterButtons.appendChild(button);
     });
     data.results.forEach(d => {
         const tr = tbody.insertRow();
+        tr.tabIndex = -1;
         const groupKey = navModelKey(d);
         tr.dataset.modelKey = groupKey;
-        if (!firstRowByModel.has(groupKey)) firstRowByModel.set(groupKey, tr);
+        tr.dataset.searchText = Object.values(d).filter(value => value !== null && value !== undefined && typeof value !== 'object').join(' ').toLocaleLowerCase();
+        filterSpecs.forEach(spec => { tr.dataset[spec.key] = filterValue(d[spec.source]); });
         if (d.skipped) {
             const td = tr.insertCell();
-            td.colSpan = 21;
+            td.colSpan = 25;
             td.className = 'status-na';
             td.textContent = `${d.stack_id}${d.model_id ? '/' + d.model_id : ''}/${d.voice_id} — skipped: ${d.skip_reason}`;
             return;
@@ -465,12 +635,15 @@ const WELCOME_PHRASE = "Welcome to AlienVox. This is a performance test of your 
             { key: 'model_id',          fmt: v => v ?? '-' },
             { key: 'voice_id',          fmt: v => v },
             { key: 'voice_profile',     fmt: v => v || 'Unknown' },
+            { key: 'voice_tier',        fmt: v => v || 'Unknown' },
             { key: 'voice_locale',     fmt: v => v || 'unknown' },
             { key: 'phrase_locale',    fmt: v => v || 'unknown' },
             { key: 'phrase_chars',      fmt: v => String(v ?? 0) },
             { key: 'variant_id',        fmt: v => v || 'neutral' },
             { key: 'emotion',           fmt: v => v || 'neutral' },
             { key: 'tone',              fmt: v => v || 'measured' },
+            { key: 'expression',        fmt: v => v || 'clear and matter-of-fact' },
+            { key: 'note',              fmt: v => v || '—' },
             { key: 'device',            fmt: v => v ?? '-' },
             { key: 'synthesis_ms',      fmt: v => v >= 0 ? v.toFixed(1) + ' ms' : 'N/A' },
             { key: 'audio_duration_s',  fmt: v => v >= 0 ? v.toFixed(2) + ' s'  : 'N/A' },
@@ -497,6 +670,7 @@ const WELCOME_PHRASE = "Welcome to AlienVox. This is a performance test of your 
             play.title = 'Play the offline sample for ' + d.voice_id;
             play.setAttribute('aria-label', play.title);
             const audio = document.createElement('audio'); audio.preload = 'none'; audio.src = d.sample_url;
+            play.addEventListener('click', () => selectVoiceRow(tr));
             play.addEventListener('click', () => {
                 document.querySelectorAll('#results-body audio').forEach(other => {
                     if (other !== audio) { other.pause(); other.currentTime = 0; }
@@ -508,11 +682,13 @@ const WELCOME_PHRASE = "Welcome to AlienVox. This is a performance test of your 
             });
             audio.addEventListener('ended', () => { play.textContent = 'Play'; });
             sampleCell.append(play, audio);
+            if (!hasInitialKeyboardRow) { tr.tabIndex = 0; hasInitialKeyboardRow = true; }
         } else {
             sampleCell.className = 'status-na'; sampleCell.textContent = 'N/A';
         }
-        addRatingCell(tr, d);
+        addFeedbackCells(tr, d);
     });
+    applyRawFilters();
     document.getElementById('quality-panel').addEventListener('toggle', () => {
         if (document.getElementById('quality-panel').open) renderQualityChart();
     });

@@ -44,6 +44,21 @@ The exported ratings contain no SAPI star scores, so these remain subjective aud
 | MSTTS_V110_enGB_HazelM | 11,156 ms; no star rating. | Windows-provided voice; no bundled ML model files. | [Hazel WAV](../.logs/20261105025132_samples/sapi5/MSTTS_V110_enGB_HazelM.wav) |
 | MSTTS_V110_enGB_SusanM | 11,138 ms; no star rating. | Windows-provided voice; no bundled ML model files. | [Susan WAV](../.logs/20261105025132_samples/sapi5/MSTTS_V110_enGB_SusanM.wav) |
 
+## P2 cloud TTS candidates (not yet evaluated)
+
+**Priority: P2.** Keep the current evaluation focused on on-device voices. These Azure AI Speech voices are a later cloud comparison, not local Windows/SAPI voices and not downloadable model weights. The names below are real standard neural voice IDs in Microsoft's current catalog:
+
+| Candidate | Azure voice ID | Locale / profile |
+|---|---|---|
+| Aria | `en-US-AriaNeural` | US English, female |
+| Ava | `en-US-AvaNeural` | US English, female |
+| Ryan | `en-GB-RyanNeural` | UK English, male |
+| Sonia | `en-GB-SoniaNeural` | UK English, female |
+
+Azure Speech's Free (F0) tier currently includes **500,000 characters per month** for standard neural TTS. It requires an Azure Speech resource and is subject to F0 quotas (including 20 real-time standard/custom voice transactions per 60 seconds); use beyond the free allowance may be billed. Confirm current terms before enabling or relying on the free tier. [Azure Speech pricing](https://azure.microsoft.com/en-us/pricing/details/speech/) · [F0 quotas](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/speech-services-quotas-and-limits).
+
+The earlier claim that these would provide a noticeable quality jump was not benchmarked and should be treated as an audition hypothesis. If this P2 comparison is scheduled, test the cloud voices separately from the on-device CPU report, using locale-matched phrases and recording network/service latency and cost context. [Microsoft voice catalog](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/language-support).
+
 ## Resource-data caveat
 
 The old report cannot rank CPU use: its CPU-percent readings are all 0, and the harness only takes before/after non-blocking snapshots rather than interval or peak samples. Its `memory_mb` is process RSS change across the request, not total or peak RAM, and first-use model loading is included. The report also records the globally selected device, which can say `cuda` even for CPU-only ONNX engines. Weight sizes above are on-disk estimates from the app catalog, not RAM requirements. A clean CPU-only run with interval-based CPU sampling and peak-RSS tracking is needed for a fair runtime comparison.
