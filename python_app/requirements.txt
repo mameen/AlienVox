@@ -57,6 +57,7 @@ nvidia-ml-py>=12.0.0  # provides the `pynvml` module — GPU %/memory columns
 
 # ── TTS engines ───────────────────────────────────────────────────────────────
 kokoro>=0.9.0
+misaki[en,zh]>=0.9.4  # Kokoro's Chinese voices require the zh phonemizer extras
 # Pocket TTS is intentionally opt-in: upstream requires numpy>=2 while the
 # Chatterbox engine in this shared runtime requires numpy<2. Installing it
 # here would break one of the engines. See docs/issues/todo_011_lightweight_tts_engines.md.

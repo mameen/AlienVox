@@ -60,9 +60,21 @@ def _encode_mp3(audio: np.ndarray, sample_rate: int, bitrate: int = 192) -> byte
     # lameenc expects int16 PCM
     pcm = (audio * 32767).clip(-32768, 32767).astype(np.int16)
 
-    channels = 1 if pcm.ndim == 1 else pcm.shape[0]
-    if pcm.ndim > 1:
-        pcm = pcm.T.flatten()  # interleaved stereo
+    if pcm.ndim == 1:
+        channels = 1
+    elif pcm.ndim == 2:
+        # Engines may return multichannel audio as either (channels, samples)
+        # or (samples, channels). LAME expects interleaved samples.
+        if pcm.shape[0] in (1, 2):
+            channels = pcm.shape[0]
+            pcm = pcm.T.flatten()
+        elif pcm.shape[1] in (1, 2):
+            channels = pcm.shape[1]
+            pcm = pcm.flatten()
+        else:
+            raise ValueError(f"MP3 export supports mono or stereo audio, got shape {pcm.shape}")
+    else:
+        raise ValueError(f"MP3 export expects mono or stereo audio, got shape {pcm.shape}")
 
     enc = lameenc.Encoder()
     enc.set_bit_rate(bitrate)

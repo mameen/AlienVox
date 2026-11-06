@@ -51,7 +51,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ms-EN)"
+      "language": "en (voice ms-EN)",
+      "sample_url": null
     },
     {
       "stack_id": "sapi5",
@@ -78,7 +79,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ms-EN)"
+      "language": "en (voice ms-EN)",
+      "sample_url": null
     },
     {
       "stack_id": "sapi5",
@@ -105,7 +107,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ms-EN)"
+      "language": "en (voice ms-EN)",
+      "sample_url": "sapi5-TTS_MS_EN-US_ZIRA_11.0.wav"
     },
     {
       "stack_id": "sapi5",
@@ -132,7 +135,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-US)"
+      "language": "en (voice en-US)",
+      "sample_url": null
     },
     {
       "stack_id": "sapi5",
@@ -159,7 +163,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ar-SA)"
+      "language": "en (voice ar-SA)",
+      "sample_url": null
     },
     {
       "stack_id": "sapi5",
@@ -186,7 +191,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-GB)"
+      "language": "en (voice en-GB)",
+      "sample_url": null
     },
     {
       "stack_id": "sapi5",
@@ -213,7 +219,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-GB)"
+      "language": "en (voice en-GB)",
+      "sample_url": "sapi5-MSTTS_V110_enGB_HazelM.wav"
     },
     {
       "stack_id": "sapi5",
@@ -240,7 +247,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-GB)"
+      "language": "en (voice en-GB)",
+      "sample_url": "sapi5-MSTTS_V110_enGB_SusanM.wav"
     },
     {
       "stack_id": "sapi5",
@@ -267,7 +275,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ar-EG)"
+      "language": "en (voice ar-EG)",
+      "sample_url": null
     },
     {
       "stack_id": "sapi5",
@@ -294,7 +303,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-US)"
+      "language": "en (voice en-US)",
+      "sample_url": null
     },
     {
       "stack_id": "sapi5",
@@ -321,7 +331,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-US)"
+      "language": "en (voice en-US)",
+      "sample_url": null
     },
     {
       "stack_id": "speech_platform",
@@ -348,7 +359,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ms-EN)"
+      "language": "en (voice ms-EN)",
+      "sample_url": null
     },
     {
       "stack_id": "speech_platform",
@@ -375,7 +387,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ms-EN)"
+      "language": "en (voice ms-EN)",
+      "sample_url": null
     },
     {
       "stack_id": "speech_platform",
@@ -402,7 +415,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ms-EN)"
+      "language": "en (voice ms-EN)",
+      "sample_url": null
     },
     {
       "stack_id": "speech_platform",
@@ -429,7 +443,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-US)"
+      "language": "en (voice en-US)",
+      "sample_url": null
     },
     {
       "stack_id": "speech_platform",
@@ -456,7 +471,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ar-SA)"
+      "language": "en (voice ar-SA)",
+      "sample_url": null
     },
     {
       "stack_id": "speech_platform",
@@ -483,7 +499,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-GB)"
+      "language": "en (voice en-GB)",
+      "sample_url": null
     },
     {
       "stack_id": "speech_platform",
@@ -510,7 +527,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-GB)"
+      "language": "en (voice en-GB)",
+      "sample_url": null
     },
     {
       "stack_id": "speech_platform",
@@ -537,7 +555,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-GB)"
+      "language": "en (voice en-GB)",
+      "sample_url": null
     },
     {
       "stack_id": "speech_platform",
@@ -564,7 +583,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ar-EG)"
+      "language": "en (voice ar-EG)",
+      "sample_url": null
     },
     {
       "stack_id": "speech_platform",
@@ -591,7 +611,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-US)"
+      "language": "en (voice en-US)",
+      "sample_url": null
     },
     {
       "stack_id": "speech_platform",
@@ -618,7 +639,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-US)"
+      "language": "en (voice en-US)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -645,7 +667,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-US)"
+      "language": "en (voice en-US)",
+      "sample_url": "kokoro-af_heart.wav"
     },
     {
       "stack_id": "ml",
@@ -672,7 +695,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-US)"
+      "language": "en (voice en-US)",
+      "sample_url": "kokoro-af_bella.wav"
     },
     {
       "stack_id": "ml",
@@ -699,7 +723,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-US)"
+      "language": "en (voice en-US)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -726,7 +751,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ad-AM)"
+      "language": "en (voice ad-AM)",
+      "sample_url": "kokoro-am_adam.wav"
     },
     {
       "stack_id": "ml",
@@ -753,7 +779,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-US)"
+      "language": "en (voice en-US)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -780,7 +807,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice em-MA)"
+      "language": "en (voice em-MA)",
+      "sample_url": "kokoro-bf_emma.wav"
     },
     {
       "stack_id": "ml",
@@ -807,7 +835,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-GB)"
+      "language": "en (voice en-GB)",
+      "sample_url": "kokoro-bm_george.wav"
     },
     {
       "stack_id": "ml",
@@ -834,7 +863,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-US)"
+      "language": "en (voice en-US)",
+      "sample_url": "piper-en_US-lessac-medium.wav"
     },
     {
       "stack_id": "ml",
@@ -861,7 +891,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-US)"
+      "language": "en (voice en-US)",
+      "sample_url": "piper-en_US-amy-medium.wav"
     },
     {
       "stack_id": "ml",
@@ -888,7 +919,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-US)"
+      "language": "en (voice en-US)",
+      "sample_url": "piper-en_US-ryan-high.wav"
     },
     {
       "stack_id": "ml",
@@ -915,7 +947,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-US)"
+      "language": "en (voice en-US)",
+      "sample_url": "piper-en_US-kathleen-low.wav"
     },
     {
       "stack_id": "ml",
@@ -942,7 +975,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-GB)"
+      "language": "en (voice en-GB)",
+      "sample_url": "piper-en_GB-southern_english_female-low.wav"
     },
     {
       "stack_id": "ml",
@@ -969,7 +1003,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-GB)"
+      "language": "en (voice en-GB)",
+      "sample_url": "piper-en_GB-jenny_dioco-medium.wav"
     },
     {
       "stack_id": "ml",
@@ -996,7 +1031,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-GB)"
+      "language": "en (voice en-GB)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1023,7 +1059,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1050,7 +1087,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ca-LM)"
+      "language": "en (voice ca-LM)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1077,7 +1115,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ma-LE)"
+      "language": "en (voice ma-LE)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1104,7 +1143,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1131,7 +1171,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1158,7 +1199,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ca-LM)"
+      "language": "en (voice ca-LM)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1185,7 +1227,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ma-LE)"
+      "language": "en (voice ma-LE)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1212,7 +1255,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ma-LE)"
+      "language": "en (voice ma-LE)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1239,7 +1283,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ma-LE)"
+      "language": "en (voice ma-LE)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1266,7 +1311,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ma-LE)"
+      "language": "en (voice ma-LE)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1293,7 +1339,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1320,7 +1367,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1347,7 +1395,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1374,7 +1423,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1401,7 +1451,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice mi-KE)"
+      "language": "en (voice mi-KE)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1428,7 +1479,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice em-MA)"
+      "language": "en (voice em-MA)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1455,7 +1507,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1482,7 +1535,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice zh-CN)"
+      "language": "en (voice zh-CN)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1509,7 +1563,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice zh-CN)"
+      "language": "en (voice zh-CN)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1536,7 +1591,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1563,7 +1619,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice er-IC)"
+      "language": "en (voice er-IC)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1590,7 +1647,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ry-AN)"
+      "language": "en (voice ry-AN)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1617,7 +1675,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1644,7 +1703,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice zh-CN)"
+      "language": "en (voice zh-CN)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1671,7 +1731,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice an-NA)"
+      "language": "en (voice an-NA)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1698,7 +1759,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ko-KR)"
+      "language": "en (voice ko-KR)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1725,7 +1787,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice al-BA)"
+      "language": "en (voice al-BA)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1752,7 +1815,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1779,7 +1843,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1806,7 +1871,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1833,7 +1899,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1860,7 +1927,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1887,7 +1955,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1914,7 +1983,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "sample_url": "supertonic3-F1.wav"
     },
     {
       "stack_id": "ml",
@@ -1941,7 +2011,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1968,7 +2039,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -1995,7 +2067,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "sample_url": "supertonic3-F4.wav"
     },
     {
       "stack_id": "ml",
@@ -2022,7 +2095,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -2049,7 +2123,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice zh-CN)"
+      "language": "en (voice zh-CN)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -2076,7 +2151,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice zh-CN)"
+      "language": "en (voice zh-CN)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -2103,7 +2179,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice zh-CN)"
+      "language": "en (voice zh-CN)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -2130,7 +2207,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice zh-CN)"
+      "language": "en (voice zh-CN)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -2157,7 +2235,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice zh-CN)"
+      "language": "en (voice zh-CN)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -2184,7 +2263,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice zh-CN)"
+      "language": "en (voice zh-CN)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -2211,7 +2291,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -2238,7 +2319,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -2265,7 +2347,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -2292,7 +2375,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ad-AM)"
+      "language": "en (voice ad-AM)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -2319,7 +2403,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -2346,7 +2431,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice so-YO)"
+      "language": "en (voice so-YO)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -2373,7 +2459,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice sa-KI)"
+      "language": "en (voice sa-KI)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -2400,7 +2487,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ja-JP)"
+      "language": "en (voice ja-JP)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -2427,7 +2515,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ja-JP)"
+      "language": "en (voice ja-JP)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -2454,7 +2543,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ja-JP)"
+      "language": "en (voice ja-JP)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -2481,7 +2571,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice an-ON)"
+      "language": "en (voice an-ON)",
+      "sample_url": null
     },
     {
       "stack_id": "ml",
@@ -2508,7 +2599,8 @@ const data = {
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ja-JP)"
+      "language": "en (voice ja-JP)",
+      "sample_url": null
     }
   ],
   "performance_phrase_catalog": {

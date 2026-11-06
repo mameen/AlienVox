@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -7,93 +7,136 @@
 <style>
 
 body {
-    font-family: 'Segoe UI', Consolas, monospace;
-    background: #1a1a2e;
-    color: #e0e0e0;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #f3f6fb;
+    color: #182433;
     margin: 0;
     padding: 20px;
 }
-h1 { color: #00d4ff; text-align: center; }
-h2 { color: #7b68ee; margin-top: 30px; }
-#info { background: #16213e; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-#chart-container { width: 100%; min-height: 400px; }
-table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #16213e; border-radius: 8px; overflow: hidden; }
-th { background: #0f3460; color: #00d4ff; padding: 10px; text-align: left; }
-td { padding: 8px 10px; border-bottom: 1px solid #1a1a3e; }
-tr:hover { background: #1f2b4d; }
-.status-ok { color: #00ff88; }
-.status-warn { color: #ffaa00; }
-.status-error { color: #ff4444; }
-.status-na { color: #666; }
+h1 { color: #174a7e; text-align: center; }
+h2 { color: #23476d; margin-top: 30px; }
+#info { background: #e6eef8; color: #1c3552; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+#chart-container { width: 100%; min-height: 400px; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #fff; border-radius: 8px; overflow: hidden; }
+th { background: #dce8f5; color: #173b5f; padding: 10px; text-align: left; }
+td { padding: 8px 10px; border-bottom: 1px solid #d6deea; }
+tr:hover { background: #edf4fb; }
+.status-ok { color: #17633a; }
+.status-warn { color: #855400; }
+.status-error { color: #a32323; }
+.status-na { color: #687587; }
+.error-flag { width: 27px; height: 27px; border: 2px solid #ff4545; border-radius: 50%; background: transparent; color: #ff4545; cursor: pointer; font-size: 17px; font-weight: 900; line-height: 1; padding: 0; margin-right: 7px; vertical-align: middle; }
+.error-flag.selected { background: #e32636; color: #fff; box-shadow: 0 0 8px rgba(255,48,48,.55); }
+.error-flag:focus-visible { outline: 2px solid #ff9b9b; outline-offset: 2px; }
+.star-rating { display: inline-flex; align-items: center; white-space: nowrap; vertical-align: middle; }
+.rating-star:disabled { cursor: not-allowed; opacity: .3; }
+.rating-star { flex: 0 0 auto; background: transparent; border: 0; color: #68748c; cursor: pointer; font-size: 17px; line-height: 1; padding: 0; }
+.rating-star.selected { color: #ffd34e; }
+.listen-button { background: #087f23; color: white; border: 0; border-radius: 4px; padding: 5px 8px; cursor: pointer; }
+.listen-button:disabled { background: #555; cursor: default; }
+.table-wrap { overflow-x: auto; }
+.raw-results-panel { background: #fff; border: 1px solid #cbd6e4; border-radius: 9px; padding: 16px; margin: 15px 0; }
+.raw-results-panel h2 { margin-top: 0; }
+.model-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin: 10px 0 14px; }
+.model-nav-label { color: #40516a; font-weight: 600; margin-right: 3px; }
+.model-nav button { background: #edf3fa; color: #174a7e; border: 1px solid #9fb4ca; border-radius: 5px; padding: 6px 10px; cursor: pointer; }
+.model-nav button:hover, .model-nav button:focus-visible { background: #d8e9f8; outline: 2px solid #4d8fc8; outline-offset: 1px; }
+.model-row-highlight { animation: model-row-flash 1.4s ease-out; }
+@keyframes model-row-flash { from { background: #ffe89a; } to { background: transparent; } }
+button.export { padding: 8px 12px; background: #176b9c; border: 0; border-radius: 5px; color: white; cursor: pointer; }
+button.export:hover { background: #2189c4; }
 .legend { display: flex; gap: 20px; margin-top: 10px; font-size: 14px; }
 .legend-item { display: flex; align-items: center; gap: 5px; cursor: pointer; user-select: none;
     padding: 2px 8px; border-radius: 4px; transition: background 0.15s; }
-.legend-item:hover { background: #1f2b4d; }
+.legend-item:hover { background: #e3ebf5; }
 .legend-item.inactive { opacity: 0.35; }
 .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
-.legend-hint { font-size: 11px; color: #888; margin-top: 2px; }
+.legend-hint { font-size: 12px; color: #526176; margin-top: 8px; }
 .chart-bar { cursor: pointer; transition: opacity 0.15s; }
 #chart-tooltip {
     position: fixed;
     display: none;
-    background: #0f3460;
-    color: #e0e0e0;
-    border: 1px solid #00d4ff;
+    background: #fff;
+    color: #182433;
+    border: 1px solid #547ba5;
     border-radius: 6px;
     padding: 8px 12px;
     font-size: 12px;
     pointer-events: none;
     z-index: 1000;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    box-shadow: 0 4px 12px rgba(35,55,80,0.22);
 }
-#chart-tooltip b { color: #00d4ff; }
-#listen-chart { background: #16213e; border-radius: 8px; padding: 14px; }
-#listen-chart svg { width: 100%; height: 430px; }
-.axis-line { stroke: #73809b; stroke-width: 1; }
-.axis-label, .tick-label { fill: #c7cce0; font: 12px 'Segoe UI', sans-serif; }
-.scatter-point { stroke: #fff; stroke-width: 1.5; cursor: pointer; }
-.scatter-label { fill: #e0e0e0; font: 12px 'Segoe UI', sans-serif; }
-.rating-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
-.rating-controls select, .rating-controls button { background: #0f3460; color: #e0e0e0; border: 1px solid #5072a7; padding: 6px 9px; border-radius: 4px; }
-.rating-controls button { cursor: pointer; }
-.listen-button { background: #087f23; color: white; border: 0; border-radius: 4px; padding: 5px 8px; cursor: pointer; }
-.listen-button:disabled { background: #555; cursor: default; }
-.star-rating { white-space: nowrap; }
-.star-rating button { background: transparent; border: 0; color: #68748c; cursor: pointer; font-size: 18px; line-height: 1; padding: 1px; }
-.star-rating button.selected { color: #ffd34e; }
-.error-flag { width: 29px; height: 29px; border: 2px solid #ff4545; border-radius: 50%; background: transparent; color: #ff4545; cursor: pointer; font-size: 18px; font-weight: 900; line-height: 1; padding: 0; margin-right: 7px; vertical-align: middle; }
-.error-flag.selected { background: #e32636; color: #fff; text-shadow: 0 0 7px rgba(255,48,48,.55); }
-.error-flag:focus-visible { outline: 2px solid #ff9b9b; outline-offset: 2px; }
-.star-rating button:disabled { cursor: not-allowed; opacity: .3; }
-.star-rating button:focus-visible { outline: 2px solid #00d4ff; border-radius: 3px; }
-.report-note { color: #bac4dd; font: 14px 'Segoe UI', sans-serif; line-height: 1.5; }
+#chart-tooltip b { color: #174a7e; }
+.report-note { color: #40516a; font: 14px 'Segoe UI', sans-serif; line-height: 1.5; }
+.axis-label, .tick text { fill: #34465e; color: #34465e; font: 12px 'Segoe UI', sans-serif; }
+.domain, .tick line { stroke: #8998aa; }
+.theme-toggle { float: right; background: #174a7e; color: #fff; border: 0; border-radius: 5px; padding: 8px 12px; cursor: pointer; }
+.theme-dark { background: #111827; color: #e5edf7; }
+.theme-dark h1 { color: #8ecbff; }
+.theme-dark h2 { color: #b8d8f2; }
+.theme-dark #info { background: #1e293b; color: #e5edf7; }
+.theme-dark .report-note, .theme-dark .quality-panel p { color: #c5d2e3; }
+.theme-dark table, .theme-dark .raw-results-panel, .theme-dark .quality-panel { background: #1e293b; border-color: #42536a; color: #e5edf7; }
+.theme-dark .model-nav-label { color: #d8e3f0; }
+.theme-dark .model-nav button { background: #263750; color: #d6eaff; border-color: #607792; }
+.theme-dark .model-nav button:hover, .theme-dark .model-nav button:focus-visible { background: #344d6a; }
+.theme-dark th { background: #263750; color: #d6eaff; }
+.theme-dark td { border-color: #384a61; }
+.theme-dark tr:hover { background: #2a3a50; }
+.theme-dark .status-ok { color: #83e0a7; }
+.theme-dark .status-warn { color: #ffd17c; }
+.theme-dark .status-error { color: #ff9b9b; }
+.theme-dark .status-na { color: #b3c0d0; }
+.theme-dark .legend-item { color: #e5edf7; }
+.theme-dark .legend-item:hover { background: #30445f; }
+.theme-dark .legend-hint { color: #bdcadd; }
+.theme-dark .axis-label, .theme-dark .tick text { fill: #d8e3f0; color: #d8e3f0; }
+.theme-dark .domain, .theme-dark .tick line { stroke: #8b9bb0; }
+.theme-dark #chart-tooltip { background: #263750; color: #f3f7fc; border-color: #8ecbff; }
+.theme-dark #chart-tooltip b { color: #8ecbff; }
+.theme-dark .quality-legend button { background: #263750; color: #f3f7fc; border-color: #607792; }
+.theme-toggle:hover { filter: brightness(1.1); }
+.quality-panel { background: #fff; border: 1px solid #cbd6e4; border-radius: 8px; padding: 16px; margin: 18px 0; }
+.quality-panel p { color: #40516a; }
+.quality-legend { display: flex; gap: 18px; color: #26364c; margin: 6px 0 12px; }
+.quality-legend span { display: inline-flex; gap: 6px; align-items: center; }
+.quality-legend i { width: 12px; height: 12px; display: inline-block; border-radius: 50%; }
+.quality-legend button { background: #edf3fa; color: #26364c; border: 1px solid #a9b9cb; border-radius: 5px; padding: 5px 9px; cursor: pointer; }
+.quality-legend button.inactive { opacity: .45; }
+.metric-legend .legend-item { color: #26364c; }
 
 </style>
 <script src="https://d3js.org/d3.v7.min.js"></script>
-<script src="./20261105025132.js"></script>
+<script src="./full.js"></script>
 </head>
 <body>
 <h1>AlienVox Performance Report</h1>
+<button class="theme-toggle" id="theme-toggle" type="button">Switch to dark theme</button>
 <div id="info">Rendering report...</div>
-<p class="report-note">This existing run used English text for every voice. The language column shows the voice locale beside the phrase locale; compare timing within one phrase locale because translation lengths differ. The new localized phrases are draft translations pending native-speaker review.</p>
-<h2>Metrics by Stack/Model/Voice</h2>
+<p style="color:#bac4dd;font:14px 'Segoe UI',sans-serif">Each voice uses its matching localized phrase where known. Compare timing within the same phrase locale; translation lengths differ. Locale translations are drafts pending native-speaker review.</p>
+<h2>Latency, CPU load, and memory</h2>
+<p class="report-note">Each metric is normalized to its highest result (100%) so different units can share one chart. Hover a bar to see the measured value.</p>
 <div id="chart-container"></div>
-<h2>Listening quality vs. performance</h2>
-<div id="listen-chart">
-  <p class="report-note">Performance is measured in this run. Quality was not measured, so listen to the samples and enter your own 1Ã¢â‚¬â€œ5 rating. SAPI Play buttons use captured run audio; ML Play buttons use bundled offline previews, which may differ from the measured output. Ratings and error flags are saved in this browser and included in the JSON export.</p>
-  <div class="rating-controls" id="rating-controls"></div>
-  <svg id="quality-scatter" role="img" aria-label="Subjective quality rating versus median synthesis time"></svg>
-</div>
 <div id="chart-tooltip"></div>
+<section class="quality-panel" id="quality-panel">
+<h2>Quality vs resource percentile</h2>
+<p>Subjective voice ratings (1–5 stars) compared with CPU and memory percentiles across rated voices. Higher percentiles mean greater resource use; hover a point for its measured value.</p>
+<div class="quality-legend" id="quality-legend"></div>
+<div id="quality-chart"></div>
+</section>
+<section class="raw-results-panel">
 <h2>Raw Results</h2>
-<table id="results-table">
+<div id="model-nav" class="model-nav" aria-label="Jump to model results"></div>
+<p><button class="export" id="export-ratings" type="button">Download metrics + ratings JSON</button></p>
+<div class="table-wrap"><table id="results-table">
 <thead><tr>
-    <th>Stack</th><th>Model</th><th>Voice</th><th>Language (tested; voice)</th><th>Phrase chars</th><th>Device</th>
+    <th>Stack</th><th>Model</th><th>Voice</th><th>Language</th><th>Phrase chars</th><th>Variant</th><th>Emotion</th><th>Tone</th><th>Device</th>
     <th>Synth (ms)</th><th>Duration (s)</th><th>Size (KB)</th><th>Sample Rate</th>
-    <th>Memory (MB)</th><th>CPU (%)</th><th>GPU (%)</th><th>GPU (MB)</th><th>Listen</th>
+    <th>Memory (MB)</th><th>CPU (%)</th><th>GPU (%)</th><th>GPU (MB)</th><th>Sample</th><th>Rating</th>
 </tr></thead>
 <tbody id="results-body"></tbody>
-</table>
+</table></div>
+</section>
 
 <script>
 const THRESHOLDS = {
@@ -124,146 +167,273 @@ const WELCOME_PHRASE = "Welcome to AlienVox. This is a performance test of your 
         '<b>Python:</b> ' + data.platform.python + ' | ' +
         '<b>Runs:</b> ' + data.results.length;
 
-    // Ã¢â€â‚¬Ã¢â€â‚¬ Bar chart: synthesis time vs audio duration (both in ms) Ã¢â€â‚¬Ã¢â€â‚¬
-    // Interactive: click a legend entry to show only that series (click
-    // again to restore both); hover or click a bar to see its exact value
-    // in a floating tooltip (click pins it Ã¢â‚¬â€ useful on touch, harmless on
-    // desktop since hover already shows the same tooltip).
-    const chartable = data.results.filter(d => !d.skipped);
+    const themeToggle = document.getElementById('theme-toggle');
+    const themeKey = 'alienvox-report-theme-v1';
+    let reportTheme = 'light';
+    try { reportTheme = localStorage.getItem(themeKey) === 'dark' ? 'dark' : 'light'; } catch (_) {}
+    const applyTheme = theme => {
+        reportTheme = theme;
+        document.body.classList.toggle('theme-dark', theme === 'dark');
+        themeToggle.textContent = theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
+        themeToggle.setAttribute('aria-pressed', theme === 'dark');
+        try { localStorage.setItem(themeKey, theme); } catch (_) {}
+    };
+    themeToggle.addEventListener('click', () => applyTheme(reportTheme === 'dark' ? 'light' : 'dark'));
+    applyTheme(reportTheme);
+
+    const metrics = [
+        {key: 'synthesis_ms', label: 'Latency', unit: 'ms', color: '#2364aa'},
+        {key: 'cpu_percent', label: 'CPU load', unit: '%', color: '#c45b08'},
+        {key: 'memory_mb', label: 'Memory', unit: 'MB', color: '#087f8c'},
+    ];
+    const metricValue = (row, key) => Number.isFinite(Number(row[key])) && Number(row[key]) >= 0 ? Number(row[key]) : null;
+    const chartable = data.results.filter(d => !d.skipped && metrics.some(m => metricValue(d, m.key) !== null));
     const container = document.getElementById('chart-container');
     const tooltip = document.getElementById('chart-tooltip');
-    const margin = {top: 20, right: 30, bottom: 80, left: 60};
-    const width = container.clientWidth - margin.left - margin.right;
-    const height = 400 - margin.top - margin.bottom;
-
-    const seriesKeys = ['synthesis_ms', 'audio_duration_ms'];
-    const seriesLabels = { synthesis_ms: 'Synthesis Time', audio_duration_ms: 'Audio Duration' };
-    let activeSeries = new Set(seriesKeys);  // both visible by default
-
-    const svg = d3.select('#chart-container')
-        .append('svg')
-        .attr('width', width + margin.left + margin.right)
-        .attr('height', height + margin.top + margin.bottom)
-        .append('g')
-        .attr('transform', `translate(${margin.left},${margin.top})`);
-
-    const x0 = d3.scaleBand()
-        .domain(chartable.map(d => d.stack_id + (d.model_id ? '/' + d.model_id : '') + '/' + d.voice_id))
-        .rangeRound([0, width])
-        .paddingInner(0.1);
-
-    const x1 = d3.scaleBand()
-        .domain(seriesKeys)
-        .range([0, x0.bandwidth()])
-        .padding(0.05);
-
-    const seriesValue = (d, key) => key === 'audio_duration_ms'
-        ? Math.max(0, d.audio_duration_s) * 1000
-        : Math.max(0, d.synthesis_ms);
-
-    const seriesDisplay = (d, key) => key === 'audio_duration_ms'
-        ? `${Math.max(0, d.audio_duration_s).toFixed(2)} s`
-        : `${Math.max(0, d.synthesis_ms).toFixed(1)} ms`;
-
-    const y = d3.scaleLinear()
-        .domain([0, d3.max(chartable, d => Math.max(seriesValue(d, 'synthesis_ms'), seriesValue(d, 'audio_duration_ms'))) * 1.1 || 100])
-        .nice()
-        .range([height, 0]);
-
-    svg.append('g')
-        .attr('transform', `translate(0,${height})`)
-        .call(d3.axisBottom(x0))
-        .selectAll('text')
-        .attr('transform', 'rotate(-25)')
-        .style('text-anchor', 'end');
-
-    svg.append('g').call(d3.axisLeft(y));
-
-    const color = d3.scaleOrdinal()
-        .domain(seriesKeys)
-        .range(['#00d4ff', '#7b68ee']);
-
-    function showTooltip(evt, d, series) {
-        tooltip.innerHTML =
-            `<b>${seriesLabels[series]}</b><br>` +
-            `${d.stack_id}${d.model_id ? '/' + d.model_id : ''}/${d.voice_id}<br>` +
-            seriesDisplay(d, series);
-        tooltip.style.display = 'block';
-        tooltip.style.left = (evt.clientX + 14) + 'px';
-        tooltip.style.top = (evt.clientY + 14) + 'px';
-    }
-    function hideTooltip() { tooltip.style.display = 'none'; }
-
-    const bars = svg.selectAll('.chart-bar-group')
-        .data(chartable)
-        .enter()
-        .append('g');
-
-    bars.each(function(d) {
-        const key = d.stack_id + (d.model_id ? '/' + d.model_id : '') + '/' + d.voice_id;
-        seriesKeys.forEach(series => {
-            const v = seriesValue(d, series);
-            d3.select(this).append('rect')
-                .attr('class', 'chart-bar')
-                .attr('data-series', series)
-                .attr('x', x0(key) + x1(series))
-                .attr('y', y(v))
-                .attr('width', x1.bandwidth())
-                .attr('height', height - y(v))
-                .attr('fill', color(series))
-                .attr('rx', 2)
-                .style('display', activeSeries.has(series) ? null : 'none')
-                .on('mousemove', (evt) => showTooltip(evt, d, series))
-                .on('mouseleave', hideTooltip)
-                .on('click', (evt) => { evt.stopPropagation(); showTooltip(evt, d, series); });
-        });
-    });
-
-    // Clicking anywhere else on the page dismisses a click-pinned tooltip.
-    document.addEventListener('click', hideTooltip);
-
-    // Ã¢â€â‚¬Ã¢â€â‚¬ Legend (clickable Ã¢â‚¬â€ filters the chart to just that series) Ã¢â€â‚¬Ã¢â€â‚¬
-    const legendWrap = d3.select('#chart-container').append('div');
-    legendWrap.append('div').attr('class', 'legend-hint')
-        .text('Click a series below to isolate it Ã¢â‚¬â€ click again to show both.');
-    const legend = legendWrap.append('div').attr('class', 'legend');
-    const legendItems = {};
-    seriesKeys.forEach(series => {
-        const item = legend.append('div')
-            .attr('class', 'legend-item')
-            .on('click', () => {
-                if (activeSeries.size === seriesKeys.length) {
-                    // Both active -> isolate the clicked series.
-                    activeSeries = new Set([series]);
-                } else if (activeSeries.has(series) && activeSeries.size === 1) {
-                    // Already isolated -> clicking it again restores both.
-                    activeSeries = new Set(seriesKeys);
-                } else {
-                    // The other series is isolated -> switch isolation to this one.
-                    activeSeries = new Set([series]);
-                }
-                seriesKeys.forEach(s => {
-                    legendItems[s].classed('inactive', !activeSeries.has(s));
-                });
-                svg.selectAll('.chart-bar').style('display', function() {
-                    return activeSeries.has(this.getAttribute('data-series')) ? null : 'none';
-                });
+    const modelKey = d => d.model_id ? `${d.stack_id}/${d.model_id}` : d.stack_id;
+    const modelLabel = d => d.model_id || d.stack_id;
+    const voiceKey = d => d.voice_id;
+    if (chartable.length) {
+        const margin = {top: 20, right: 24, bottom: 145, left: 58};
+        const width = Math.max(220, container.clientWidth - margin.left - margin.right);
+        const height = 380 - margin.top - margin.bottom;
+        const svg = d3.select('#chart-container').append('svg')
+            .attr('width', width + margin.left + margin.right)
+            .attr('height', height + margin.top + margin.bottom)
+            .append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+        const maxima = Object.fromEntries(metrics.map(m => [m.key, d3.max(chartable, d => metricValue(d, m.key) || 0) || 1]));
+        const modelGroups = Array.from(d3.group(chartable, modelKey), ([key, rows]) => ({key, label: modelLabel(rows[0]), rows}));
+        const x0 = d3.scaleBand().domain(modelGroups.map(group => group.key)).range([0, width]).paddingInner(0.16);
+        const maxVoices = d3.max(modelGroups, group => group.rows.length) || 1;
+        const voiceSlotWidth = x0.bandwidth() / maxVoices;
+        const voiceScales = new Map(modelGroups.map(group => [group.key,
+            d3.scaleBand().domain(group.rows.map(voiceKey)).range([0, maxVoices * voiceSlotWidth]).paddingInner(0.08)]));
+        const x2 = d3.scaleBand().domain(metrics.map(m => m.key)).range([0, voiceSlotWidth]).padding(0.08);
+        const y = d3.scaleLinear().domain([0, 100]).range([height, 0]);
+        const metricFor = key => metrics.find(m => m.key === key);
+        const tooltip = document.getElementById('chart-tooltip');
+        const positionTooltip = evt => {
+            const gap = 14, edge = 8;
+            const box = tooltip.getBoundingClientRect();
+            let left = evt.clientX + gap;
+            let top = evt.clientY + gap;
+            if (left + box.width > window.innerWidth - edge) left = evt.clientX - box.width - gap;
+            if (top + box.height > window.innerHeight - edge) top = evt.clientY - box.height - gap;
+            tooltip.style.left = Math.max(edge, left) + 'px';
+            tooltip.style.top = Math.max(edge, top) + 'px';
+        };
+        svg.append('path').attr('class', 'domain').attr('d', `M0,${height}H${width}`);
+        modelGroups.forEach(group => {
+            const modelX = x0(group.key);
+            const scale = voiceScales.get(group.key);
+            group.rows.forEach(row => {
+                const center = modelX + scale(row.voice_id) + scale.bandwidth() / 2;
+                svg.append('text').attr('class', 'axis-label').attr('x', center).attr('y', height + 5).attr('text-anchor', 'end').attr('transform', `rotate(-45,${center},${height + 5})`).text(row.voice_id);
             });
-        item.append('div').attr('class', 'legend-dot')
-            .style('background', color(series));
-        item.append('span').text(seriesLabels[series]);
-        legendItems[series] = item;
-    });
-
-    // Ã¢â€â‚¬Ã¢â€â‚¬ Table rows Ã¢â€â‚¬Ã¢â€â‚¬
+            svg.append('text').attr('class', 'axis-label').attr('x', modelX + x0.bandwidth() / 2).attr('y', height + 112).attr('text-anchor', 'middle').attr('font-weight', '700').text(group.label);
+        });
+        svg.append('g').call(d3.axisLeft(y).ticks(5).tickFormat(v => v + '%'));
+        svg.append('text').attr('class', 'axis-label').attr('transform', 'rotate(-90)')
+            .attr('x', -height / 2).attr('y', -42).attr('text-anchor', 'middle').text('Relative value within metric (max = 100%)');
+        const hideTooltip = () => { tooltip.style.display = 'none'; };
+        const bars = svg.selectAll('.voice-bars').data(chartable).enter().append('g')
+            .attr('transform', d => `translate(${x0(modelKey(d)) + voiceScales.get(modelKey(d))(voiceKey(d))},0)`);
+        bars.selectAll('rect').data(d => metrics.map(m => ({row: d, metric: m}))).enter().append('rect')
+            .attr('x', d => x2(d.metric.key)).attr('y', d => y((metricValue(d.row, d.metric.key) || 0) / maxima[d.metric.key] * 100))
+            .attr('width', x2.bandwidth())
+            .attr('height', d => metricValue(d.row, d.metric.key) === null ? 0 : height - y(metricValue(d.row, d.metric.key) / maxima[d.metric.key] * 100))
+            .attr('fill', d => d.metric.color).attr('rx', 2)
+            .on('mousemove', (evt, d) => {
+                tooltip.innerHTML = `<b>${d.metric.label}</b><br>${d.row.model_id || d.row.stack_id}/${d.row.voice_id}<br>${Number(d.row[d.metric.key]).toFixed(1)} ${d.metric.unit}`;
+                tooltip.style.display = 'block'; positionTooltip(evt);
+            }).on('mouseleave', hideTooltip);
+        document.addEventListener('click', hideTooltip);
+        const legend = d3.select('#chart-container').append('div').attr('class', 'legend metric-legend');
+        const activeMetrics = new Set(metrics.map(m => m.key));
+        const legendItems = new Map();
+        metrics.forEach(m => {
+            const item = legend.append('div').attr('class', 'legend-item').on('click', () => {
+                if (activeMetrics.size === metrics.length) activeMetrics.delete(m.key);
+                else if (activeMetrics.size === 1 && activeMetrics.has(m.key)) metrics.forEach(value => activeMetrics.add(value.key));
+                else { activeMetrics.clear(); activeMetrics.add(m.key); }
+                if (!activeMetrics.size) activeMetrics.add(m.key);
+                metrics.forEach(value => legendItems.get(value.key).classed('inactive', !activeMetrics.has(value.key)));
+                svg.selectAll('rect').style('display', d => activeMetrics.has(d.metric.key) ? null : 'none');
+            });
+            item.append('div').attr('class', 'legend-dot').style('background', m.color);
+            item.append('span').text(`${m.label} (${m.unit})`); legendItems.set(m.key, item);
+        });
+    }
     const tbody = document.getElementById('results-body');
+    const ratingsKey = 'alienvox-voice-ratings-v1';
+    const errorsKey = 'alienvox-voice-errors-v1';
+    const loadFeedback = (stableKey, legacyPrefixes, errorEntries = false) => {
+        const saved = {};
+        try {
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key !== stableKey && legacyPrefixes.some(prefix => key.startsWith(prefix)) && key.endsWith('-errors') === errorEntries) {
+                    Object.assign(saved, JSON.parse(localStorage.getItem(key) || '{}'));
+                }
+            }
+            Object.assign(saved, JSON.parse(localStorage.getItem(stableKey) || '{}'));
+            localStorage.setItem(stableKey, JSON.stringify(saved));
+        } catch (_) {}
+        return saved;
+    };
+    const voiceRatings = loadFeedback(ratingsKey, ['alienvox-voice-ratings-', 'alienvox-voice-quality-']);
+    const voiceErrors = loadFeedback(errorsKey, ['alienvox-voice-ratings-', 'alienvox-voice-quality-'], true);
+    const rowKey = d => d.model_id ? d.model_id + '/' + d.voice_id : d.stack_id + '/' + d.voice_id;
+    const renderQualityChart = () => {
+        const root = document.getElementById('quality-chart'); root.replaceChildren();
+        const ratedRows = data.results.filter(d => !d.skipped && Number(voiceRatings[rowKey(d)]) >= 1 && Number(voiceRatings[rowKey(d)]) <= 5 && voiceErrors[rowKey(d)] !== true);
+        if (!ratedRows.length) {
+            root.textContent = 'Rate voices in Raw Results to populate this chart.';
+            return;
+        }
+        const costs = [
+            {key: 'cpu_percent', label: 'CPU load', unit: '%', color: '#6c3fc5', shape: d3.symbolCircle},
+            {key: 'memory_mb', label: 'Memory', unit: 'MB', color: '#087f8c', shape: d3.symbolDiamond},
+        ];
+        const costSamples = Object.fromEntries(costs.map(cost => [cost.key,
+            ratedRows.map(d => Number(d[cost.key])).filter(value => value >= 0)]));
+        const points = ratedRows.flatMap(row => costs.filter(cost => Number(row[cost.key]) >= 0).map(cost => ({
+            row, cost, score: Number(voiceRatings[rowKey(row)]),
+            percentile: (() => {
+                const values = costSamples[cost.key], value = Number(row[cost.key]);
+                const below = values.filter(item => item < value).length;
+                const tied = values.filter(item => item === value).length;
+                return values.length <= 1 || below + tied === values.length && below === 0
+                    ? 50
+                    : 100 * (below + (tied - 1) / 2) / (values.length - 1);
+            })(),
+        })));
+        const margin = {top: 20, right: 24, bottom: 58, left: 58};
+        const width = Math.max(320, document.getElementById('quality-panel').clientWidth) - margin.left - margin.right;
+        const height = 320 - margin.top - margin.bottom;
+        const svg = d3.select(root).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${width + margin.left + margin.right} 320`)
+            .append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+        const x = d3.scaleLinear().domain([0, 100]).range([0, width]);
+        const y = d3.scaleLinear().domain([0.5, 5.5]).range([height, 0]);
+        svg.append('g').attr('transform', `translate(0,${height})`).call(d3.axisBottom(x).ticks(5).tickFormat(v => 'P' + Math.round(v)));
+        svg.append('g').call(d3.axisLeft(y).ticks(5).tickFormat(v => v + ' ★'));
+        svg.append('text').attr('class', 'axis-label').attr('x', width / 2).attr('y', height + 45).attr('text-anchor', 'middle')
+            .text('Resource percentile among rated voices (P0 = lowest, P100 = highest use)');
+        const tooltip = document.getElementById('chart-tooltip');
+        const positionTooltip = evt => {
+            const gap = 14, edge = 8;
+            const box = tooltip.getBoundingClientRect();
+            let left = evt.clientX + gap;
+            let top = evt.clientY + gap;
+            if (left + box.width > window.innerWidth - edge) left = evt.clientX - box.width - gap;
+            if (top + box.height > window.innerHeight - edge) top = evt.clientY - box.height - gap;
+            tooltip.style.left = Math.max(edge, left) + 'px';
+            tooltip.style.top = Math.max(edge, top) + 'px';
+        };
+        const qualityMarks = svg.selectAll('.quality-point').data(points).enter().append('path')
+            .attr('class', 'quality-point').attr('transform', d => `translate(${x(d.percentile)},${y(d.score)})`)
+            .attr('d', d => d3.symbol().type(d.cost.shape).size(100)())
+            .attr('fill', d => d.cost.color).attr('stroke', '#26364c').attr('stroke-width', 1)
+            .on('mousemove', (evt, d) => {
+                tooltip.innerHTML = `<b>${d.cost.label} vs quality</b><br>${d.row.model_id || d.row.stack_id}/${d.row.voice_id}<br>Quality: ${d.score} / 5<br>${d.cost.label}: P${Math.round(d.percentile)} (${Number(d.row[d.cost.key]).toFixed(1)} ${d.cost.unit})`;
+                tooltip.style.display = 'block'; positionTooltip(evt);
+            }).on('mouseleave', () => { tooltip.style.display = 'none'; });
+        const activeCosts = new Set(costs.map(cost => cost.key));
+        const legend = d3.select('#quality-legend');
+        costs.forEach(cost => {
+            const button = legend.append('button').attr('type', 'button').text(cost.label);
+            button.on('click', () => {
+                if (activeCosts.size === costs.length) activeCosts.delete(cost.key);
+                else if (activeCosts.size === 1 && activeCosts.has(cost.key)) costs.forEach(value => activeCosts.add(value.key));
+                else { activeCosts.clear(); activeCosts.add(cost.key); }
+                if (!activeCosts.size) activeCosts.add(cost.key);
+                costs.forEach(value => legend.selectAll('button').filter((_, i) => i === costs.indexOf(value)).classed('inactive', !activeCosts.has(value.key)));
+                qualityMarks.style('display', d => activeCosts.has(d.cost.key) ? null : 'none');
+            });
+        });
+    };
+    const addRatingCell = (tr, d) => {
+        const td = tr.insertCell();
+        const wrap = document.createElement('span'); wrap.className = 'star-rating';
+        const key = rowKey(d);
+        if (voiceErrors[key] === true && Object.prototype.hasOwnProperty.call(voiceRatings, key)) {
+            delete voiceRatings[key];
+            try { localStorage.setItem(ratingsKey, JSON.stringify(voiceRatings)); } catch (_) {}
+        }
+        const error = document.createElement('button'); error.type = 'button'; error.className = 'error-flag';
+        error.textContent = '!'; error.title = 'Flag an error for ' + key + '; this blocks star rating until cleared.';
+        error.setAttribute('aria-label', error.title); error.setAttribute('aria-pressed', voiceErrors[key] === true); error.classList.toggle('selected', voiceErrors[key] === true);
+        error.addEventListener('click', () => {
+            voiceErrors[key] = voiceErrors[key] !== true;
+            if (voiceErrors[key]) {
+                delete voiceRatings[key];
+                wrap.querySelectorAll('.rating-star').forEach(star => { star.disabled = true; star.classList.remove('selected'); });
+                try { localStorage.setItem(ratingsKey, JSON.stringify(voiceRatings)); } catch (_) {}
+            } else {
+                wrap.querySelectorAll('.rating-star').forEach(star => { star.disabled = false; });
+            }
+            error.classList.toggle('selected', voiceErrors[key]);
+            error.title = (voiceErrors[key] ? 'Error reported; clear to rate ' : 'Report an error for ') + key;
+            error.setAttribute('aria-label', error.title); error.setAttribute('aria-pressed', voiceErrors[key]);
+            try { localStorage.setItem(errorsKey, JSON.stringify(voiceErrors)); } catch (_) { alert('Browser storage is unavailable; export the JSON to keep error reports.'); }
+            renderQualityChart();
+        });
+        wrap.appendChild(error);
+        for (let score = 1; score <= 5; score++) {
+            const star = document.createElement('button'); star.type = 'button'; star.className = 'rating-star'; star.textContent = '★';
+            star.title = 'Rate ' + key + ' ' + score + ' out of 5'; star.setAttribute('aria-label', star.title);
+            star.disabled = voiceErrors[key] === true;
+            if (star.disabled) star.title = 'Clear the error flag before rating ' + key;
+            star.classList.toggle('selected', voiceErrors[key] !== true && Number(voiceRatings[key]) >= score);
+            star.addEventListener('click', () => {
+                if (voiceErrors[key] === true) return;
+                voiceRatings[key] = score;
+                wrap.querySelectorAll('.rating-star').forEach((item, index) => item.classList.toggle('selected', index < score));
+                try { localStorage.setItem(ratingsKey, JSON.stringify(voiceRatings)); } catch (_) { alert('Browser storage is unavailable; export the JSON to keep ratings.'); }
+                renderQualityChart();
+            });
+            wrap.appendChild(star);
+        }
+        td.appendChild(wrap);
+    };
+    document.getElementById('export-ratings').addEventListener('click', () => {
+        const payload = { schema_version: 1, benchmark_timestamp: data.timestamp, welcome_phrase: data.welcome_phrase,
+            platform: data.platform, voice_ratings: voiceRatings, voice_errors: voiceErrors,
+            results: data.results.map(row => ({...row, user_rating_1_to_5: voiceRatings[rowKey(row)] ?? null,
+                error_reported: voiceErrors[rowKey(row)] === true})) };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], {type: 'application/json'});
+        const url = URL.createObjectURL(blob); const a = document.createElement('a');
+        a.href = url; a.download = 'alienvox-performance-ratings-' + data.timestamp + '.json'; a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
+    const modelNav = document.getElementById('model-nav');
+    const navModelKey = d => d.model_id ? `${d.stack_id}/${d.model_id}` : d.stack_id;
+    const firstRowByModel = new Map();
+    const modelGroups = Array.from(new Map(data.results.map(d => [navModelKey(d), {key: navModelKey(d), label: d.model_id || d.stack_id}])).values());
+    const navLabel = document.createElement('span'); navLabel.className = 'model-nav-label'; navLabel.textContent = 'Jump to model:';
+    modelNav.appendChild(navLabel);
+    modelGroups.forEach(group => {
+        const button = document.createElement('button'); button.type = 'button'; button.textContent = group.label;
+        button.title = 'Scroll to ' + group.key; button.setAttribute('aria-label', 'Jump to ' + group.key);
+        button.addEventListener('click', () => {
+            const row = firstRowByModel.get(group.key);
+            if (row) {
+                row.scrollIntoView({behavior: 'smooth', block: 'center'});
+                row.classList.remove('model-row-highlight'); void row.offsetWidth; row.classList.add('model-row-highlight');
+            }
+        });
+        modelNav.appendChild(button);
+    });
     data.results.forEach(d => {
         const tr = tbody.insertRow();
+        const groupKey = navModelKey(d);
+        tr.dataset.modelKey = groupKey;
+        if (!firstRowByModel.has(groupKey)) firstRowByModel.set(groupKey, tr);
         if (d.skipped) {
             const td = tr.insertCell();
-            td.colSpan = 16;
+            td.colSpan = 19;
             td.className = 'status-na';
-            td.textContent = `${d.stack_id}${d.model_id ? '/' + d.model_id : ''}/${d.voice_id} Ã¢â‚¬â€ skipped: ${d.skip_reason}`;
+            td.textContent = `${d.stack_id}${d.model_id ? '/' + d.model_id : ''}/${d.voice_id} — skipped: ${d.skip_reason}`;
             return;
         }
         const cols = [
@@ -272,6 +442,9 @@ const WELCOME_PHRASE = "Welcome to AlienVox. This is a performance test of your 
             { key: 'voice_id',          fmt: v => v },
             { key: 'language',          fmt: v => v || 'unknown' },
             { key: 'phrase_chars',      fmt: v => String(v ?? 0) },
+            { key: 'variant_id',        fmt: v => v || 'neutral' },
+            { key: 'emotion',           fmt: v => v || 'neutral' },
+            { key: 'tone',              fmt: v => v || 'measured' },
             { key: 'device',            fmt: v => v ?? '-' },
             { key: 'synthesis_ms',      fmt: v => v >= 0 ? v.toFixed(1) + ' ms' : 'N/A' },
             { key: 'audio_duration_s',  fmt: v => v >= 0 ? v.toFixed(2) + ' s'  : 'N/A' },
@@ -291,186 +464,35 @@ const WELCOME_PHRASE = "Welcome to AlienVox. This is a performance test of your 
             else { td.className = 'status-ok'; }
             td.textContent = fmt(val);
         });
+        const sampleCell = tr.insertCell();
+        if (d.sample_url) {
+            const play = document.createElement('button'); play.type = 'button';
+            play.className = 'listen-button'; play.textContent = 'Play';
+            play.title = 'Play the offline sample for ' + d.voice_id;
+            play.setAttribute('aria-label', play.title);
+            const audio = document.createElement('audio'); audio.preload = 'none'; audio.src = d.sample_url;
+            play.addEventListener('click', () => {
+                document.querySelectorAll('#results-body audio').forEach(other => {
+                    if (other !== audio) { other.pause(); other.currentTime = 0; }
+                });
+                if (audio.paused) {
+                    document.querySelectorAll('.listen-button').forEach(button => { button.textContent = 'Play'; });
+                    audio.play().then(() => { play.textContent = 'Pause'; }).catch(() => { play.textContent = 'Unavailable'; });
+                } else { audio.pause(); audio.currentTime = 0; play.textContent = 'Play'; }
+            });
+            audio.addEventListener('ended', () => { play.textContent = 'Play'; });
+            sampleCell.append(play, audio);
+        } else {
+            sampleCell.className = 'status-na'; sampleCell.textContent = 'N/A';
+        }
+        addRatingCell(tr, d);
     });
+    renderQualityChart();
   } catch (err) {
     document.getElementById('info').innerHTML = '<b>Error rendering:</b> ' + err.message;
     console.error(err);
   }
 })();
 </script>
-<script>
-(function () {
-  const rows = data.results || [];
-  const sampleFiles = {"sapi5/TTS_MS_EN-US_DAVID_11.0": "20261105025132_samples/sapi5/TTS_MS_EN-US_DAVID_11.0.wav", "sapi5/TTS_MS_EN-GB_HAZEL_11.0": "20261105025132_samples/sapi5/TTS_MS_EN-GB_HAZEL_11.0.wav", "sapi5/TTS_MS_EN-US_ZIRA_11.0": "20261105025132_samples/sapi5/TTS_MS_EN-US_ZIRA_11.0.wav", "sapi5/MSTTS_V110_enUS_DavidM": "20261105025132_samples/sapi5/MSTTS_V110_enUS_DavidM.wav", "sapi5/MSTTS_V110_arSA_NaayfM": "20261105025132_samples/sapi5/MSTTS_V110_arSA_NaayfM.wav", "sapi5/MSTTS_V110_enGB_GeorgeM": "20261105025132_samples/sapi5/MSTTS_V110_enGB_GeorgeM.wav", "sapi5/MSTTS_V110_enGB_HazelM": "20261105025132_samples/sapi5/MSTTS_V110_enGB_HazelM.wav", "sapi5/MSTTS_V110_enGB_SusanM": "20261105025132_samples/sapi5/MSTTS_V110_enGB_SusanM.wav", "sapi5/MSTTS_V110_arEG_Hoda": "20261105025132_samples/sapi5/MSTTS_V110_arEG_Hoda.wav", "sapi5/MSTTS_V110_enUS_MarkM": "20261105025132_samples/sapi5/MSTTS_V110_enUS_MarkM.wav", "sapi5/MSTTS_V110_enUS_ZiraM": "20261105025132_samples/sapi5/MSTTS_V110_enUS_ZiraM.wav", "speech_platform/TTS_MS_EN-US_DAVID_11.0": "20261105025132_samples/sapi5/TTS_MS_EN-US_DAVID_11.0.wav", "speech_platform/TTS_MS_EN-GB_HAZEL_11.0": "20261105025132_samples/sapi5/TTS_MS_EN-GB_HAZEL_11.0.wav", "speech_platform/TTS_MS_EN-US_ZIRA_11.0": "20261105025132_samples/sapi5/TTS_MS_EN-US_ZIRA_11.0.wav", "speech_platform/MSTTS_V110_enUS_DavidM": "20261105025132_samples/sapi5/MSTTS_V110_enUS_DavidM.wav", "speech_platform/MSTTS_V110_arSA_NaayfM": "20261105025132_samples/sapi5/MSTTS_V110_arSA_NaayfM.wav", "speech_platform/MSTTS_V110_enGB_GeorgeM": "20261105025132_samples/sapi5/MSTTS_V110_enGB_GeorgeM.wav", "speech_platform/MSTTS_V110_enGB_HazelM": "20261105025132_samples/sapi5/MSTTS_V110_enGB_HazelM.wav", "speech_platform/MSTTS_V110_enGB_SusanM": "20261105025132_samples/sapi5/MSTTS_V110_enGB_SusanM.wav", "speech_platform/MSTTS_V110_arEG_Hoda": "20261105025132_samples/sapi5/MSTTS_V110_arEG_Hoda.wav", "speech_platform/MSTTS_V110_enUS_MarkM": "20261105025132_samples/sapi5/MSTTS_V110_enUS_MarkM.wav", "speech_platform/MSTTS_V110_enUS_ZiraM": "20261105025132_samples/sapi5/MSTTS_V110_enUS_ZiraM.wav", "kokoro/af_heart": "../install/assets/audio/ml/kokoro/af_heart.mp3", "kokoro/af_bella": "../install/assets/audio/ml/kokoro/af_bella.mp3", "kokoro/af_nicole": "../install/assets/audio/ml/kokoro/af_nicole.mp3", "kokoro/am_adam": "../install/assets/audio/ml/kokoro/am_adam.mp3", "kokoro/am_michael": "../install/assets/audio/ml/kokoro/am_michael.mp3", "kokoro/bf_emma": "../install/assets/audio/ml/kokoro/bf_emma.mp3", "kokoro/bm_george": "../install/assets/audio/ml/kokoro/bm_george.mp3", "piper/en_US-lessac-medium": "../install/assets/audio/ml/piper/en_US-lessac-medium.mp3", "piper/en_US-amy-medium": "../install/assets/audio/ml/piper/en_US-amy-medium.mp3", "piper/en_US-ryan-high": "../install/assets/audio/ml/piper/en_US-ryan-high.mp3", "piper/en_US-kathleen-low": "../install/assets/audio/ml/piper/en_US-kathleen-low.mp3", "piper/en_GB-southern_english_female-low": "../install/assets/audio/ml/piper/en_GB-southern_english_female-low.mp3", "piper/en_GB-jenny_dioco-medium": "../install/assets/audio/ml/piper/en_GB-jenny_dioco-medium.mp3", "piper/en_GB-alan-medium": "../install/assets/audio/ml/piper/en_GB-alan-medium.mp3", "chatterbox/default": "../install/assets/audio/ml/chatterbox/default.mp3", "chatterbox/female_calm": "../install/assets/audio/ml/chatterbox/female_calm.mp3", "chatterbox/male_warm": "../install/assets/audio/ml/chatterbox/male_warm.mp3", "dia/s1": "../install/assets/audio/ml/dia/s1.mp3", "dia/s2": "../install/assets/audio/ml/dia/s2.mp3", "f5tts/en_female_calm": "../install/assets/audio/ml/f5tts/en_female_calm.mp3", "f5tts/en_male_warm": "../install/assets/audio/ml/f5tts/en_male_warm.mp3", "outetts/male_1": "../install/assets/audio/ml/outetts/male_1.mp3", "outetts/male_2": "../install/assets/audio/ml/outetts/male_2.mp3", "outetts/male_3": "../install/assets/audio/ml/outetts/male_3.mp3", "outetts/female_1": "../install/assets/audio/ml/outetts/female_1.mp3", "vibevoice_realtime/carter": "../install/assets/audio/ml/vibevoice_realtime/carter.mp3", "vibevoice_realtime/davis": "../install/assets/audio/ml/vibevoice_realtime/davis.mp3", "vibevoice_realtime/frank": "../install/assets/audio/ml/vibevoice_realtime/frank.mp3", "vibevoice_realtime/mike": "../install/assets/audio/ml/vibevoice_realtime/mike.mp3", "vibevoice_realtime/emma": "../install/assets/audio/ml/vibevoice_realtime/emma.mp3", "vibevoice_realtime/grace": "../install/assets/audio/ml/vibevoice_realtime/grace.mp3", "qwen3tts/vivian": "../install/assets/audio/ml/qwen3tts/vivian.mp3", "qwen3tts/serena": "../install/assets/audio/ml/qwen3tts/serena.mp3", "qwen3tts/dylan": "../install/assets/audio/ml/qwen3tts/dylan.mp3", "qwen3tts/eric": "../install/assets/audio/ml/qwen3tts/eric.mp3", "qwen3tts/ryan": "../install/assets/audio/ml/qwen3tts/ryan.mp3", "qwen3tts/aiden": "../install/assets/audio/ml/qwen3tts/aiden.mp3", "qwen3tts/uncle_fu": "../install/assets/audio/ml/qwen3tts/uncle_fu.mp3", "qwen3tts/ono_anna": "../install/assets/audio/ml/qwen3tts/ono_anna.mp3", "qwen3tts/sohee": "../install/assets/audio/ml/qwen3tts/sohee.mp3", "pockettts/alba": "../install/assets/audio/ml/pockettts/alba.mp3", "pockettts/marius": "../install/assets/audio/ml/pockettts/marius.mp3", "supertonic3/M1": "../install/assets/audio/ml/supertonic3/M1.mp3", "supertonic3/M2": "../install/assets/audio/ml/supertonic3/M2.mp3", "supertonic3/M3": "../install/assets/audio/ml/supertonic3/M3.mp3", "supertonic3/M4": "../install/assets/audio/ml/supertonic3/M4.mp3", "supertonic3/M5": "../install/assets/audio/ml/supertonic3/M5.mp3", "supertonic3/F1": "../install/assets/audio/ml/supertonic3/F1.mp3", "supertonic3/F2": "../install/assets/audio/ml/supertonic3/F2.mp3", "supertonic3/F3": "../install/assets/audio/ml/supertonic3/F3.mp3", "supertonic3/F4": "../install/assets/audio/ml/supertonic3/F4.mp3", "supertonic3/F5": "../install/assets/audio/ml/supertonic3/F5.mp3", "moss_tts_nano/Junhao": "../install/assets/audio/ml/moss_tts_nano/Junhao.mp3", "moss_tts_nano/Zhiming": "../install/assets/audio/ml/moss_tts_nano/Zhiming.mp3", "moss_tts_nano/Weiguo": "../install/assets/audio/ml/moss_tts_nano/Weiguo.mp3", "moss_tts_nano/Xiaoyu": "../install/assets/audio/ml/moss_tts_nano/Xiaoyu.mp3", "moss_tts_nano/Yuewen": "../install/assets/audio/ml/moss_tts_nano/Yuewen.mp3", "moss_tts_nano/Lingyu": "../install/assets/audio/ml/moss_tts_nano/Lingyu.mp3", "moss_tts_nano/Trump": "../install/assets/audio/ml/moss_tts_nano/Trump.mp3", "moss_tts_nano/Ava": "../install/assets/audio/ml/moss_tts_nano/Ava.mp3", "moss_tts_nano/Bella": "../install/assets/audio/ml/moss_tts_nano/Bella.mp3", "moss_tts_nano/Adam": "../install/assets/audio/ml/moss_tts_nano/Adam.mp3", "moss_tts_nano/Nathan": "../install/assets/audio/ml/moss_tts_nano/Nathan.mp3", "moss_tts_nano/Soyo": "../install/assets/audio/ml/moss_tts_nano/Soyo.mp3", "moss_tts_nano/Saki": "../install/assets/audio/ml/moss_tts_nano/Saki.mp3", "moss_tts_nano/Mortis": "../install/assets/audio/ml/moss_tts_nano/Mortis.mp3", "moss_tts_nano/Umiri": "../install/assets/audio/ml/moss_tts_nano/Umiri.mp3", "moss_tts_nano/Mei": "../install/assets/audio/ml/moss_tts_nano/Mei.mp3", "moss_tts_nano/Anon": "../install/assets/audio/ml/moss_tts_nano/Anon.mp3", "moss_tts_nano/Arisa": "../install/assets/audio/ml/moss_tts_nano/Arisa.mp3"};
-  const tbody = document.getElementById('results-body');
-  const table = document.getElementById('results-table');
-  const header = table.querySelector('thead tr');
-  if (![...header.cells].some(cell => cell.textContent.trim() === 'Listen')) {
-    const th = document.createElement('th'); th.textContent = 'Listen'; header.appendChild(th);
-  }
-  if (![...header.cells].some(cell => cell.textContent.trim() === 'Rating')) {
-    const th = document.createElement('th'); th.textContent = 'Rating'; header.appendChild(th);
-  }
-
-  const addListenCell = (tr, row) => {
-    const td = tr.insertCell();
-    const key = row.model_id ? row.model_id + '/' + row.voice_id : row.stack_id + '/' + row.voice_id;
-    if (!sampleFiles[key]) { td.className = 'status-na'; td.textContent = 'No bundled sample'; return; }
-    const button = document.createElement('button');
-    button.className = 'listen-button'; button.type = 'button'; button.textContent = 'Play';
-    button.title = 'Play the bundled offline sample for ' + key;
-    button.setAttribute('aria-label', button.title);
-    const audio = document.createElement('audio'); audio.preload = 'none'; audio.src = sampleFiles[key];
-    button.addEventListener('click', () => {
-      document.querySelectorAll('#results-body audio').forEach(other => { if (other !== audio) { other.pause(); other.currentTime = 0; } });
-      if (audio.paused) { audio.play().catch(() => { button.textContent = 'Unavailable'; }); button.textContent = 'Pause'; }
-      else { audio.pause(); audio.currentTime = 0; button.textContent = 'Play'; }
-    });
-    audio.addEventListener('ended', () => { button.textContent = 'Play'; });
-    td.append(button, audio);
-  };
-  const voiceStoreKey = 'alienvox-voice-quality-' + data.timestamp;
-  const errorStoreKey = voiceStoreKey + '-errors';
-  let voiceRatings = {}, voiceErrors = {};
-  try { voiceRatings = JSON.parse(localStorage.getItem(voiceStoreKey) || '{}'); } catch (_) {}
-  try { voiceErrors = JSON.parse(localStorage.getItem(errorStoreKey) || '{}'); } catch (_) {}
-  const ratingKey = row => row.model_id ? row.model_id + '/' + row.voice_id : row.stack_id + '/' + row.voice_id;
-  const addRatingCell = (tr, row) => {
-    const td = tr.insertCell(); const wrap = document.createElement('span'); wrap.className = 'star-rating';
-    const key = ratingKey(row); const current = voiceErrors[key] === true ? 0 : (Number.isInteger(voiceRatings[key]) ? voiceRatings[key] : 0);
-    if (voiceErrors[key] === true && Object.prototype.hasOwnProperty.call(voiceRatings, key)) {
-      delete voiceRatings[key]; try { localStorage.setItem(voiceStoreKey, JSON.stringify(voiceRatings)); } catch (_) {}
-    }
-    const errorButton = document.createElement('button'); errorButton.type='button'; errorButton.className='error-flag';
-    errorButton.textContent='!'; errorButton.title='Flag an error for '+key+'; this blocks star rating until cleared.'; errorButton.setAttribute('aria-label',errorButton.title); errorButton.setAttribute('aria-pressed',voiceErrors[key] === true);
-    errorButton.classList.toggle('selected', voiceErrors[key] === true);
-    errorButton.addEventListener('click', () => {
-      voiceErrors[key] = voiceErrors[key] !== true;
-      if (voiceErrors[key]) {
-        delete voiceRatings[key]; paint(0);
-        stars.forEach(star => { star.disabled = true; });
-        try { localStorage.setItem(voiceStoreKey, JSON.stringify(voiceRatings)); } catch (_) {}
-      } else {
-        stars.forEach(star => { star.disabled = false; });
-      }
-      errorButton.classList.toggle('selected', voiceErrors[key]);
-      errorButton.title = (voiceErrors[key] ? 'Error reported; clear to rate ' : 'Report an error for ') + key;
-      errorButton.setAttribute('aria-label', errorButton.title); errorButton.setAttribute('aria-pressed', voiceErrors[key]);
-      try { localStorage.setItem(errorStoreKey, JSON.stringify(voiceErrors)); }
-      catch (_) { alert('Browser storage is unavailable; download the JSON to keep error reports.'); }
-      draw();
-    });
-    wrap.appendChild(errorButton);
-    const stars = [];
-    const paint = score => stars.forEach((star, i) => star.classList.toggle('selected', i < score));
-    for (let score=1; score<=5; score++) {
-      const star = document.createElement('button'); star.type='button'; star.textContent=String.fromCharCode(9733);
-      star.title='Rate '+key+' '+score+' out of 5'; star.setAttribute('aria-label',star.title);
-      star.disabled = voiceErrors[key] === true; if (star.disabled) star.title='Clear the error flag before rating '+key;
-      star.addEventListener('click', () => {
-        if (voiceErrors[key] === true) return;
-        voiceRatings[key]=score;
-        try { localStorage.setItem(voiceStoreKey,JSON.stringify(voiceRatings)); }
-        catch (_) { alert('Browser storage is unavailable; download the JSON to keep your ratings.'); }
-        paint(score); draw();
-      });
-      stars.push(star); wrap.appendChild(star);
-    }
-    paint(current); td.appendChild(wrap);
-  };
-  if (!tbody.rows.length) {
-    rows.forEach(row => {
-      const tr = tbody.insertRow();
-      const values = [row.stack_id, row.model_id || '-', row.voice_id, row.language || 'unknown', row.phrase_chars || 0, row.device || '-',
-        row.synthesis_ms >= 0 ? row.synthesis_ms.toFixed(1) + ' ms' : 'N/A',
-        row.audio_duration_s >= 0 ? row.audio_duration_s.toFixed(2) + ' s' : 'N/A',
-        row.audio_bytes >= 0 ? (row.audio_bytes / 1024).toFixed(1) + ' KB' : 'N/A',
-        row.audio_sample_rate >= 0 ? String(row.audio_sample_rate) : 'N/A',
-        row.memory_mb >= 0 ? row.memory_mb.toFixed(1) + ' MB' : 'N/A',
-        row.cpu_percent >= 0 ? row.cpu_percent.toFixed(1) + '%' : 'N/A',
-        row.gpu_percent >= 0 ? row.gpu_percent.toFixed(0) + '%' : 'N/A',
-        row.gpu_mb >= 0 ? row.gpu_mb.toFixed(1) + ' MB' : 'N/A'];
-      values.forEach(value => { const td = tr.insertCell(); td.textContent = value; });
-      addListenCell(tr, row); addRatingCell(tr, row);
-    });
-  } else {
-    rows.forEach((row, i) => { const tr = tbody.rows[i]; if (tr) { addListenCell(tr, row); addRatingCell(tr, row); } });
-  }
-
-  const displayNames = {
-    kokoro: 'Kokoro-82M', piper: 'Piper', chatterbox: 'Chatterbox 0.5B', dia: 'Dia 1.6B',
-    f5tts: 'F5-TTS', outetts: 'OuteTTS 0.5B', vibevoice_realtime: 'VibeVoice-Realtime 0.5B',
-    qwen3tts: 'Qwen3-TTS 0.6B', pockettts: 'Pocket TTS', supertonic3: 'Supertonic 3', moss_tts_nano: 'MOSS-TTS-Nano'
-  };
-  const groups = new Map();
-  rows.filter(r => r.stack_id === 'ml' && r.model_id && r.synthesis_ms >= 0 && !r.skipped).forEach(r => {
-    if (!groups.has(r.model_id)) groups.set(r.model_id, []);
-    groups.get(r.model_id).push(r.synthesis_ms);
-  });
-  const median = values => { const a = [...values].sort((x,y) => x-y); const m = Math.floor(a.length/2); return a.length%2 ? a[m] : (a[m-1]+a[m])/2; };
-  const models = [...groups].map(([id, times]) => ({id, name: displayNames[id] || id, ms: median(times), voices: times.length})).sort((a,b) => a.ms-b.ms);
-  const storeKey = 'alienvox-quality-' + data.timestamp;
-  let ratings = {};
-  try { ratings = JSON.parse(localStorage.getItem(storeKey) || '{}'); } catch (_) {}
-  const select = document.createElement('select'); select.setAttribute('aria-label', 'Model to rate');
-  models.forEach(m => { const option = document.createElement('option'); option.value=m.id; option.textContent=m.name; select.appendChild(option); });
-  if (models.some(m => m.id === 'kokoro')) select.value = 'kokoro';
-  const label = document.createElement('span'); label.textContent = 'After listening, rate perceived quality:';
-  const controls = document.getElementById('rating-controls');
-  controls.append(label, select);
-  [1,2,3,4,5].forEach(score => {
-    const button = document.createElement('button'); button.type='button'; button.textContent=String(score) + ' \u2605';
-    button.title='Set subjective quality rating to ' + score + ' out of 5';
-    button.addEventListener('click', () => { ratings[select.value]=score; try { localStorage.setItem(storeKey, JSON.stringify(ratings)); } catch (_) { alert('Browser storage is unavailable; use the JSON export to keep these ratings.'); } draw(); });
-    controls.appendChild(button);
-  });
-  const exportButton = document.createElement('button');
-  exportButton.type = 'button'; exportButton.textContent = 'Download metrics + ratings JSON';
-  exportButton.addEventListener('click', () => {
-    const modelData = models.map(m => {
-      const voiceRows = rows.filter(r => r.stack_id === 'ml' && r.model_id === m.id);
-      const mean = voiceRows.reduce((sum, r) => sum + r.synthesis_ms, 0) / Math.max(voiceRows.length, 1);
-      return { model_id: m.id, model_name: m.name, rating_1_to_5: Number.isInteger(ratings[m.id]) ? ratings[m.id] : null,
-        average_voice_rating: (() => { const v=voiceRows.map(r=>voiceRatings[ratingKey(r)]).filter(Number.isInteger); return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null; })(),
-        voice_count: m.voices, median_synthesis_ms: m.ms, mean_synthesis_ms: mean,
-        voice_metrics: voiceRows.map(r => ({ voice_id:r.voice_id, synthesis_ms:r.synthesis_ms,
-          audio_duration_s:r.audio_duration_s, audio_bytes:r.audio_bytes, sample_rate_hz:r.audio_sample_rate,
-          memory_mb:r.memory_mb, cpu_percent:r.cpu_percent, gpu_percent:r.gpu_percent, gpu_mb:r.gpu_mb })) };
-    });
-    const payload = { schema_version:1, benchmark_timestamp:data.timestamp, welcome_phrase:data.welcome_phrase,
-      platform:data.platform, user_ratings:ratings, voice_ratings:voiceRatings, voice_errors:voiceErrors, models:modelData,
-      all_voice_results:rows.map(r=>({...r,user_rating_1_to_5:voiceRatings[ratingKey(r)] ?? null,error_reported:voiceErrors[ratingKey(r)] === true})) };
-    const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}), url=URL.createObjectURL(blob);
-    const a=document.createElement('a'); a.href=url; a.download='alienvox-performance-ratings-'+data.timestamp+'.json'; a.click();
-    setTimeout(()=>URL.revokeObjectURL(url),1000);
-  });
-  controls.appendChild(exportButton);
-  const svg = document.getElementById('quality-scatter');
-  const NS = 'http://www.w3.org/2000/svg';
-  const node = (tag, attrs, text) => { const el=document.createElementNS(NS,tag); Object.entries(attrs||{}).forEach(([k,v])=>el.setAttribute(k,v)); if(text!==undefined) el.textContent=text; return el; };
-  function draw() {
-    while (svg.firstChild) svg.removeChild(svg.firstChild);
-    svg.setAttribute('viewBox','0 0 900 430');
-    const rated=models.map(m => { const voiceScores=rows.filter(r=>r.stack_id==='ml'&&r.model_id===m.id).map(r=>voiceRatings[ratingKey(r)]).filter(Number.isInteger); const score=Number.isInteger(ratings[m.id])?ratings[m.id]:(voiceScores.length?voiceScores.reduce((a,b)=>a+b,0)/voiceScores.length:null); return {...m,score}; }).filter(m=>m.score!==null);
-    const left=70, right=860, top=30, bottom=350;
-    svg.append(node('line',{x1:left,y1:bottom,x2:right,y2:bottom,class:'axis-line'}));
-    svg.append(node('line',{x1:left,y1:top,x2:left,y2:bottom,class:'axis-line'}));
-    for(let score=1;score<=5;score++) { const y=bottom-(score-1)*(bottom-top)/4; svg.append(node('line',{x1:left-5,y1:y,x2:right,y2:y,class:'axis-line',opacity:score===1?'0.7':'0.2'})); svg.append(node('text',{x:left-18,y:y+4,class:'tick-label','text-anchor':'end'},String(score))); }
-    const maxMs=Math.max(...models.map(m=>m.ms),1), minMs=0;
-    svg.append(node('text',{x:(left+right)/2,y:405,class:'axis-label','text-anchor':'middle'},'Median synthesis time (ms) ? lower is faster'));
-    svg.append(node('text',{x:18,y:(top+bottom)/2,class:'axis-label','text-anchor':'middle',transform:`rotate(-90 18 ${(top+bottom)/2})`},'Your quality rating (1?5)'));
-    for(let tick=0;tick<=4;tick++){const x=left+tick*(right-left)/4;const ms=Math.round(maxMs*tick/4);svg.append(node('text',{x,y:bottom+22,class:'tick-label','text-anchor':'middle'},String(ms)));}
-    rated.forEach(m=>{const x=left+(m.ms/maxMs)*(right-left), y=bottom-(m.score-1)*(bottom-top)/4;const c=node('circle',{cx:x,cy:y,r:8,fill:'#00d4ff',class:'scatter-point'});c.appendChild(node('title',{},`${m.name}: ${m.score.toFixed(1)}/5, median ${m.ms.toFixed(0)} ms across ${m.voices} voices`));svg.appendChild(c);svg.append(node('text',{x:x+11,y:y-10,class:'scatter-label'},m.name));});
-    if(!rated.length) svg.append(node('text',{x:(left+right)/2,y:(top+bottom)/2,class:'axis-label','text-anchor':'middle'},'No ratings yet ? listen to samples, then score a model above.'));
-    const unrated=models.filter(m=>!Number.isInteger(ratings[m.id])&&!rows.some(r=>r.stack_id==='ml'&&r.model_id===m.id&&Number.isInteger(voiceRatings[ratingKey(r)]))).map(m=>m.name);
-    const note=document.getElementById('unrated-models'); note.textContent=unrated.length?'Not rated yet: '+unrated.join(', '):'Every model has at least one listening rating.';
-  }
-  const note=document.createElement('p'); note.id='unrated-models'; note.className='report-note'; document.getElementById('listen-chart').appendChild(note); draw();
-  const info=document.getElementById('info');
-  const defaults=document.createElement('p'); defaults.className='report-note'; defaults.textContent='Default reminder: AlienVox defaults to Windows SAPI 5; the default ML baseline is Kokoro-82M.'; info.appendChild(defaults);
-})();
-</script>
 </body>
 </html>
-
-

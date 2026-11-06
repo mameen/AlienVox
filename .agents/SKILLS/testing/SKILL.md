@@ -147,6 +147,19 @@ Welcome to AlienVox. This is a performance test of your TTS engine. If you can h
 - Never use arbitrary text (like "quick brown fox") for voice samples — always use the canonical phrase.
 - When generating new voice samples, reference `app_controller.py`'s `SAMPLE_TEXT`, not a hardcoded string in your generation script.
 
+## 8. Performance Report Design and Feedback
+
+Use the `references/full.html` and `references/favorite.html` reports as working visual and behavior examples. Keep the reference HTML, its data file (`full.js`/`full.json` or `favorite.json`), and any audio assets in `references/` consistent when updating them.
+
+- The primary comparison chart groups voices under their **model**, with grouped bars for **latency**, **CPU load**, and **memory** for each voice. Fit the chart to its available panel width instead of widening it with the number of voices; keep the chart free of horizontal scrolling and preserve readable voice labels. These metrics have different units, so normalize each metric independently to its maximum for the chart and show the real value and unit in tooltips. Label the normalization clearly; do not imply that milliseconds, CPU percent, and MB share one numeric scale.
+- Add a separate **quality versus resource percentile** scatter plot using the user's 1–5 voice rating as quality and two cost series: CPU load and memory. Plot each cost as its percentile rank among rated voices so both series share one meaningful 0–100 axis; label ticks P0, P20, … P100, handle ties with midranks, and show percentile plus actual CPU percent or memory MB in the tooltip. Distinguish the two series visually. Explain that quality scores are subjective and omit unrated or error-flagged voices. Ensure CPU capture has enough sampling resolution for short syntheses; all-zero readings are not evidence that CPU loads are equal.
+- Default to a high-contrast light theme and provide a light/dark toggle. Persist the selected theme under a stable versioned localStorage key; verify axis labels, gridlines, points, bars, tables, and controls remain readable in both themes.
+- Raw Results must sit in a styled, horizontally scrollable table section. Include a styled JSON export control, a Play control only when that run's saved sample exists, and the error flag plus five-star rating for each rateable voice.
+- Place wrapping jump-to-model buttons directly below the Raw Results heading and above the JSON download control. Each button should scroll to that model's first table row and briefly highlight it; keep the controls readable in both themes.
+- Put wrapping jump-to-model buttons directly below the Raw Results heading and above the JSON download control. Each button scrolls to that model's first table row and briefly highlights it; keep the buttons readable in both themes.
+- Persist voice ratings and error flags in browser `localStorage` under stable, versioned keys so feedback survives later benchmark runs. Migrate the earlier timestamp-scoped `alienvox-voice-ratings-*` and `alienvox-voice-quality-*` entries when loading. Keep the metrics JSON schema separate from the downloadable user-feedback JSON, which includes the run ID and per-voice ratings/errors.
+- Generate playback links relative to the report and verify each link resolves to a real WAV/MP3 in the sample output. Missing or failed samples must be shown as unavailable, not as working Play buttons.
+
 - Config tests: verify the merged output values, not which internal dict was accessed.
 - Telemetry tests: verify the JSONL line was written with the correct fields, not that a specific method was called.
 - Registry tests: verify which stacks are returned given a specific `.models/` directory layout.

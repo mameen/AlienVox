@@ -19,6 +19,8 @@ Usage:
     python run.py cov        -- run pytest + open HTML coverage report
     python run.py perf       -- run instrumentation benchmarks (CPU-only by default)
     python run.py perf --cpu / --gpu  -- same device override, for perf comparisons
+    python run.py perf --cpu --save-samples --sample-format mp3
+                              -- full CPU sweep and save every voice as MP3
     python run.py perf --stack <id> --model <id> --voice <id>
                               -- run ONE stack/model/voice case instead of the full
                                  sweep (skips the pytest unit benchmarks too) — fast
@@ -243,7 +245,7 @@ def _parse_variant_flag() -> list[str]:
 
 
 def _parse_save_samples_flags() -> list[str]:
-    """Extract --save-samples/--samples-dir from argv, forwarded as-is to
+    """Extract sample-export flags from argv, forwarded as-is to
     tests/test_perf.py's own argparse (full sweep only)."""
     args = sys.argv[2:]
     forwarded = []
@@ -253,6 +255,10 @@ def _parse_save_samples_flags() -> list[str]:
         i = args.index("--samples-dir")
         if i + 1 < len(args):
             forwarded += ["--samples-dir", args[i + 1]]
+    if "--sample-format" in args:
+        i = args.index("--sample-format")
+        if i + 1 < len(args):
+            forwarded += ["--sample-format", args[i + 1]]
     return forwarded
 
 

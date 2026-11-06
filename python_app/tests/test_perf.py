@@ -804,7 +804,7 @@ def write_json_report(results: list[PerfResult], path: Path) -> None:
     # Also write a JS wrapper so the HTML can <script src> it
     js_path = path.with_suffix(".js")
     with tempfile.NamedTemporaryFile(mode="w", suffix=".js", dir=path.parent, delete=False) as f:
-        f.write(f"const data = {json.dumps(data, indent=2)};")
+        f.write(f"const data = {json.dumps(data, indent=2, default=str)};")
         tmp_js = f.name
     shutil.move(tmp_js, js_path)
 
@@ -815,52 +815,103 @@ def generate_css() -> str:
     """Generate CSS string for the HTML report."""
     return """
 body {
-    font-family: 'Segoe UI', Consolas, monospace;
-    background: #1a1a2e;
-    color: #e0e0e0;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #f3f6fb;
+    color: #182433;
     margin: 0;
     padding: 20px;
 }
-h1 { color: #00d4ff; text-align: center; }
-h2 { color: #7b68ee; margin-top: 30px; }
-#info { background: #16213e; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-#chart-container { width: 100%; min-height: 400px; }
-table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #16213e; border-radius: 8px; overflow: hidden; }
-th { background: #0f3460; color: #00d4ff; padding: 10px; text-align: left; }
-td { padding: 8px 10px; border-bottom: 1px solid #1a1a3e; }
-tr:hover { background: #1f2b4d; }
-.status-ok { color: #00ff88; }
-.status-warn { color: #ffaa00; }
-.status-error { color: #ff4444; }
-.status-na { color: #666; }
+h1 { color: #174a7e; text-align: center; }
+h2 { color: #23476d; margin-top: 30px; }
+#info { background: #e6eef8; color: #1c3552; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+#chart-container { width: 100%; min-height: 400px; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #fff; border-radius: 8px; overflow: hidden; }
+th { background: #dce8f5; color: #173b5f; padding: 10px; text-align: left; }
+td { padding: 8px 10px; border-bottom: 1px solid #d6deea; }
+tr:hover { background: #edf4fb; }
+.status-ok { color: #17633a; }
+.status-warn { color: #855400; }
+.status-error { color: #a32323; }
+.status-na { color: #687587; }
 .error-flag { width: 27px; height: 27px; border: 2px solid #ff4545; border-radius: 50%; background: transparent; color: #ff4545; cursor: pointer; font-size: 17px; font-weight: 900; line-height: 1; padding: 0; margin-right: 7px; vertical-align: middle; }
 .error-flag.selected { background: #e32636; color: #fff; box-shadow: 0 0 8px rgba(255,48,48,.55); }
 .error-flag:focus-visible { outline: 2px solid #ff9b9b; outline-offset: 2px; }
+.star-rating { display: inline-flex; align-items: center; white-space: nowrap; vertical-align: middle; }
 .rating-star:disabled { cursor: not-allowed; opacity: .3; }
-.rating-star { background: transparent; border: 0; color: #68748c; cursor: pointer; font-size: 17px; padding: 1px; }
+.rating-star { flex: 0 0 auto; background: transparent; border: 0; color: #68748c; cursor: pointer; font-size: 17px; line-height: 1; padding: 0; }
 .rating-star.selected { color: #ffd34e; }
+.listen-button { background: #087f23; color: white; border: 0; border-radius: 4px; padding: 5px 8px; cursor: pointer; }
+.listen-button:disabled { background: #555; cursor: default; }
+.table-wrap { overflow-x: auto; }
+.raw-results-panel { background: #fff; border: 1px solid #cbd6e4; border-radius: 9px; padding: 16px; margin: 15px 0; }
+.raw-results-panel h2 { margin-top: 0; }
+.model-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin: 10px 0 14px; }
+.model-nav-label { color: #40516a; font-weight: 600; margin-right: 3px; }
+.model-nav button { background: #edf3fa; color: #174a7e; border: 1px solid #9fb4ca; border-radius: 5px; padding: 6px 10px; cursor: pointer; }
+.model-nav button:hover, .model-nav button:focus-visible { background: #d8e9f8; outline: 2px solid #4d8fc8; outline-offset: 1px; }
+.model-row-highlight { animation: model-row-flash 1.4s ease-out; }
+@keyframes model-row-flash { from { background: #ffe89a; } to { background: transparent; } }
+button.export { padding: 8px 12px; background: #176b9c; border: 0; border-radius: 5px; color: white; cursor: pointer; }
+button.export:hover { background: #2189c4; }
 .legend { display: flex; gap: 20px; margin-top: 10px; font-size: 14px; }
 .legend-item { display: flex; align-items: center; gap: 5px; cursor: pointer; user-select: none;
     padding: 2px 8px; border-radius: 4px; transition: background 0.15s; }
-.legend-item:hover { background: #1f2b4d; }
+.legend-item:hover { background: #e3ebf5; }
 .legend-item.inactive { opacity: 0.35; }
 .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
-.legend-hint { font-size: 11px; color: #888; margin-top: 2px; }
+.legend-hint { font-size: 12px; color: #526176; margin-top: 8px; }
 .chart-bar { cursor: pointer; transition: opacity 0.15s; }
 #chart-tooltip {
     position: fixed;
     display: none;
-    background: #0f3460;
-    color: #e0e0e0;
-    border: 1px solid #00d4ff;
+    background: #fff;
+    color: #182433;
+    border: 1px solid #547ba5;
     border-radius: 6px;
     padding: 8px 12px;
     font-size: 12px;
     pointer-events: none;
     z-index: 1000;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    box-shadow: 0 4px 12px rgba(35,55,80,0.22);
 }
-#chart-tooltip b { color: #00d4ff; }
+#chart-tooltip b { color: #174a7e; }
+.report-note { color: #40516a; font: 14px 'Segoe UI', sans-serif; line-height: 1.5; }
+.axis-label, .tick text { fill: #34465e; color: #34465e; font: 12px 'Segoe UI', sans-serif; }
+.domain, .tick line { stroke: #8998aa; }
+.theme-toggle { float: right; background: #174a7e; color: #fff; border: 0; border-radius: 5px; padding: 8px 12px; cursor: pointer; }
+.theme-dark { background: #111827; color: #e5edf7; }
+.theme-dark h1 { color: #8ecbff; }
+.theme-dark h2 { color: #b8d8f2; }
+.theme-dark #info { background: #1e293b; color: #e5edf7; }
+.theme-dark .report-note, .theme-dark .quality-panel p { color: #c5d2e3; }
+.theme-dark table, .theme-dark .raw-results-panel, .theme-dark .quality-panel { background: #1e293b; border-color: #42536a; color: #e5edf7; }
+.theme-dark .model-nav-label { color: #d8e3f0; }
+.theme-dark .model-nav button { background: #263750; color: #d6eaff; border-color: #607792; }
+.theme-dark .model-nav button:hover, .theme-dark .model-nav button:focus-visible { background: #344d6a; }
+.theme-dark th { background: #263750; color: #d6eaff; }
+.theme-dark td { border-color: #384a61; }
+.theme-dark tr:hover { background: #2a3a50; }
+.theme-dark .status-ok { color: #83e0a7; }
+.theme-dark .status-warn { color: #ffd17c; }
+.theme-dark .status-error { color: #ff9b9b; }
+.theme-dark .status-na { color: #b3c0d0; }
+.theme-dark .legend-item { color: #e5edf7; }
+.theme-dark .legend-item:hover { background: #30445f; }
+.theme-dark .legend-hint { color: #bdcadd; }
+.theme-dark .axis-label, .theme-dark .tick text { fill: #d8e3f0; color: #d8e3f0; }
+.theme-dark .domain, .theme-dark .tick line { stroke: #8b9bb0; }
+.theme-dark #chart-tooltip { background: #263750; color: #f3f7fc; border-color: #8ecbff; }
+.theme-dark #chart-tooltip b { color: #8ecbff; }
+.theme-dark .quality-legend button { background: #263750; color: #f3f7fc; border-color: #607792; }
+.theme-toggle:hover { filter: brightness(1.1); }
+.quality-panel { background: #fff; border: 1px solid #cbd6e4; border-radius: 8px; padding: 16px; margin: 18px 0; }
+.quality-panel p { color: #40516a; }
+.quality-legend { display: flex; gap: 18px; color: #26364c; margin: 6px 0 12px; }
+.quality-legend span { display: inline-flex; gap: 6px; align-items: center; }
+.quality-legend i { width: 12px; height: 12px; display: inline-block; border-radius: 50%; }
+.quality-legend button { background: #edf3fa; color: #26364c; border: 1px solid #a9b9cb; border-radius: 5px; padding: 5px 9px; cursor: pointer; }
+.quality-legend button.inactive { opacity: .45; }
+.metric-legend .legend-item { color: #26364c; }
 """
 
 
@@ -882,21 +933,32 @@ def generate_html(json_js_path: str) -> str:
 </head>
 <body>
 <h1>AlienVox Performance Report</h1>
+<button class="theme-toggle" id="theme-toggle" type="button">Switch to dark theme</button>
 <div id="info">Rendering report...</div>
 <p style="color:#bac4dd;font:14px 'Segoe UI',sans-serif">Each voice uses its matching localized phrase where known. Compare timing within the same phrase locale; translation lengths differ. Locale translations are drafts pending native-speaker review.</p>
-<h2>Metrics by Stack/Model/Voice</h2>
+<h2>Latency, CPU load, and memory</h2>
+<p class="report-note">Each metric is normalized to its highest result (100%) so different units can share one chart. Hover a bar to see the measured value.</p>
 <div id="chart-container"></div>
 <div id="chart-tooltip"></div>
+<section class="quality-panel" id="quality-panel">
+<h2>Quality vs resource percentile</h2>
+<p>Subjective voice ratings (1–5 stars) compared with CPU and memory percentiles across rated voices. Higher percentiles mean greater resource use; hover a point for its measured value.</p>
+<div class="quality-legend" id="quality-legend"></div>
+<div id="quality-chart"></div>
+</section>
+<section class="raw-results-panel">
 <h2>Raw Results</h2>
-<p><button id="export-ratings" type="button">Download metrics + ratings JSON</button></p>
-<table id="results-table">
+<div id="model-nav" class="model-nav" aria-label="Jump to model results"></div>
+<p><button class="export" id="export-ratings" type="button">Download metrics + ratings JSON</button></p>
+<div class="table-wrap"><table id="results-table">
 <thead><tr>
     <th>Stack</th><th>Model</th><th>Voice</th><th>Language</th><th>Phrase chars</th><th>Variant</th><th>Emotion</th><th>Tone</th><th>Device</th>
     <th>Synth (ms)</th><th>Duration (s)</th><th>Size (KB)</th><th>Sample Rate</th>
-    <th>Memory (MB)</th><th>CPU (%)</th><th>GPU (%)</th><th>GPU (MB)</th><th>Rating</th>
+    <th>Memory (MB)</th><th>CPU (%)</th><th>GPU (%)</th><th>GPU (MB)</th><th>Sample</th><th>Rating</th>
 </tr></thead>
 <tbody id="results-body"></tbody>
-</table>
+</table></div>
+</section>
 
 <script>
 const THRESHOLDS = {json.dumps(THRESHOLDS, indent=2)};
@@ -910,145 +972,191 @@ const WELCOME_PHRASE = {json.dumps(WELCOME_PHRASE)};
         '<b>Python:</b> ' + data.platform.python + ' | ' +
         '<b>Runs:</b> ' + data.results.length;
 
-    // ── Bar chart: synthesis time vs audio duration (both in ms) ──
-    // Interactive: click a legend entry to show only that series (click
-    // again to restore both); hover or click a bar to see its exact value
-    // in a floating tooltip (click pins it — useful on touch, harmless on
-    // desktop since hover already shows the same tooltip).
-    const chartable = data.results.filter(d => !d.skipped);
+    const themeToggle = document.getElementById('theme-toggle');
+    const themeKey = 'alienvox-report-theme-v1';
+    let reportTheme = 'light';
+    try {{ reportTheme = localStorage.getItem(themeKey) === 'dark' ? 'dark' : 'light'; }} catch (_) {{}}
+    const applyTheme = theme => {{
+        reportTheme = theme;
+        document.body.classList.toggle('theme-dark', theme === 'dark');
+        themeToggle.textContent = theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
+        themeToggle.setAttribute('aria-pressed', theme === 'dark');
+        try {{ localStorage.setItem(themeKey, theme); }} catch (_) {{}}
+    }};
+    themeToggle.addEventListener('click', () => applyTheme(reportTheme === 'dark' ? 'light' : 'dark'));
+    applyTheme(reportTheme);
+
+    const metrics = [
+        {{key: 'synthesis_ms', label: 'Latency', unit: 'ms', color: '#2364aa'}},
+        {{key: 'cpu_percent', label: 'CPU load', unit: '%', color: '#c45b08'}},
+        {{key: 'memory_mb', label: 'Memory', unit: 'MB', color: '#087f8c'}},
+    ];
+    const metricValue = (row, key) => Number.isFinite(Number(row[key])) && Number(row[key]) >= 0 ? Number(row[key]) : null;
+    const chartable = data.results.filter(d => !d.skipped && metrics.some(m => metricValue(d, m.key) !== null));
     const container = document.getElementById('chart-container');
     const tooltip = document.getElementById('chart-tooltip');
-    const margin = {{top: 20, right: 30, bottom: 80, left: 60}};
-    const width = container.clientWidth - margin.left - margin.right;
-    const height = 400 - margin.top - margin.bottom;
-
-    const seriesKeys = ['synthesis_ms', 'audio_duration_ms'];
-    const seriesLabels = {{ synthesis_ms: 'Synthesis Time', audio_duration_ms: 'Audio Duration' }};
-    let activeSeries = new Set(seriesKeys);  // both visible by default
-
-    const svg = d3.select('#chart-container')
-        .append('svg')
-        .attr('width', width + margin.left + margin.right)
-        .attr('height', height + margin.top + margin.bottom)
-        .append('g')
-        .attr('transform', `translate(${{margin.left}},${{margin.top}})`);
-
-    const x0 = d3.scaleBand()
-        .domain(chartable.map(d => d.stack_id + (d.model_id ? '/' + d.model_id : '') + '/' + d.voice_id))
-        .rangeRound([0, width])
-        .paddingInner(0.1);
-
-    const x1 = d3.scaleBand()
-        .domain(seriesKeys)
-        .range([0, x0.bandwidth()])
-        .padding(0.05);
-
-    const seriesValue = (d, key) => key === 'audio_duration_ms'
-        ? Math.max(0, d.audio_duration_s) * 1000
-        : Math.max(0, d.synthesis_ms);
-
-    const seriesDisplay = (d, key) => key === 'audio_duration_ms'
-        ? `${{Math.max(0, d.audio_duration_s).toFixed(2)}} s`
-        : `${{Math.max(0, d.synthesis_ms).toFixed(1)}} ms`;
-
-    const y = d3.scaleLinear()
-        .domain([0, d3.max(chartable, d => Math.max(seriesValue(d, 'synthesis_ms'), seriesValue(d, 'audio_duration_ms'))) * 1.1 || 100])
-        .nice()
-        .range([height, 0]);
-
-    svg.append('g')
-        .attr('transform', `translate(0,${{height}})`)
-        .call(d3.axisBottom(x0))
-        .selectAll('text')
-        .attr('transform', 'rotate(-25)')
-        .style('text-anchor', 'end');
-
-    svg.append('g').call(d3.axisLeft(y));
-
-    const color = d3.scaleOrdinal()
-        .domain(seriesKeys)
-        .range(['#00d4ff', '#7b68ee']);
-
-    function showTooltip(evt, d, series) {{
-        tooltip.innerHTML =
-            `<b>${{seriesLabels[series]}}</b><br>` +
-            `${{d.stack_id}}${{d.model_id ? '/' + d.model_id : ''}}/${{d.voice_id}}<br>` +
-            seriesDisplay(d, series);
-        tooltip.style.display = 'block';
-        tooltip.style.left = (evt.clientX + 14) + 'px';
-        tooltip.style.top = (evt.clientY + 14) + 'px';
-    }}
-    function hideTooltip() {{ tooltip.style.display = 'none'; }}
-
-    const bars = svg.selectAll('.chart-bar-group')
-        .data(chartable)
-        .enter()
-        .append('g');
-
-    bars.each(function(d) {{
-        const key = d.stack_id + (d.model_id ? '/' + d.model_id : '') + '/' + d.voice_id;
-        seriesKeys.forEach(series => {{
-            const v = seriesValue(d, series);
-            d3.select(this).append('rect')
-                .attr('class', 'chart-bar')
-                .attr('data-series', series)
-                .attr('x', x0(key) + x1(series))
-                .attr('y', y(v))
-                .attr('width', x1.bandwidth())
-                .attr('height', height - y(v))
-                .attr('fill', color(series))
-                .attr('rx', 2)
-                .style('display', activeSeries.has(series) ? null : 'none')
-                .on('mousemove', (evt) => showTooltip(evt, d, series))
-                .on('mouseleave', hideTooltip)
-                .on('click', (evt) => {{ evt.stopPropagation(); showTooltip(evt, d, series); }});
-        }});
-    }});
-
-    // Clicking anywhere else on the page dismisses a click-pinned tooltip.
-    document.addEventListener('click', hideTooltip);
-
-    // ── Legend (clickable — filters the chart to just that series) ──
-    const legendWrap = d3.select('#chart-container').append('div');
-    legendWrap.append('div').attr('class', 'legend-hint')
-        .text('Click a series below to isolate it — click again to show both.');
-    const legend = legendWrap.append('div').attr('class', 'legend');
-    const legendItems = {{}};
-    seriesKeys.forEach(series => {{
-        const item = legend.append('div')
-            .attr('class', 'legend-item')
-            .on('click', () => {{
-                if (activeSeries.size === seriesKeys.length) {{
-                    // Both active -> isolate the clicked series.
-                    activeSeries = new Set([series]);
-                }} else if (activeSeries.has(series) && activeSeries.size === 1) {{
-                    // Already isolated -> clicking it again restores both.
-                    activeSeries = new Set(seriesKeys);
-                }} else {{
-                    // The other series is isolated -> switch isolation to this one.
-                    activeSeries = new Set([series]);
-                }}
-                seriesKeys.forEach(s => {{
-                    legendItems[s].classed('inactive', !activeSeries.has(s));
-                }});
-                svg.selectAll('.chart-bar').style('display', function() {{
-                    return activeSeries.has(this.getAttribute('data-series')) ? null : 'none';
-                }});
+    const modelKey = d => d.model_id ? `${{d.stack_id}}/${{d.model_id}}` : d.stack_id;
+    const modelLabel = d => d.model_id || d.stack_id;
+    const voiceKey = d => d.voice_id;
+    if (chartable.length) {{
+        const margin = {{top: 20, right: 24, bottom: 145, left: 58}};
+        const width = Math.max(220, container.clientWidth - margin.left - margin.right);
+        const height = 380 - margin.top - margin.bottom;
+        const svg = d3.select('#chart-container').append('svg')
+            .attr('width', width + margin.left + margin.right)
+            .attr('height', height + margin.top + margin.bottom)
+            .append('g').attr('transform', `translate(${{margin.left}},${{margin.top}})`);
+        const maxima = Object.fromEntries(metrics.map(m => [m.key, d3.max(chartable, d => metricValue(d, m.key) || 0) || 1]));
+        const modelGroups = Array.from(d3.group(chartable, modelKey), ([key, rows]) => ({{key, label: modelLabel(rows[0]), rows}}));
+        const x0 = d3.scaleBand().domain(modelGroups.map(group => group.key)).range([0, width]).paddingInner(0.16);
+        const maxVoices = d3.max(modelGroups, group => group.rows.length) || 1;
+        const voiceSlotWidth = x0.bandwidth() / maxVoices;
+        const voiceScales = new Map(modelGroups.map(group => [group.key,
+            d3.scaleBand().domain(group.rows.map(voiceKey)).range([0, maxVoices * voiceSlotWidth]).paddingInner(0.08)]));
+        const x2 = d3.scaleBand().domain(metrics.map(m => m.key)).range([0, voiceSlotWidth]).padding(0.08);
+        const y = d3.scaleLinear().domain([0, 100]).range([height, 0]);
+        const metricFor = key => metrics.find(m => m.key === key);
+        const tooltip = document.getElementById('chart-tooltip');
+        const positionTooltip = evt => {{
+            const gap = 14, edge = 8;
+            const box = tooltip.getBoundingClientRect();
+            let left = evt.clientX + gap;
+            let top = evt.clientY + gap;
+            if (left + box.width > window.innerWidth - edge) left = evt.clientX - box.width - gap;
+            if (top + box.height > window.innerHeight - edge) top = evt.clientY - box.height - gap;
+            tooltip.style.left = Math.max(edge, left) + 'px';
+            tooltip.style.top = Math.max(edge, top) + 'px';
+        }};
+        svg.append('path').attr('class', 'domain').attr('d', `M0,${{height}}H${{width}}`);
+        modelGroups.forEach(group => {{
+            const modelX = x0(group.key);
+            const scale = voiceScales.get(group.key);
+            group.rows.forEach(row => {{
+                const center = modelX + scale(row.voice_id) + scale.bandwidth() / 2;
+                svg.append('text').attr('class', 'axis-label').attr('x', center).attr('y', height + 5).attr('text-anchor', 'end').attr('transform', `rotate(-45,${{center}},${{height + 5}})`).text(row.voice_id);
             }});
-        item.append('div').attr('class', 'legend-dot')
-            .style('background', color(series));
-        item.append('span').text(seriesLabels[series]);
-        legendItems[series] = item;
-    }});
-
-    // ── Table rows ──
+            svg.append('text').attr('class', 'axis-label').attr('x', modelX + x0.bandwidth() / 2).attr('y', height + 112).attr('text-anchor', 'middle').attr('font-weight', '700').text(group.label);
+        }});
+        svg.append('g').call(d3.axisLeft(y).ticks(5).tickFormat(v => v + '%'));
+        svg.append('text').attr('class', 'axis-label').attr('transform', 'rotate(-90)')
+            .attr('x', -height / 2).attr('y', -42).attr('text-anchor', 'middle').text('Relative value within metric (max = 100%)');
+        const hideTooltip = () => {{ tooltip.style.display = 'none'; }};
+        const bars = svg.selectAll('.voice-bars').data(chartable).enter().append('g')
+            .attr('transform', d => `translate(${{x0(modelKey(d)) + voiceScales.get(modelKey(d))(voiceKey(d))}},0)`);
+        bars.selectAll('rect').data(d => metrics.map(m => ({{row: d, metric: m}}))).enter().append('rect')
+            .attr('x', d => x2(d.metric.key)).attr('y', d => y((metricValue(d.row, d.metric.key) || 0) / maxima[d.metric.key] * 100))
+            .attr('width', x2.bandwidth())
+            .attr('height', d => metricValue(d.row, d.metric.key) === null ? 0 : height - y(metricValue(d.row, d.metric.key) / maxima[d.metric.key] * 100))
+            .attr('fill', d => d.metric.color).attr('rx', 2)
+            .on('mousemove', (evt, d) => {{
+                tooltip.innerHTML = `<b>${{d.metric.label}}</b><br>${{d.row.model_id || d.row.stack_id}}/${{d.row.voice_id}}<br>${{Number(d.row[d.metric.key]).toFixed(1)}} ${{d.metric.unit}}`;
+                tooltip.style.display = 'block'; positionTooltip(evt);
+            }}).on('mouseleave', hideTooltip);
+        document.addEventListener('click', hideTooltip);
+        const legend = d3.select('#chart-container').append('div').attr('class', 'legend metric-legend');
+        const activeMetrics = new Set(metrics.map(m => m.key));
+        const legendItems = new Map();
+        metrics.forEach(m => {{
+            const item = legend.append('div').attr('class', 'legend-item').on('click', () => {{
+                if (activeMetrics.size === metrics.length) activeMetrics.delete(m.key);
+                else if (activeMetrics.size === 1 && activeMetrics.has(m.key)) metrics.forEach(value => activeMetrics.add(value.key));
+                else {{ activeMetrics.clear(); activeMetrics.add(m.key); }}
+                if (!activeMetrics.size) activeMetrics.add(m.key);
+                metrics.forEach(value => legendItems.get(value.key).classed('inactive', !activeMetrics.has(value.key)));
+                svg.selectAll('rect').style('display', d => activeMetrics.has(d.metric.key) ? null : 'none');
+            }});
+            item.append('div').attr('class', 'legend-dot').style('background', m.color);
+            item.append('span').text(`${{m.label}} (${{m.unit}})`); legendItems.set(m.key, item);
+        }});
+    }}
     const tbody = document.getElementById('results-body');
-    const ratingsKey = 'alienvox-voice-ratings-' + data.timestamp;
-    const errorsKey = ratingsKey + '-errors';
-    let voiceRatings = {{}}, voiceErrors = {{}};
-    try {{ voiceRatings = JSON.parse(localStorage.getItem(ratingsKey) || '{{}}'); }} catch (_) {{}}
-    try {{ voiceErrors = JSON.parse(localStorage.getItem(errorsKey) || '{{}}'); }} catch (_) {{}}
+    const ratingsKey = 'alienvox-voice-ratings-v1';
+    const errorsKey = 'alienvox-voice-errors-v1';
+    const loadFeedback = (stableKey, legacyPrefixes, errorEntries = false) => {{
+        const saved = {{}};
+        try {{
+            for (let i = 0; i < localStorage.length; i++) {{
+                const key = localStorage.key(i);
+                if (key !== stableKey && legacyPrefixes.some(prefix => key.startsWith(prefix)) && key.endsWith('-errors') === errorEntries) {{
+                    Object.assign(saved, JSON.parse(localStorage.getItem(key) || '{{}}'));
+                }}
+            }}
+            Object.assign(saved, JSON.parse(localStorage.getItem(stableKey) || '{{}}'));
+            localStorage.setItem(stableKey, JSON.stringify(saved));
+        }} catch (_) {{}}
+        return saved;
+    }};
+    const voiceRatings = loadFeedback(ratingsKey, ['alienvox-voice-ratings-', 'alienvox-voice-quality-']);
+    const voiceErrors = loadFeedback(errorsKey, ['alienvox-voice-ratings-', 'alienvox-voice-quality-'], true);
     const rowKey = d => d.model_id ? d.model_id + '/' + d.voice_id : d.stack_id + '/' + d.voice_id;
+    const renderQualityChart = () => {{
+        const root = document.getElementById('quality-chart'); root.replaceChildren();
+        const ratedRows = data.results.filter(d => !d.skipped && Number(voiceRatings[rowKey(d)]) >= 1 && Number(voiceRatings[rowKey(d)]) <= 5 && voiceErrors[rowKey(d)] !== true);
+        if (!ratedRows.length) {{
+            root.textContent = 'Rate voices in Raw Results to populate this chart.';
+            return;
+        }}
+        const costs = [
+            {{key: 'cpu_percent', label: 'CPU load', unit: '%', color: '#6c3fc5', shape: d3.symbolCircle}},
+            {{key: 'memory_mb', label: 'Memory', unit: 'MB', color: '#087f8c', shape: d3.symbolDiamond}},
+        ];
+        const costSamples = Object.fromEntries(costs.map(cost => [cost.key,
+            ratedRows.map(d => Number(d[cost.key])).filter(value => value >= 0)]));
+        const points = ratedRows.flatMap(row => costs.filter(cost => Number(row[cost.key]) >= 0).map(cost => ({{
+            row, cost, score: Number(voiceRatings[rowKey(row)]),
+            percentile: (() => {{
+                const values = costSamples[cost.key], value = Number(row[cost.key]);
+                const below = values.filter(item => item < value).length;
+                const tied = values.filter(item => item === value).length;
+                return values.length <= 1 || below + tied === values.length && below === 0
+                    ? 50
+                    : 100 * (below + (tied - 1) / 2) / (values.length - 1);
+            }})(),
+        }})));
+        const margin = {{top: 20, right: 24, bottom: 58, left: 58}};
+        const width = Math.max(320, document.getElementById('quality-panel').clientWidth) - margin.left - margin.right;
+        const height = 320 - margin.top - margin.bottom;
+        const svg = d3.select(root).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${{width + margin.left + margin.right}} 320`)
+            .append('g').attr('transform', `translate(${{margin.left}},${{margin.top}})`);
+        const x = d3.scaleLinear().domain([0, 100]).range([0, width]);
+        const y = d3.scaleLinear().domain([0.5, 5.5]).range([height, 0]);
+        svg.append('g').attr('transform', `translate(0,${{height}})`).call(d3.axisBottom(x).ticks(5).tickFormat(v => 'P' + Math.round(v)));
+        svg.append('g').call(d3.axisLeft(y).ticks(5).tickFormat(v => v + ' ★'));
+        svg.append('text').attr('class', 'axis-label').attr('x', width / 2).attr('y', height + 45).attr('text-anchor', 'middle')
+            .text('Resource percentile among rated voices (P0 = lowest, P100 = highest use)');
+        const tooltip = document.getElementById('chart-tooltip');
+        const positionTooltip = evt => {{
+            const gap = 14, edge = 8;
+            const box = tooltip.getBoundingClientRect();
+            let left = evt.clientX + gap;
+            let top = evt.clientY + gap;
+            if (left + box.width > window.innerWidth - edge) left = evt.clientX - box.width - gap;
+            if (top + box.height > window.innerHeight - edge) top = evt.clientY - box.height - gap;
+            tooltip.style.left = Math.max(edge, left) + 'px';
+            tooltip.style.top = Math.max(edge, top) + 'px';
+        }};
+        const qualityMarks = svg.selectAll('.quality-point').data(points).enter().append('path')
+            .attr('class', 'quality-point').attr('transform', d => `translate(${{x(d.percentile)}},${{y(d.score)}})`)
+            .attr('d', d => d3.symbol().type(d.cost.shape).size(100)())
+            .attr('fill', d => d.cost.color).attr('stroke', '#26364c').attr('stroke-width', 1)
+            .on('mousemove', (evt, d) => {{
+                tooltip.innerHTML = `<b>${{d.cost.label}} vs quality</b><br>${{d.row.model_id || d.row.stack_id}}/${{d.row.voice_id}}<br>Quality: ${{d.score}} / 5<br>${{d.cost.label}}: P${{Math.round(d.percentile)}} (${{Number(d.row[d.cost.key]).toFixed(1)}} ${{d.cost.unit}})`;
+                tooltip.style.display = 'block'; positionTooltip(evt);
+            }}).on('mouseleave', () => {{ tooltip.style.display = 'none'; }});
+        const activeCosts = new Set(costs.map(cost => cost.key));
+        const legend = d3.select('#quality-legend');
+        costs.forEach(cost => {{
+            const button = legend.append('button').attr('type', 'button').text(cost.label);
+            button.on('click', () => {{
+                if (activeCosts.size === costs.length) activeCosts.delete(cost.key);
+                else if (activeCosts.size === 1 && activeCosts.has(cost.key)) costs.forEach(value => activeCosts.add(value.key));
+                else {{ activeCosts.clear(); activeCosts.add(cost.key); }}
+                if (!activeCosts.size) activeCosts.add(cost.key);
+                costs.forEach(value => legend.selectAll('button').filter((_, i) => i === costs.indexOf(value)).classed('inactive', !activeCosts.has(value.key)));
+                qualityMarks.style('display', d => activeCosts.has(d.cost.key) ? null : 'none');
+            }});
+        }});
+    }};
     const addRatingCell = (tr, d) => {{
         const td = tr.insertCell();
         const wrap = document.createElement('span'); wrap.className = 'star-rating';
@@ -1073,6 +1181,7 @@ const WELCOME_PHRASE = {json.dumps(WELCOME_PHRASE)};
             error.title = (voiceErrors[key] ? 'Error reported; clear to rate ' : 'Report an error for ') + key;
             error.setAttribute('aria-label', error.title); error.setAttribute('aria-pressed', voiceErrors[key]);
             try {{ localStorage.setItem(errorsKey, JSON.stringify(voiceErrors)); }} catch (_) {{ alert('Browser storage is unavailable; export the JSON to keep error reports.'); }}
+            renderQualityChart();
         }});
         wrap.appendChild(error);
         for (let score = 1; score <= 5; score++) {{
@@ -1086,6 +1195,7 @@ const WELCOME_PHRASE = {json.dumps(WELCOME_PHRASE)};
                 voiceRatings[key] = score;
                 wrap.querySelectorAll('.rating-star').forEach((item, index) => item.classList.toggle('selected', index < score));
                 try {{ localStorage.setItem(ratingsKey, JSON.stringify(voiceRatings)); }} catch (_) {{ alert('Browser storage is unavailable; export the JSON to keep ratings.'); }}
+                renderQualityChart();
             }});
             wrap.appendChild(star);
         }}
@@ -1101,11 +1211,32 @@ const WELCOME_PHRASE = {json.dumps(WELCOME_PHRASE)};
         a.href = url; a.download = 'alienvox-performance-ratings-' + data.timestamp + '.json'; a.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
     }});
+    const modelNav = document.getElementById('model-nav');
+    const navModelKey = d => d.model_id ? `${{d.stack_id}}/${{d.model_id}}` : d.stack_id;
+    const firstRowByModel = new Map();
+    const modelGroups = Array.from(new Map(data.results.map(d => [navModelKey(d), {{key: navModelKey(d), label: d.model_id || d.stack_id}}])).values());
+    const navLabel = document.createElement('span'); navLabel.className = 'model-nav-label'; navLabel.textContent = 'Jump to model:';
+    modelNav.appendChild(navLabel);
+    modelGroups.forEach(group => {{
+        const button = document.createElement('button'); button.type = 'button'; button.textContent = group.label;
+        button.title = 'Scroll to ' + group.key; button.setAttribute('aria-label', 'Jump to ' + group.key);
+        button.addEventListener('click', () => {{
+            const row = firstRowByModel.get(group.key);
+            if (row) {{
+                row.scrollIntoView({{behavior: 'smooth', block: 'center'}});
+                row.classList.remove('model-row-highlight'); void row.offsetWidth; row.classList.add('model-row-highlight');
+            }}
+        }});
+        modelNav.appendChild(button);
+    }});
     data.results.forEach(d => {{
         const tr = tbody.insertRow();
+        const groupKey = navModelKey(d);
+        tr.dataset.modelKey = groupKey;
+        if (!firstRowByModel.has(groupKey)) firstRowByModel.set(groupKey, tr);
         if (d.skipped) {{
             const td = tr.insertCell();
-            td.colSpan = 18;
+            td.colSpan = 19;
             td.className = 'status-na';
             td.textContent = `${{d.stack_id}}${{d.model_id ? '/' + d.model_id : ''}}/${{d.voice_id}} — skipped: ${{d.skip_reason}}`;
             return;
@@ -1138,8 +1269,30 @@ const WELCOME_PHRASE = {json.dumps(WELCOME_PHRASE)};
             else {{ td.className = 'status-ok'; }}
             td.textContent = fmt(val);
         }});
+        const sampleCell = tr.insertCell();
+        if (d.sample_url) {{
+            const play = document.createElement('button'); play.type = 'button';
+            play.className = 'listen-button'; play.textContent = 'Play';
+            play.title = 'Play the offline sample for ' + d.voice_id;
+            play.setAttribute('aria-label', play.title);
+            const audio = document.createElement('audio'); audio.preload = 'none'; audio.src = d.sample_url;
+            play.addEventListener('click', () => {{
+                document.querySelectorAll('#results-body audio').forEach(other => {{
+                    if (other !== audio) {{ other.pause(); other.currentTime = 0; }}
+                }});
+                if (audio.paused) {{
+                    document.querySelectorAll('.listen-button').forEach(button => {{ button.textContent = 'Play'; }});
+                    audio.play().then(() => {{ play.textContent = 'Pause'; }}).catch(() => {{ play.textContent = 'Unavailable'; }});
+                }} else {{ audio.pause(); audio.currentTime = 0; play.textContent = 'Play'; }}
+            }});
+            audio.addEventListener('ended', () => {{ play.textContent = 'Play'; }});
+            sampleCell.append(play, audio);
+        }} else {{
+            sampleCell.className = 'status-na'; sampleCell.textContent = 'N/A';
+        }}
         addRatingCell(tr, d);
     }});
+    renderQualityChart();
   }} catch (err) {{
     document.getElementById('info').innerHTML = '<b>Error rendering:</b> ' + err.message;
     console.error(err);
@@ -1160,9 +1313,27 @@ def write_html_report(html_str: str, path: Path) -> None:
     shutil.move(tmp_path, path)
 
 
+def _report_sample_url(
+    result: PerfResult, sample_dir: Path | None, report_dir: Path, sample_format: str,
+) -> str | None:
+    """Return a report-relative URL for a saved sample when the file exists."""
+    if sample_dir is None or result.skipped:
+        return None
+    parts = [result.stack_id]
+    if result.model_id:
+        parts.append(result.model_id)
+    parts.append(f"{_safe_filename(result.voice_id)}.{sample_format}")
+    sample_path = sample_dir.joinpath(*parts)
+    if not sample_path.is_file():
+        return None
+    return Path(os.path.relpath(sample_path, report_dir)).as_posix()
+
+
 # ── Report generation (orchestrator) ──────────────────────────────────────────
 
-def generate_reports(results: list[PerfResult]) -> tuple[Path, Path]:
+def generate_reports(
+    results: list[PerfResult], sample_dir: Path | None = None, sample_format: str = "wav",
+) -> tuple[Path, Path]:
     """Generate JSON + HTML reports in .logs/ with timestamp naming.
 
     Returns (json_path, html_path).
@@ -1173,10 +1344,20 @@ def generate_reports(results: list[PerfResult]) -> tuple[Path, Path]:
     json_path = LOGS_DIR / f"{ts}.json"
     html_path = LOGS_DIR / f"{ts}.html"
 
+    report_data = [asdict(result) for result in results]
+    for result, row in zip(results, report_data):
+        row["sample_url"] = _report_sample_url(result, sample_dir, LOGS_DIR, sample_format)
+    # Keep the regular results schema intact; add the optional playback URL to
+    # the report's JS payload only.
     write_json_report(results, json_path)
     # HTML includes the JS file via <script src>
     js_rel = f"./{ts}.js"
     write_html_report(generate_html(js_rel), html_path)
+    js_path = json_path.with_suffix(".js")
+    data = json.loads(js_path.read_text(encoding="utf-8").removeprefix("const data = ").rstrip(";"))
+    for row, report_row in zip(data["results"], report_data):
+        row["sample_url"] = report_row["sample_url"]
+    js_path.write_text(f"const data = {json.dumps(data, indent=2, default=str)};", encoding="utf-8")
 
     return json_path, html_path
 
@@ -1371,10 +1552,12 @@ if __name__ == "__main__":
             print("\n  Running welcome-phrase benchmark on all available stacks/models/voices...\n")
             results = welcome_phrase_benchmark(save_dir=save_dir, sample_format=args.sample_format, variant_id=args.variant)
 
-        render_console_table(results)
-        json_path, html_path = generate_reports(results)
+            json_path, html_path = generate_reports(
+                results, sample_dir=save_dir, sample_format=args.sample_format,
+            )
         print(f"\n  JSON report: {json_path}")
         print(f"  HTML report: {html_path}")
+        render_console_table(results)
         print()
 
         if results and results[0].skipped and args.stack:
