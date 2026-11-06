@@ -72,7 +72,7 @@ supertonic>=1.3.1,<2.0
 # install requirements-moss.txt with --no-deps after this compatible stack.
 # Pocket TTS is also installed from requirements-pockettts.txt without deps to
 # preserve NumPy <2 while keeping its runtime in the standard ML setup.
-piper-tts>=1.2.0
+piper-tts[ja,th,zh]>=1.8.0  # Hebrew/Lithuanian/Japanese/Thai/Pinyin phonemizers in current Piper
 chatterbox-tts>=0.1.7
 f5-tts>=0.1.0
 outetts>=0.3.0
