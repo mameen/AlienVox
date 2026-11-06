@@ -8,6 +8,8 @@ this port keeps the model loaded and runs entirely in-process instead).
 """
 from __future__ import annotations
 
+import json
+import tempfile
 import threading
 from dataclasses import dataclass
 from pathlib import Path
@@ -111,9 +113,49 @@ class PiperEngine(TtsEngine):
 
             model_path, config_path = paths
             _log.info("loading Piper voice %s from %s", voice_id, model_path)
-            voice = _PiperModel.load(str(model_path), config_path=str(config_path))
+            download_dir = models_root() / "ml" / "piper"
+            voice = self._load_model_compatible(
+                _PiperModel, model_path, config_path, voice_id, download_dir
+            )
             self._loaded_voices[voice_id] = voice
             return voice
+
+    @staticmethod
+    def _load_model_compatible(
+        model_class, model_path: Path, config_path: Path, voice_id: str, download_dir: Path
+    ):
+        """Load voices whose phoneme type is newer than the installed Piper release.
+
+        Piper 1.8 does not include the Lithuanian phonemizer yet. Its models use
+        the Lithuanian espeak voice plus a pitch-accent dictionary; until Piper
+        ships that phonemizer, use its espeak voice to synthesize without the
+        pitch-accent enhancement rather than failing the whole voice.
+        """
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        if config.get("phoneme_type") == "lithuanian":
+            from piper.config import PhonemeType
+
+            supported_types = {item.value for item in PhonemeType}
+            if "lithuanian" not in supported_types:
+                _log.warn(
+                    "Piper release lacks Lithuanian phonemizer for %s; "
+                    "using espeak 'lt' fallback without pitch-accent correction",
+                    voice_id,
+                )
+                config["phoneme_type"] = "espeak"
+                with tempfile.TemporaryDirectory(prefix="alienvox-piper-") as temp_dir:
+                    compatible_config = Path(temp_dir) / config_path.name
+                    compatible_config.write_text(
+                        json.dumps(config, ensure_ascii=False), encoding="utf-8"
+                    )
+                    return model_class.load(
+                        str(model_path), config_path=str(compatible_config),
+                        download_dir=str(download_dir),
+                    )
+
+        return model_class.load(
+            str(model_path), config_path=str(config_path), download_dir=str(download_dir)
+        )
 
     def speak(self, text: str, voice_id: str, params: SpeakParams) -> None:
         """Speak text using Piper. Returns immediately (async)."""
