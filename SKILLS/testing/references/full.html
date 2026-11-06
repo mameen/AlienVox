@@ -96,6 +96,11 @@ button.export:hover { background: #2189c4; }
 .theme-dark #chart-tooltip b { color: #8ecbff; }
 .theme-dark .quality-legend button { background: #263750; color: #f3f7fc; border-color: #607792; }
 .theme-toggle:hover { filter: brightness(1.1); }
+.chart-panel { background: #fff; border: 1px solid #cbd6e4; border-radius: 8px; padding: 16px; margin: 18px 0; }
+.chart-panel > summary { color: #23476d; cursor: pointer; font-size: 20px; font-weight: 700; }
+.chart-panel[open] > summary { margin-bottom: 12px; }
+.theme-dark .chart-panel { background: #1e293b; border-color: #42536a; color: #e5edf7; }
+.theme-dark .chart-panel > summary { color: #b8d8f2; }
 .quality-panel { background: #fff; border: 1px solid #cbd6e4; border-radius: 8px; padding: 16px; margin: 18px 0; }
 .quality-panel p { color: #40516a; }
 .quality-legend { display: flex; gap: 18px; color: #26364c; margin: 6px 0 12px; }
@@ -114,16 +119,18 @@ button.export:hover { background: #2189c4; }
 <button class="theme-toggle" id="theme-toggle" type="button">Switch to dark theme</button>
 <div id="info">Rendering report...</div>
 <p style="color:#bac4dd;font:14px 'Segoe UI',sans-serif">Each voice uses its matching localized phrase where known. Compare timing within the same phrase locale; translation lengths differ. Locale translations are drafts pending native-speaker review.</p>
-<h2>Latency, CPU load, and memory</h2>
+<details class="chart-panel" id="metrics-panel" open>
+<summary>Latency, CPU load, and memory</summary>
 <p class="report-note">Each metric is normalized to its highest result (100%) so different units can share one chart. Hover a bar to see the measured value.</p>
 <div id="chart-container"></div>
+</details>
 <div id="chart-tooltip"></div>
-<section class="quality-panel" id="quality-panel">
-<h2>Quality vs resource percentile</h2>
-<p>Subjective voice ratings (1–5 stars) compared with CPU and memory percentiles across rated voices. Higher percentiles mean greater resource use; hover a point for its measured value.</p>
+<details class="chart-panel quality-panel" id="quality-panel" open>
+<summary>Quality vs latency</summary>
+<p>Subjective voice ratings (1–5 stars) compared with latency percentiles across rated voices. CPU appears as an additional series when usable measurements are available.</p>
 <div class="quality-legend" id="quality-legend"></div>
 <div id="quality-chart"></div>
-</section>
+</details>
 <section class="raw-results-panel">
 <h2>Raw Results</h2>
 <div id="model-nav" class="model-nav" aria-label="Jump to model results"></div>
@@ -292,9 +299,10 @@ const WELCOME_PHRASE = "Welcome to AlienVox. This is a performance test of your 
             return;
         }
         const costs = [
-            {key: 'cpu_percent', label: 'CPU load', unit: '%', color: '#6c3fc5', shape: d3.symbolCircle},
-            {key: 'memory_mb', label: 'Memory', unit: 'MB', color: '#087f8c', shape: d3.symbolDiamond},
+            {key: 'synthesis_ms', label: 'Latency', unit: 'ms', color: '#087f8c', shape: d3.symbolCircle},
         ];
+        if (ratedRows.some(d => Number(d.cpu_percent) > 0))
+            costs.push({key: 'cpu_percent', label: 'CPU load', unit: '%', color: '#6c3fc5', shape: d3.symbolDiamond});
         const costSamples = Object.fromEntries(costs.map(cost => [cost.key,
             ratedRows.map(d => Number(d[cost.key])).filter(value => value >= 0)]));
         const points = ratedRows.flatMap(row => costs.filter(cost => Number(row[cost.key]) >= 0).map(cost => ({
@@ -318,7 +326,9 @@ const WELCOME_PHRASE = "Welcome to AlienVox. This is a performance test of your 
         svg.append('g').attr('transform', `translate(0,${height})`).call(d3.axisBottom(x).ticks(5).tickFormat(v => 'P' + Math.round(v)));
         svg.append('g').call(d3.axisLeft(y).ticks(5).tickFormat(v => v + ' ★'));
         svg.append('text').attr('class', 'axis-label').attr('x', width / 2).attr('y', height + 45).attr('text-anchor', 'middle')
-            .text('Resource percentile among rated voices (P0 = lowest, P100 = highest use)');
+            .text(costs.length > 1
+                ? 'Latency / CPU percentile among rated voices (P0 = lower, P100 = higher)'
+                : 'Latency percentile among rated voices (P0 = fastest, P100 = slowest)');
         const tooltip = document.getElementById('chart-tooltip');
         const positionTooltip = evt => {
             const gap = 14, edge = 8;
@@ -338,18 +348,11 @@ const WELCOME_PHRASE = "Welcome to AlienVox. This is a performance test of your 
                 tooltip.innerHTML = `<b>${d.cost.label} vs quality</b><br>${d.row.model_id || d.row.stack_id}/${d.row.voice_id}<br>Quality: ${d.score} / 5<br>${d.cost.label}: P${Math.round(d.percentile)} (${Number(d.row[d.cost.key]).toFixed(1)} ${d.cost.unit})`;
                 tooltip.style.display = 'block'; positionTooltip(evt);
             }).on('mouseleave', () => { tooltip.style.display = 'none'; });
-        const activeCosts = new Set(costs.map(cost => cost.key));
         const legend = d3.select('#quality-legend');
         costs.forEach(cost => {
-            const button = legend.append('button').attr('type', 'button').text(cost.label);
-            button.on('click', () => {
-                if (activeCosts.size === costs.length) activeCosts.delete(cost.key);
-                else if (activeCosts.size === 1 && activeCosts.has(cost.key)) costs.forEach(value => activeCosts.add(value.key));
-                else { activeCosts.clear(); activeCosts.add(cost.key); }
-                if (!activeCosts.size) activeCosts.add(cost.key);
-                costs.forEach(value => legend.selectAll('button').filter((_, i) => i === costs.indexOf(value)).classed('inactive', !activeCosts.has(value.key)));
-                qualityMarks.style('display', d => activeCosts.has(d.cost.key) ? null : 'none');
-            });
+            const item = legend.append('span');
+            item.append('i').style('background', cost.color);
+            item.append('span').text(cost.label);
         });
     };
     const addRatingCell = (tr, d) => {
