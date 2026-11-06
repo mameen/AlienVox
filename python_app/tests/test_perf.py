@@ -66,6 +66,14 @@ WELCOME_PHRASE = _SAMPLES_BY_LOCALE["en"]["text"]
 def _voice_locale(stack_id: str, model_id: str | None, voice_id: str) -> str:
     """Return the voice's primary locale, falling back conservatively to English."""
     leaf_id = voice_id.split("\\")[-1]
+    if model_id == "pockettts":
+        from src.engines.pockettts_engine import _VOICE_LANGUAGES
+        locale_by_language = {
+            "english": "en", "italian": "it-IT", "spanish": "es-ES",
+            "german": "de-DE", "portuguese": "pt-BR", "dutch": "nl-NL",
+            "french": "fr-FR",
+        }
+        return locale_by_language.get(_VOICE_LANGUAGES.get(leaf_id.lower(), ""), "und")
     match = re.search(r"(?:^|[_-])([a-z]{2})[-_]?([A-Z]{2})(?:[_\-.]|$)", leaf_id, re.IGNORECASE)
     if match:
         return f"{match.group(1).lower()}-{match.group(2).upper()}"
@@ -84,9 +92,55 @@ def _voice_locale(stack_id: str, model_id: str | None, voice_id: str) -> str:
                 "trump": "en", "ava": "en", "bella": "en", "adam": "en",
                 "nathan": "en", "soyo": "ja-JP", "saki": "ja-JP", "mortis": "ja-JP",
                 "umiri": "ja-JP", "mei": "ja-JP", "anon": "ja-JP", "arisa": "ja-JP"}.get(leaf_id.lower(), "und")
-    if model_id in {"chatterbox", "dia", "f5tts", "outetts", "vibevoice_realtime", "pockettts", "supertonic3"}:
+    if model_id in {"chatterbox", "dia", "f5tts", "outetts", "vibevoice_realtime", "supertonic3"}:
         return "en"
     return "und"
+
+
+def _voice_profile(stack_id: str, model_id: str | None, voice_id: str) -> str:
+    """Return a catalog-supported voice profile; never infer from a person's name."""
+    voice = voice_id.rsplit("\\", 1)[-1].lower()
+    model = (model_id or "").lower()
+
+    if model == "kokoro":
+        prefix = voice.split("_", 1)[0]
+        if prefix.endswith("f"):
+            return "Female"
+        if prefix.endswith("m"):
+            return "Male"
+    if model == "supertonic3":
+        if voice.startswith("f"):
+            return "Female"
+        if voice.startswith("m"):
+            return "Male"
+    if model == "qwen3tts":
+        if voice in {"vivian", "serena", "ono_anna", "sohee"}:
+            return "Female"
+        if voice in {"dylan", "eric", "ryan", "aiden", "uncle_fu"}:
+            return "Male"
+    if model == "vibevoice_realtime":
+        if voice in {"emma", "grace"}:
+            return "Female"
+        if voice in {"carter", "davis", "frank", "mike"}:
+            return "Male"
+
+    tokens = set(re.findall(r"[a-z]+", voice))
+    if tokens & {"child", "kid", "juvenile"}:
+        return "Child"
+    if tokens & {"neutral", "androgynous"}:
+        return "Neutral"
+    if tokens & {"female", "woman", "feminine"}:
+        return "Female"
+    if tokens & {"male", "man", "masculine"}:
+        return "Male"
+    return "Unknown"
+
+
+def _result_row(result: PerfResult) -> dict[str, Any]:
+    """Serialize a benchmark row with report-only voice metadata."""
+    row = asdict(result)
+    row["voice_profile"] = _voice_profile(result.stack_id, result.model_id, result.voice_id)
+    return row
 
 
 def _phrase_for_locale(locale: str) -> dict[str, Any]:
@@ -792,7 +846,7 @@ def write_json_report(results: list[PerfResult], path: Path) -> None:
             "locales": [row["locale"] for row in PERF_PHRASE_CATALOG["locales"]],
         },
         "thresholds": THRESHOLDS,
-        "results": [asdict(r) for r in results],
+        "results": [_result_row(r) for r in results],
     }
 
     # Atomic write: temp → rename
@@ -907,8 +961,13 @@ button.export:hover { background: #2189c4; }
 .chart-panel { background: #fff; border: 1px solid #cbd6e4; border-radius: 8px; padding: 16px; margin: 18px 0; }
 .chart-panel > summary { color: #23476d; cursor: pointer; font-size: 20px; font-weight: 700; }
 .chart-panel[open] > summary { margin-bottom: 12px; }
+.chart-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 8px 0 12px; color: #40516a; }
+.chart-controls label { font-weight: 600; }
+.chart-controls select { background: #fff; color: #182433; border: 1px solid #9fb4ca; border-radius: 5px; padding: 6px 9px; }
 .theme-dark .chart-panel { background: #1e293b; border-color: #42536a; color: #e5edf7; }
 .theme-dark .chart-panel > summary { color: #b8d8f2; }
+.theme-dark .chart-controls { color: #d8e3f0; }
+.theme-dark .chart-controls select { background: #263750; color: #f3f7fc; border-color: #607792; }
 .quality-panel { background: #fff; border: 1px solid #cbd6e4; border-radius: 8px; padding: 16px; margin: 18px 0; }
 .quality-panel p { color: #40516a; }
 .quality-legend { display: flex; gap: 18px; color: #26364c; margin: 6px 0 12px; }
@@ -941,13 +1000,14 @@ def generate_html(json_js_path: str) -> str:
 <button class="theme-toggle" id="theme-toggle" type="button">Switch to dark theme</button>
 <div id="info">Rendering report...</div>
 <p style="color:#bac4dd;font:14px 'Segoe UI',sans-serif">Each voice uses its matching localized phrase where known. Compare timing within the same phrase locale; translation lengths differ. Locale translations are drafts pending native-speaker review.</p>
-<details class="chart-panel" id="metrics-panel" open>
+<details class="chart-panel" id="metrics-panel">
 <summary>Latency, CPU load, and memory</summary>
-<p class="report-note">Each metric is normalized to its highest result (100%) so different units can share one chart. Hover a bar to see the measured value.</p>
+<p class="report-note">Each metric is normalized to its highest result (100%) so different units can share one chart. Hover a bar to see its model, voice, and measured value.</p>
+<div class="chart-controls"><label for="chart-model-filter">Focus model:</label><select id="chart-model-filter" aria-label="Focus the bar chart on a model"></select></div>
 <div id="chart-container"></div>
 </details>
 <div id="chart-tooltip"></div>
-<details class="chart-panel quality-panel" id="quality-panel" open>
+<details class="chart-panel quality-panel" id="quality-panel">
 <summary>Quality vs latency</summary>
 <p>Subjective voice ratings (1–5 stars) compared with latency percentiles across rated voices. CPU appears as an additional series when usable measurements are available.</p>
 <div class="quality-legend" id="quality-legend"></div>
@@ -959,7 +1019,7 @@ def generate_html(json_js_path: str) -> str:
 <p><button class="export" id="export-ratings" type="button">Download metrics + ratings JSON</button></p>
 <div class="table-wrap"><table id="results-table">
 <thead><tr>
-    <th>Stack</th><th>Model</th><th>Voice</th><th>Language</th><th>Phrase chars</th><th>Variant</th><th>Emotion</th><th>Tone</th><th>Device</th>
+    <th>Stack</th><th>Model</th><th>Voice</th><th>Voice profile</th><th>Voice language</th><th>Sample language</th><th>Phrase chars</th><th>Variant</th><th>Emotion</th><th>Tone</th><th>Device</th>
     <th>Synth (ms)</th><th>Duration (s)</th><th>Size (KB)</th><th>Sample Rate</th>
     <th>Memory (MB)</th><th>CPU (%)</th><th>GPU (%)</th><th>GPU (MB)</th><th>Sample</th><th>Rating</th>
 </tr></thead>
@@ -999,12 +1059,21 @@ const WELCOME_PHRASE = {json.dumps(WELCOME_PHRASE)};
         {{key: 'memory_mb', label: 'Memory', unit: 'MB', color: '#087f8c'}},
     ];
     const metricValue = (row, key) => Number.isFinite(Number(row[key])) && Number(row[key]) >= 0 ? Number(row[key]) : null;
-    const chartable = data.results.filter(d => !d.skipped && metrics.some(m => metricValue(d, m.key) !== null));
+    const allChartable = data.results.filter(d => !d.skipped && metrics.some(m => metricValue(d, m.key) !== null));
     const container = document.getElementById('chart-container');
     const tooltip = document.getElementById('chart-tooltip');
     const modelKey = d => d.model_id ? `${{d.stack_id}}/${{d.model_id}}` : d.stack_id;
     const modelLabel = d => d.model_id || d.stack_id;
     const voiceKey = d => d.voice_id;
+    const modelFilter = document.getElementById('chart-model-filter');
+    const filterModels = Array.from(new Map(allChartable.map(d => [modelKey(d), {{key: modelKey(d), label: modelLabel(d)}}])).values());
+    [['all', 'All models'], ...filterModels.map(group => [group.key, group.label])].forEach(([key, label]) => {{
+        const option = document.createElement('option'); option.value = key; option.textContent = label; modelFilter.appendChild(option);
+    }});
+    const renderMetricChart = () => {{
+    if (!document.getElementById('metrics-panel').open) return;
+    const chartable = allChartable.filter(d => modelFilter.value === 'all' || modelKey(d) === modelFilter.value);
+    container.replaceChildren();
     if (chartable.length) {{
         const margin = {{top: 20, right: 24, bottom: 145, left: 58}};
         const width = Math.max(220, container.clientWidth - margin.left - margin.right);
@@ -1076,6 +1145,11 @@ const WELCOME_PHRASE = {json.dumps(WELCOME_PHRASE)};
             item.append('span').text(`${{m.label}} (${{m.unit}})`); legendItems.set(m.key, item);
         }});
     }}
+    }};
+    modelFilter.addEventListener('change', renderMetricChart);
+    document.getElementById('metrics-panel').addEventListener('toggle', () => {{
+        if (document.getElementById('metrics-panel').open) renderMetricChart();
+    }});
     const tbody = document.getElementById('results-body');
     const ratingsKey = 'alienvox-voice-ratings-v1';
     const errorsKey = 'alienvox-voice-errors-v1';
@@ -1097,6 +1171,7 @@ const WELCOME_PHRASE = {json.dumps(WELCOME_PHRASE)};
     const voiceErrors = loadFeedback(errorsKey, ['alienvox-voice-ratings-', 'alienvox-voice-quality-'], true);
     const rowKey = d => d.model_id ? d.model_id + '/' + d.voice_id : d.stack_id + '/' + d.voice_id;
     const renderQualityChart = () => {{
+        if (!document.getElementById('quality-panel').open) return;
         const root = document.getElementById('quality-chart'); root.replaceChildren();
         const ratedRows = data.results.filter(d => !d.skipped && Number(voiceRatings[rowKey(d)]) >= 1 && Number(voiceRatings[rowKey(d)]) <= 5 && voiceErrors[rowKey(d)] !== true);
         if (!ratedRows.length) {{
@@ -1239,7 +1314,7 @@ const WELCOME_PHRASE = {json.dumps(WELCOME_PHRASE)};
         if (!firstRowByModel.has(groupKey)) firstRowByModel.set(groupKey, tr);
         if (d.skipped) {{
             const td = tr.insertCell();
-            td.colSpan = 19;
+            td.colSpan = 21;
             td.className = 'status-na';
             td.textContent = `${{d.stack_id}}${{d.model_id ? '/' + d.model_id : ''}}/${{d.voice_id}} — skipped: ${{d.skip_reason}}`;
             return;
@@ -1248,7 +1323,9 @@ const WELCOME_PHRASE = {json.dumps(WELCOME_PHRASE)};
             {{ key: 'stack_id',          fmt: v => v }},
             {{ key: 'model_id',          fmt: v => v ?? '-' }},
             {{ key: 'voice_id',          fmt: v => v }},
-            {{ key: 'language',          fmt: v => v || 'unknown' }},
+            {{ key: 'voice_profile',     fmt: v => v || 'Unknown' }},
+            {{ key: 'voice_locale',     fmt: v => v || 'unknown' }},
+            {{ key: 'phrase_locale',    fmt: v => v || 'unknown' }},
             {{ key: 'phrase_chars',      fmt: v => String(v ?? 0) }},
             {{ key: 'variant_id',        fmt: v => v || 'neutral' }},
             {{ key: 'emotion',           fmt: v => v || 'neutral' }},
@@ -1294,6 +1371,9 @@ const WELCOME_PHRASE = {json.dumps(WELCOME_PHRASE)};
             sampleCell.className = 'status-na'; sampleCell.textContent = 'N/A';
         }}
         addRatingCell(tr, d);
+    }});
+    document.getElementById('quality-panel').addEventListener('toggle', () => {{
+        if (document.getElementById('quality-panel').open) renderQualityChart();
     }});
     renderQualityChart();
   }} catch (err) {{
@@ -1347,7 +1427,7 @@ def generate_reports(
     json_path = LOGS_DIR / f"{ts}.json"
     html_path = LOGS_DIR / f"{ts}.html"
 
-    report_data = [asdict(result) for result in results]
+    report_data = [_result_row(result) for result in results]
     for result, row in zip(results, report_data):
         row["sample_url"] = _report_sample_url(result, sample_dir, LOGS_DIR, sample_format)
     # Keep the regular results schema intact; add the optional playback URL to

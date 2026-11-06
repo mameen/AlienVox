@@ -66,6 +66,24 @@ def run(cmd: list[str]) -> int:
     return subprocess.run(cmd, cwd=ROOT).returncode
 
 
+def _install_unidic_dictionary(python: str) -> int:
+    """Install UniDic data required by Misaki's Japanese Kokoro voices."""
+    dictionary_ready = (
+        "import pathlib, unidic, sys; "
+        "sys.exit(0 if (pathlib.Path(unidic.DICDIR) / 'mecabrc').is_file() else 1)"
+    )
+    check = subprocess.run(
+        [python, "-c", dictionary_ready],
+        cwd=ROOT,
+        check=False,
+    )
+    if check.returncode == 0:
+        print("UniDic dictionary already installed.")
+        return 0
+    print("\nDownloading UniDic dictionary required by Japanese Kokoro voices (~526 MB)...")
+    return run([python, "-m", "unidic", "download"])
+
+
 def _has_content(path: Path) -> bool:
     """True if path exists and contains at least one file (already downloaded)."""
     return path.exists() and any(path.rglob("*"))
@@ -545,6 +563,9 @@ def main() -> int:
     rc = run([python, "-m", "pip", "install", "-r", str(req)])
     if rc != 0:
         print("WARNING: Some packages failed. Check the output above.")
+    elif _install_unidic_dictionary(python) != 0:
+        print("ERROR: UniDic dictionary installation failed; Japanese Kokoro voices will not work.")
+        return 1
 
     print("\nInstalling Dia from source (no stable PyPI release)...")
     run([python, "-m", "pip", "install", "git+https://github.com/nari-labs/dia.git"])

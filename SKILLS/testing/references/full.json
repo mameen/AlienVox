@@ -51,7 +51,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ms-EN)"
+      "language": "en (voice ms-EN)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "sapi5",
@@ -78,7 +79,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ms-EN)"
+      "language": "en (voice ms-EN)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "sapi5",
@@ -105,7 +107,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ms-EN)"
+      "language": "en (voice ms-EN)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "sapi5",
@@ -132,7 +135,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-US)"
+      "language": "en (voice en-US)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "sapi5",
@@ -159,7 +163,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ar-SA)"
+      "language": "en (voice ar-SA)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "sapi5",
@@ -186,7 +191,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-GB)"
+      "language": "en (voice en-GB)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "sapi5",
@@ -213,7 +219,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-GB)"
+      "language": "en (voice en-GB)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "sapi5",
@@ -240,7 +247,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-GB)"
+      "language": "en (voice en-GB)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "sapi5",
@@ -267,7 +275,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ar-EG)"
+      "language": "en (voice ar-EG)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "sapi5",
@@ -294,7 +303,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-US)"
+      "language": "en (voice en-US)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "sapi5",
@@ -321,7 +331,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-US)"
+      "language": "en (voice en-US)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "speech_platform",
@@ -348,7 +359,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ms-EN)"
+      "language": "en (voice ms-EN)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "speech_platform",
@@ -375,7 +387,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ms-EN)"
+      "language": "en (voice ms-EN)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "speech_platform",
@@ -402,7 +415,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ms-EN)"
+      "language": "en (voice ms-EN)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "speech_platform",
@@ -429,7 +443,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-US)"
+      "language": "en (voice en-US)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "speech_platform",
@@ -456,7 +471,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ar-SA)"
+      "language": "en (voice ar-SA)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "speech_platform",
@@ -483,7 +499,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-GB)"
+      "language": "en (voice en-GB)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "speech_platform",
@@ -510,7 +527,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-GB)"
+      "language": "en (voice en-GB)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "speech_platform",
@@ -537,7 +555,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-GB)"
+      "language": "en (voice en-GB)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "speech_platform",
@@ -564,7 +583,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ar-EG)"
+      "language": "en (voice ar-EG)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "speech_platform",
@@ -591,7 +611,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-US)"
+      "language": "en (voice en-US)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "speech_platform",
@@ -618,7 +639,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-US)"
+      "language": "en (voice en-US)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "ml",
@@ -645,7 +667,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-US)"
+      "language": "en (voice en-US)",
+      "voice_profile": "Female"
     },
     {
       "stack_id": "ml",
@@ -672,7 +695,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-US)"
+      "language": "en (voice en-US)",
+      "voice_profile": "Female"
     },
     {
       "stack_id": "ml",
@@ -699,7 +723,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-US)"
+      "language": "en (voice en-US)",
+      "voice_profile": "Female"
     },
     {
       "stack_id": "ml",
@@ -726,7 +751,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ad-AM)"
+      "language": "en (voice ad-AM)",
+      "voice_profile": "Male"
     },
     {
       "stack_id": "ml",
@@ -753,7 +779,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-US)"
+      "language": "en (voice en-US)",
+      "voice_profile": "Male"
     },
     {
       "stack_id": "ml",
@@ -780,7 +807,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice em-MA)"
+      "language": "en (voice em-MA)",
+      "voice_profile": "Female"
     },
     {
       "stack_id": "ml",
@@ -807,7 +835,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-GB)"
+      "language": "en (voice en-GB)",
+      "voice_profile": "Male"
     },
     {
       "stack_id": "ml",
@@ -834,7 +863,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-US)"
+      "language": "en (voice en-US)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "ml",
@@ -861,7 +891,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-US)"
+      "language": "en (voice en-US)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "ml",
@@ -888,7 +919,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-US)"
+      "language": "en (voice en-US)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "ml",
@@ -915,7 +947,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-US)"
+      "language": "en (voice en-US)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "ml",
@@ -942,7 +975,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-GB)"
+      "language": "en (voice en-GB)",
+      "voice_profile": "Female"
     },
     {
       "stack_id": "ml",
@@ -969,7 +1003,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-GB)"
+      "language": "en (voice en-GB)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "ml",
@@ -996,7 +1031,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice en-GB)"
+      "language": "en (voice en-GB)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "ml",
@@ -1023,7 +1059,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "ml",
@@ -1050,7 +1087,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ca-LM)"
+      "language": "en (voice ca-LM)",
+      "voice_profile": "Female"
     },
     {
       "stack_id": "ml",
@@ -1077,7 +1115,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ma-LE)"
+      "language": "en (voice ma-LE)",
+      "voice_profile": "Male"
     },
     {
       "stack_id": "ml",
@@ -1104,7 +1143,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "ml",
@@ -1131,7 +1171,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "ml",
@@ -1158,7 +1199,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ca-LM)"
+      "language": "en (voice ca-LM)",
+      "voice_profile": "Female"
     },
     {
       "stack_id": "ml",
@@ -1185,7 +1227,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ma-LE)"
+      "language": "en (voice ma-LE)",
+      "voice_profile": "Male"
     },
     {
       "stack_id": "ml",
@@ -1212,7 +1255,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ma-LE)"
+      "language": "en (voice ma-LE)",
+      "voice_profile": "Male"
     },
     {
       "stack_id": "ml",
@@ -1239,7 +1283,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ma-LE)"
+      "language": "en (voice ma-LE)",
+      "voice_profile": "Male"
     },
     {
       "stack_id": "ml",
@@ -1266,7 +1311,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ma-LE)"
+      "language": "en (voice ma-LE)",
+      "voice_profile": "Male"
     },
     {
       "stack_id": "ml",
@@ -1293,7 +1339,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "voice_profile": "Female"
     },
     {
       "stack_id": "ml",
@@ -1320,7 +1367,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "voice_profile": "Male"
     },
     {
       "stack_id": "ml",
@@ -1347,7 +1395,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "voice_profile": "Male"
     },
     {
       "stack_id": "ml",
@@ -1374,7 +1423,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "voice_profile": "Male"
     },
     {
       "stack_id": "ml",
@@ -1401,7 +1451,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice mi-KE)"
+      "language": "en (voice mi-KE)",
+      "voice_profile": "Male"
     },
     {
       "stack_id": "ml",
@@ -1428,7 +1479,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice em-MA)"
+      "language": "en (voice em-MA)",
+      "voice_profile": "Female"
     },
     {
       "stack_id": "ml",
@@ -1455,7 +1507,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "voice_profile": "Female"
     },
     {
       "stack_id": "ml",
@@ -1482,7 +1535,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice zh-CN)"
+      "language": "en (voice zh-CN)",
+      "voice_profile": "Female"
     },
     {
       "stack_id": "ml",
@@ -1509,7 +1563,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice zh-CN)"
+      "language": "en (voice zh-CN)",
+      "voice_profile": "Female"
     },
     {
       "stack_id": "ml",
@@ -1536,7 +1591,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "voice_profile": "Male"
     },
     {
       "stack_id": "ml",
@@ -1563,7 +1619,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice er-IC)"
+      "language": "en (voice er-IC)",
+      "voice_profile": "Male"
     },
     {
       "stack_id": "ml",
@@ -1590,7 +1647,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ry-AN)"
+      "language": "en (voice ry-AN)",
+      "voice_profile": "Male"
     },
     {
       "stack_id": "ml",
@@ -1617,7 +1675,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "voice_profile": "Male"
     },
     {
       "stack_id": "ml",
@@ -1644,7 +1703,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice zh-CN)"
+      "language": "en (voice zh-CN)",
+      "voice_profile": "Male"
     },
     {
       "stack_id": "ml",
@@ -1671,7 +1731,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice an-NA)"
+      "language": "en (voice an-NA)",
+      "voice_profile": "Female"
     },
     {
       "stack_id": "ml",
@@ -1698,7 +1759,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ko-KR)"
+      "language": "en (voice ko-KR)",
+      "voice_profile": "Female"
     },
     {
       "stack_id": "ml",
@@ -1719,13 +1781,14 @@
       "gpu_mb": 17280.6953125,
       "skipped": false,
       "skip_reason": "",
-      "voice_locale": "al-BA",
+      "voice_locale": "en",
       "phrase_locale": "en",
       "language_main": "en",
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice al-BA)"
+      "language": "en",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "ml",
@@ -1752,7 +1815,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "ml",
@@ -1779,7 +1843,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "voice_profile": "Male"
     },
     {
       "stack_id": "ml",
@@ -1806,7 +1871,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "voice_profile": "Male"
     },
     {
       "stack_id": "ml",
@@ -1833,7 +1899,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "voice_profile": "Male"
     },
     {
       "stack_id": "ml",
@@ -1860,7 +1927,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "voice_profile": "Male"
     },
     {
       "stack_id": "ml",
@@ -1887,7 +1955,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "voice_profile": "Male"
     },
     {
       "stack_id": "ml",
@@ -1914,7 +1983,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "voice_profile": "Female"
     },
     {
       "stack_id": "ml",
@@ -1941,7 +2011,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "voice_profile": "Female"
     },
     {
       "stack_id": "ml",
@@ -1968,7 +2039,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "voice_profile": "Female"
     },
     {
       "stack_id": "ml",
@@ -1995,7 +2067,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "voice_profile": "Female"
     },
     {
       "stack_id": "ml",
@@ -2022,7 +2095,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "voice_profile": "Female"
     },
     {
       "stack_id": "ml",
@@ -2049,7 +2123,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice zh-CN)"
+      "language": "en (voice zh-CN)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "ml",
@@ -2076,7 +2151,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice zh-CN)"
+      "language": "en (voice zh-CN)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "ml",
@@ -2103,7 +2179,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice zh-CN)"
+      "language": "en (voice zh-CN)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "ml",
@@ -2130,7 +2207,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice zh-CN)"
+      "language": "en (voice zh-CN)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "ml",
@@ -2157,7 +2235,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice zh-CN)"
+      "language": "en (voice zh-CN)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "ml",
@@ -2184,7 +2263,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice zh-CN)"
+      "language": "en (voice zh-CN)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "ml",
@@ -2211,7 +2291,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "ml",
@@ -2238,7 +2319,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "ml",
@@ -2265,7 +2347,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "ml",
@@ -2292,7 +2375,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ad-AM)"
+      "language": "en (voice ad-AM)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "ml",
@@ -2319,7 +2403,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en"
+      "language": "en",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "ml",
@@ -2346,7 +2431,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice so-YO)"
+      "language": "en (voice so-YO)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "ml",
@@ -2373,7 +2459,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice sa-KI)"
+      "language": "en (voice sa-KI)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "ml",
@@ -2400,7 +2487,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ja-JP)"
+      "language": "en (voice ja-JP)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "ml",
@@ -2427,7 +2515,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ja-JP)"
+      "language": "en (voice ja-JP)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "ml",
@@ -2454,7 +2543,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ja-JP)"
+      "language": "en (voice ja-JP)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "ml",
@@ -2481,7 +2571,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice an-ON)"
+      "language": "en (voice an-ON)",
+      "voice_profile": "Unknown"
     },
     {
       "stack_id": "ml",
@@ -2508,7 +2599,8 @@
       "language_sub": null,
       "phrase_id": "legacy-english-v0",
       "phrase_chars": 123,
-      "language": "en (voice ja-JP)"
+      "language": "en (voice ja-JP)",
+      "voice_profile": "Unknown"
     }
   ],
   "performance_phrase_catalog": {

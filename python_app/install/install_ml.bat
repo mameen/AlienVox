@@ -22,6 +22,13 @@ echo.
 "%PYTHON_EXE%" -m pip install -r "%APP_DIR%\requirements.txt"
 if errorlevel 1 goto INSTALL_FAILED
 
+rem Misaki's Japanese Kokoro voices need the UniDic data files as well as the pip packages.
+"%PYTHON_EXE%" -c "import pathlib,unidic,sys; sys.exit(0 if (pathlib.Path(unidic.DICDIR)/'mecabrc').is_file() else 1)"
+if errorlevel 1 (
+  "%PYTHON_EXE%" -m unidic download
+  if errorlevel 1 goto INSTALL_FAILED
+)
+
 rem Keep upstream Torch/Transformers pins out of the shared environment.
 "%PYTHON_EXE%" -m pip install --no-deps -r "%APP_DIR%\requirements-moss.txt"
 if errorlevel 1 goto INSTALL_FAILED
