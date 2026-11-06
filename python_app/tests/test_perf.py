@@ -415,7 +415,12 @@ def _safe_filename(name: str) -> str:
     return re.sub(r'[<>:"/\\|?*]', "_", name).strip() or "voice"
 
 
-def welcome_phrase_benchmark(save_dir: Path | None = None, sample_format: str = "wav", variant_id: str = "neutral") -> list[PerfResult]:
+def welcome_phrase_benchmark(
+    save_dir: Path | None = None,
+    sample_format: str = "wav",
+    variant_id: str = "neutral",
+    ml_only: bool = False,
+) -> list[PerfResult]:
     """Speak each voice's localized performance phrase across installed stacks.
 
     Returns a list of PerfResults. Skips unavailable stacks/models gracefully.
@@ -444,6 +449,8 @@ def welcome_phrase_benchmark(save_dir: Path | None = None, sample_format: str = 
     for stack_id in stack_ids:
         # ── SAPI5 / Speech Platform (enumerate voices via engine) ─────────
         if stack_id in ("sapi5", "speech_platform"):
+            if ml_only:
+                continue
             try:
                 if sys.platform != "win32":
                     skipped.append(f"{stack_id}: not on Windows")

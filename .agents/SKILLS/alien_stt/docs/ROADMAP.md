@@ -42,6 +42,26 @@ Each item: **What - Why - Design - Blocked by - Effort - Status**.
   and degrade with a clear message when absent.
 - **Effort:** small. **Status:** not started.
 
+## Fully local Whisper setup and inference
+
+- **What:** Make AlienSTT's Whisper path fully local after an explicit one-time
+  model installation, with no runtime Hugging Face Hub requests or dependency on
+  Transformers if a suitable local runtime can replace it.
+- **Why:** The Type 1 voice POC needs predictable offline STT, including on a
+  machine that has not already populated a Hugging Face cache. Local model
+  inference should not imply that setup requires network access every time.
+- **Design:** Keep model acquisition separate from transcription. Evaluate
+  whisper.cpp and the existing faster-whisper/CTranslate2 option against the
+  current Transformers engine for Windows, RTX 4090 performance, model quality,
+  and supported Whisper model formats. Select one local runtime and provide an
+  explicit model-install step; transcription must load installed files without
+  contacting Hugging Face. Retain Transformers only if it remains the best
+  supported runtime, and make its offline/cache requirements explicit.
+- **Blocked by:** Runtime and model distribution decision; the same Whisper
+  weights are not necessarily interchangeable between Transformers,
+  CTranslate2, and whisper.cpp.
+- **Effort:** medium. **Status:** not started.
+
 ## Subtitle re-flowing
 
 - **What:** break long segments into cues that obey a maximum line length and

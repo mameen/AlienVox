@@ -1,0 +1,4 @@
+interface:
+  display_name: "Dev vs Prod"
+  short_description: "Handle dev/prod deployment boundaries"
+  default_prompt: "Use $dev-vs-prod to document or implement dev/prod environment differences, config, and installation behavior."

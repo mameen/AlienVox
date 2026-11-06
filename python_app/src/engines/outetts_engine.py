@@ -27,40 +27,39 @@ from .base import SpeakParams, TtsEngine, Voice
 
 _log = _logger_mod.get_logger("outetts")
 
-_VOICES = [
-    Voice(id="male_1",   name="Male 1"),
-    Voice(id="male_2",   name="Male 2"),
-    Voice(id="male_3",   name="Male 3"),
-    Voice(id="female_1", name="Female 1"),
-]
-_DEFAULT_VOICE = "male_1"
-_VALID_VOICE_IDS: frozenset[str] = frozenset(v.id for v in _VOICES)
+_VOICE_LABELS = {
+    "de_male_1": "German M · 1", "de_male_2": "German M · 2",
+    "en_female_1": "English F · 1", "en_male_1": "English M · 1",
+    "en_male_2": "English M · 2", "en_male_3": "English M · 3",
+    "fr_female_1": "French F · 1", "fr_female_2": "French F · 2",
+    "fr_male_1": "French M · 1", "fr_male_2": "French M · 2",
+    "jp_female_1": "Japanese F · 1", "jp_female_2": "Japanese F · 2",
+    "jp_male_1": "Japanese M · 1", "ko_female_1": "Korean F · 1",
+    "zh_female_1": "Chinese F · 1", "zh_female_2": "Chinese F · 2",
+    "zh_male_1": "Chinese M · 1", "zh_male_2": "Chinese M · 2",
+}
+_VOICES = [Voice(id=voice_id, name=label) for voice_id, label in _VOICE_LABELS.items()]
+_DEFAULT_VOICE = "en_male_1"
+_VALID_VOICE_IDS: frozenset[str] = frozenset(_VOICE_LABELS)
 _SAMPLE_RATE = 44_100  # ModelOutput always resamples to this, regardless of the model's native rate
 _HF_REPO = "OuteAI/OuteTTS-0.3-500M"
 _MODEL_VERSION = "0.3"  # matches outetts.interface.MODEL_CONFIGS key for this repo
 
-# outetts's built-in default speakers are language-prefixed (en_male_1,
-# en_female_1, ...) and only include ONE English female preset — our simple
-# IDs are mapped to the real speaker names here so stacks.yaml/the UI don't
-# need to leak outetts's naming scheme.
-_VOICE_TO_SPEAKER = {
-    "male_1":   "en_male_1",
-    "male_2":   "en_male_2",
-    "male_3":   "en_male_3",
-    "female_1": "en_female_1",
+# Keep the previous short English IDs working for existing user.yaml choices.
+_LEGACY_VOICE_IDS = {
+    "male_1": "en_male_1", "male_2": "en_male_2",
+    "male_3": "en_male_3", "female_1": "en_female_1",
 }
 
 
 def resolve_speaker_name(voice_id: str) -> str:
-    """Map a (possibly invalid) short voice ID to a real outetts speaker name,
-    falling back to _DEFAULT_VOICE's speaker if unrecognized.
+    """Resolve a built-in speaker ID, retaining aliases from old settings.
 
     Pure function — no model access — so this can be unit-tested directly
     without loading the real OuteTTS model.
     """
-    if voice_id not in _VALID_VOICE_IDS:
-        voice_id = _DEFAULT_VOICE
-    return _VOICE_TO_SPEAKER[voice_id]
+    voice_id = _LEGACY_VOICE_IDS.get(voice_id, voice_id)
+    return voice_id if voice_id in _VALID_VOICE_IDS else _DEFAULT_VOICE
 
 
 def apply_volume(audio: np.ndarray, volume: int) -> np.ndarray:

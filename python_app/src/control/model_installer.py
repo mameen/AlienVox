@@ -47,6 +47,7 @@ _HF_REVISIONS = {
     "supertonic3": "aafc6e32416a594460b32413efc49d7fe4ce6d46",
 }
 _PIPER_HF_REPO = "rhasspy/piper-voices"
+_PIPER_HF_REVISION = "e7229f7d33a10e145e109b886d661984201ac3c4"
 _VIBEVOICE_VOICE_PT_BASE_URL = (
     "https://raw.githubusercontent.com/microsoft/VibeVoice/main/"
     "demo/voices/streaming_model/"
@@ -56,6 +57,21 @@ _VIBEVOICE_VOICE_FILES = {
     "frank": "en-Frank_man.pt", "mike": "en-Mike_man.pt",
     "emma": "en-Emma_woman.pt", "grace": "en-Grace_woman.pt",
 }
+_POCKETTTS_VOICES = {
+    "english": (
+        "alba", "marius", "javert", "cosette", "jean", "anna", "vera",
+        "fantine", "charles", "paul", "eponine", "azelma", "george", "mary",
+        "jane", "michael", "eve", "bill_boerst", "peter_yearsley", "stuart_bell",
+        "caro_davy",
+    ),
+    "italian": ("giovanni",),
+    "spanish": ("lola",),
+    "german": ("juergen",),
+    "portuguese": ("rafael",),
+    "dutch": ("daan",),
+    "french": ("estelle",),
+}
+_POCKETTTS_MODEL_REVISION = "a7056f505a4a8ca72d8b5fb1440071d6f1a35739"
 
 
 def _piper_subpath(voice_id: str) -> str:
@@ -153,7 +169,7 @@ def _download_vibevoice_voices(dest: Path, on_progress: ProgressCb) -> None:
 
 
 def _download_pockettts(models_root: Path, on_progress: ProgressCb) -> None:
-    """Install the public no-voice-cloning checkpoint and preset embeddings locally."""
+    """Install all Pocket TTS language checkpoints and preset states locally."""
     try:
         import yaml
         from huggingface_hub import hf_hub_download
@@ -167,37 +183,53 @@ def _download_pockettts(models_root: Path, on_progress: ProgressCb) -> None:
     dest = models_root / "ml" / "pockettts"
     voices_dir = dest / "voices"
     voices_dir.mkdir(parents=True, exist_ok=True)
-    repo = "kyutai/pocket-tts-without-voice-cloning"
-    revision = "a7056f505a4a8ca72d8b5fb1440071d6f1a35739"
-    files = [
-        "languages/english/model.safetensors",
-        "languages/english/tokenizer.json",
-        "languages/english/embeddings/alba.safetensors",
-        "languages/english/embeddings/marius.safetensors",
-    ]
-    downloaded: dict[str, Path] = {}
-    for index, filename in enumerate(files, 1):
-        on_progress(index - 1, len(files), f"Pocket TTS {filename.rsplit('/', 1)[-1]}")
-        downloaded[filename] = Path(hf_hub_download(
-            repo_id=repo,
+    config_dir = Path(CONFIGS_DIR)
+    tasks = [(language, voice) for language, voices in _POCKETTTS_VOICES.items()
+             for voice in voices]
+    total = len(_POCKETTTS_VOICES) * 2 + len(tasks)
+    completed = 0
+
+    def fetch(repo_id: str, filename: str, revision: str, description: str) -> Path:
+        nonlocal completed
+        on_progress(completed, total, description)
+        path = Path(hf_hub_download(
+            repo_id=repo_id,
             filename=filename,
             revision=revision,
             local_dir=str(dest),
         ))
+        completed += 1
+        return path
 
-    import yaml
-    config = yaml.safe_load((Path(CONFIGS_DIR) / "english.yaml").read_text(encoding="utf-8"))
-    config["weights_path"] = str(downloaded[files[0]])
-    config["weights_path_without_voice_cloning"] = None
-    config["flow_lm"]["lookup_table"]["tokenizer_path"] = str(downloaded[files[1]])
-    (dest / "english.yaml").write_text(
-        yaml.safe_dump(config, sort_keys=False), encoding="utf-8"
-    )
-    for voice, filename in (("alba", files[2]), ("marius", files[3])):
-        target = voices_dir / f"{voice}.safetensors"
-        if downloaded[filename] != target:
-            shutil.copy2(downloaded[filename], target)
-    on_progress(len(files), len(files), "Pocket TTS installed")
+    for language, voices in _POCKETTTS_VOICES.items():
+        model_file = f"languages/{language}/model.safetensors"
+        model_path = fetch(
+            "kyutai/pocket-tts-without-voice-cloning", model_file, _POCKETTTS_MODEL_REVISION,
+            f"Pocket TTS {language} model",
+        )
+        tokenizer_file = f"languages/{language}/tokenizer.json"
+        tokenizer_path = fetch(
+            "kyutai/pocket-tts-without-voice-cloning", tokenizer_file,
+            _POCKETTTS_MODEL_REVISION, f"Pocket TTS {language} tokenizer",
+        )
+        config = yaml.safe_load((config_dir / f"{language}.yaml").read_text(encoding="utf-8"))
+        config["weights_path"] = str(model_path)
+        config["weights_path_without_voice_cloning"] = None
+        config["flow_lm"]["lookup_table"]["tokenizer_path"] = str(tokenizer_path)
+        (dest / f"{language}.yaml").write_text(
+            yaml.safe_dump(config, sort_keys=False), encoding="utf-8"
+        )
+
+        for voice in voices:
+            voice_file = f"languages/{language}/embeddings/{voice}.safetensors"
+            downloaded = fetch(
+                "kyutai/pocket-tts-without-voice-cloning", voice_file,
+                _POCKETTTS_MODEL_REVISION, f"Pocket TTS preset voice {voice}",
+            )
+            target = voices_dir / f"{voice}.safetensors"
+            if downloaded.resolve() != target.resolve():
+                shutil.copy2(downloaded, target)
+    on_progress(total, total, "Pocket TTS installed")
 
 
 def _download_piper_voice(voice_id: str, models_root: Path, on_progress: ProgressCb) -> None:
@@ -220,6 +252,7 @@ def _download_piper_voice(voice_id: str, models_root: Path, on_progress: Progres
             hf_hub_download(
                 repo_id=_PIPER_HF_REPO,
                 filename=f"{subpath}/{fname}",
+                revision=_PIPER_HF_REVISION,
                 local_dir=str(dest),
                 local_dir_use_symlinks=False,
             )

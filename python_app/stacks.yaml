@@ -46,13 +46,60 @@ stacks:
         auto_download: true    # KPipeline auto-fetches from HuggingFace Hub on first use
         approx_size_mb: 300    # single shared download, covers every voice below
         voices:
-          - { id: af_heart,  label: "American F · Heart" }
-          - { id: af_bella,  label: "American F · Bella" }
+          - { id: af_alloy, label: "American F · Alloy" }
+          - { id: af_aoede, label: "American F · Aoede" }
+          - { id: af_bella, label: "American F · Bella" }
+          - { id: af_heart, label: "American F · Heart" }
+          - { id: af_jessica, label: "American F · Jessica" }
+          - { id: af_kore, label: "American F · Kore" }
           - { id: af_nicole, label: "American F · Nicole" }
-          - { id: am_adam,   label: "American M · Adam" }
-          - { id: am_michael,label: "American M · Michael" }
-          - { id: bf_emma,   label: "British F · Emma" }
+          - { id: af_nova, label: "American F · Nova" }
+          - { id: af_river, label: "American F · River" }
+          - { id: af_sarah, label: "American F · Sarah" }
+          - { id: af_sky, label: "American F · Sky" }
+          - { id: am_adam, label: "American M · Adam" }
+          - { id: am_echo, label: "American M · Echo" }
+          - { id: am_eric, label: "American M · Eric" }
+          - { id: am_fenrir, label: "American M · Fenrir" }
+          - { id: am_liam, label: "American M · Liam" }
+          - { id: am_michael, label: "American M · Michael" }
+          - { id: am_onyx, label: "American M · Onyx" }
+          - { id: am_puck, label: "American M · Puck" }
+          - { id: am_santa, label: "American M · Santa" }
+          - { id: bf_alice, label: "British F · Alice" }
+          - { id: bf_emma, label: "British F · Emma" }
+          - { id: bf_isabella, label: "British F · Isabella" }
+          - { id: bf_lily, label: "British F · Lily" }
+          - { id: bm_daniel, label: "British M · Daniel" }
+          - { id: bm_fable, label: "British M · Fable" }
           - { id: bm_george, label: "British M · George" }
+          - { id: bm_lewis, label: "British M · Lewis" }
+          - { id: ef_dora, label: "Spanish F · Dora" }
+          - { id: em_alex, label: "Spanish M · Alex" }
+          - { id: em_santa, label: "Spanish M · Santa" }
+          - { id: ff_siwis, label: "French F · Siwis" }
+          - { id: hf_alpha, label: "Hindi F · Alpha" }
+          - { id: hf_beta, label: "Hindi F · Beta" }
+          - { id: hm_omega, label: "Hindi M · Omega" }
+          - { id: hm_psi, label: "Hindi M · Psi" }
+          - { id: if_sara, label: "Italian F · Sara" }
+          - { id: im_nicola, label: "Italian M · Nicola" }
+          - { id: jf_alpha, label: "Japanese F · Alpha" }
+          - { id: jf_gongitsune, label: "Japanese F · Gongitsune" }
+          - { id: jf_nezumi, label: "Japanese F · Nezumi" }
+          - { id: jf_tebukuro, label: "Japanese F · Tebukuro" }
+          - { id: jm_kumo, label: "Japanese M · Kumo" }
+          - { id: pf_dora, label: "Portuguese F · Dora" }
+          - { id: pm_alex, label: "Portuguese M · Alex" }
+          - { id: pm_santa, label: "Portuguese M · Santa" }
+          - { id: zf_xiaobei, label: "Chinese F · Xiaobei" }
+          - { id: zf_xiaoni, label: "Chinese F · Xiaoni" }
+          - { id: zf_xiaoxiao, label: "Chinese F · Xiaoxiao" }
+          - { id: zf_xiaoyi, label: "Chinese F · Xiaoyi" }
+          - { id: zm_yunjian, label: "Chinese M · Yunjian" }
+          - { id: zm_yunxi, label: "Chinese M · Yunxi" }
+          - { id: zm_yunxia, label: "Chinese M · Yunxia" }
+          - { id: zm_yunyang, label: "Chinese M · Yunyang" }
         controls:
           rate:        { min: -10, max: 10,  default: 0,   applies: true }
           pitch:       { applies: false }
@@ -60,21 +107,192 @@ stacks:
           ttl_seconds: { min: 0,   max: 300, default: 30,  applies: true }
 
       - id: piper
+        # Piper voice catalog snapshot: rhasspy/piper-voices @ e7229f7d33a10e145e109b886d661984201ac3c4
         name: Piper
         weights_subpath: ml/piper
         # No single "model size" — every voice below is its own separate
         # .onnx + .onnx.json download (no auto_download), so each voice
         # carries its own size_mb rather than one shared model estimate.
-        # Approximate per Piper's published quality tiers (low/medium/high
-        # correspond to roughly consistent file sizes across voices).
+        # size_mb values are rounded from ONNX file sizes in the pinned snapshot.
         voices:
-          - { id: en_US-lessac-medium,              label: "Lessac US M · Medium",     size_mb: 63 }
-          - { id: en_US-amy-medium,                 label: "Amy US F · Medium",        size_mb: 63 }
-          - { id: en_US-ryan-high,                  label: "Ryan US M · High",         size_mb: 126 }
-          - { id: en_US-kathleen-low,               label: "Kathleen US F · Low",      size_mb: 63 }
-          - { id: en_GB-southern_english_female-low, label: "Southern GB F · Low",      size_mb: 63 }
-          - { id: en_GB-jenny_dioco-medium,         label: "Jenny GB F · Medium",       size_mb: 63 }
-          - { id: en_GB-alan-medium,                label: "Alan GB M · Medium",        size_mb: 63 }
+          - { id: ar_JO-kareem-low, label: "ar_JO · Kareem · Low", size_mb: 61 }
+          - { id: ar_JO-kareem-medium, label: "ar_JO · Kareem · Medium", size_mb: 61 }
+          - { id: bg_BG-dimitar-medium, label: "bg_BG · Dimitar · Medium", size_mb: 61 }
+          - { id: bn_BD-google-medium, label: "bn_BD · Google · Medium", size_mb: 74 }
+          - { id: ca_ES-upc_ona-medium, label: "ca_ES · Upc Ona · Medium", size_mb: 61 }
+          - { id: ca_ES-upc_ona-x_low, label: "ca_ES · Upc Ona · X Low", size_mb: 20 }
+          - { id: ca_ES-upc_pau-x_low, label: "ca_ES · Upc Pau · X Low", size_mb: 27 }
+          - { id: cs_CZ-jirka-low, label: "cs_CZ · Jirka · Low", size_mb: 61 }
+          - { id: cs_CZ-jirka-medium, label: "cs_CZ · Jirka · Medium", size_mb: 61 }
+          - { id: cs_CZ-kasandra-medium, label: "cs_CZ · Kasandra · Medium", size_mb: 61 }
+          - { id: cy_GB-bu_tts-medium, label: "cy_GB · Bu Tts · Medium", size_mb: 74 }
+          - { id: cy_GB-gwryw_gogleddol-medium, label: "cy_GB · Gwryw Gogleddol · Medium", size_mb: 61 }
+          - { id: da_DK-talesyntese-medium, label: "da_DK · Talesyntese · Medium", size_mb: 61 }
+          - { id: de_DE-eva_k-x_low, label: "de_DE · Eva K · X Low", size_mb: 20 }
+          - { id: de_DE-karlsson-low, label: "de_DE · Karlsson · Low", size_mb: 61 }
+          - { id: de_DE-kerstin-low, label: "de_DE · Kerstin · Low", size_mb: 61 }
+          - { id: de_DE-mls-medium, label: "de_DE · Mls · Medium", size_mb: 74 }
+          - { id: de_DE-pavoque-low, label: "de_DE · Pavoque · Low", size_mb: 61 }
+          - { id: de_DE-ramona-low, label: "de_DE · Ramona · Low", size_mb: 61 }
+          - { id: de_DE-thorsten-high, label: "de_DE · Thorsten · High", size_mb: 109 }
+          - { id: de_DE-thorsten-low, label: "de_DE · Thorsten · Low", size_mb: 61 }
+          - { id: de_DE-thorsten-medium, label: "de_DE · Thorsten · Medium", size_mb: 61 }
+          - { id: de_DE-thorsten_emotional-medium, label: "de_DE · Thorsten Emotional · Medium", size_mb: 74 }
+          - { id: el_GR-joy-medium, label: "el_GR · Joy · Medium", size_mb: 61 }
+          - { id: el_GR-rapunzelina-low, label: "el_GR · Rapunzelina · Low", size_mb: 61 }
+          - { id: el_GR-rapunzelina-medium, label: "el_GR · Rapunzelina · Medium", size_mb: 61 }
+          - { id: en_GB-alan-low, label: "en_GB · Alan · Low", size_mb: 61 }
+          - { id: en_GB-alan-medium, label: "Alan GB M · Medium", size_mb: 61 }
+          - { id: en_GB-alba-medium, label: "en_GB · Alba · Medium", size_mb: 61 }
+          - { id: en_GB-aru-medium, label: "en_GB · Aru · Medium", size_mb: 74 }
+          - { id: en_GB-cori-high, label: "en_GB · Cori · High", size_mb: 109 }
+          - { id: en_GB-cori-medium, label: "en_GB · Cori · Medium", size_mb: 61 }
+          - { id: en_GB-jenny_dioco-medium, label: "Jenny GB F · Medium", size_mb: 61 }
+          - { id: en_GB-northern_english_male-medium, label: "en_GB · Northern English Male · Medium", size_mb: 61 }
+          - { id: en_GB-semaine-medium, label: "en_GB · Semaine · Medium", size_mb: 74 }
+          - { id: en_GB-southern_english_female-low, label: "Southern GB F · Low", size_mb: 61 }
+          - { id: en_GB-vctk-medium, label: "en_GB · Vctk · Medium", size_mb: 74 }
+          - { id: en_US-amy-low, label: "en_US · Amy · Low", size_mb: 61 }
+          - { id: en_US-amy-medium, label: "Amy US F · Medium", size_mb: 61 }
+          - { id: en_US-arctic-medium, label: "en_US · Arctic · Medium", size_mb: 74 }
+          - { id: en_US-bryce-medium, label: "en_US · Bryce · Medium", size_mb: 61 }
+          - { id: en_US-danny-low, label: "en_US · Danny · Low", size_mb: 61 }
+          - { id: en_US-hfc_female-medium, label: "en_US · Hfc Female · Medium", size_mb: 61 }
+          - { id: en_US-hfc_male-medium, label: "en_US · Hfc Male · Medium", size_mb: 61 }
+          - { id: en_US-joe-medium, label: "en_US · Joe · Medium", size_mb: 61 }
+          - { id: en_US-john-medium, label: "en_US · John · Medium", size_mb: 61 }
+          - { id: en_US-kathleen-low, label: "Kathleen US F · Low", size_mb: 61 }
+          - { id: en_US-kristin-medium, label: "en_US · Kristin · Medium", size_mb: 61 }
+          - { id: en_US-kusal-medium, label: "en_US · Kusal · Medium", size_mb: 61 }
+          - { id: en_US-l2arctic-medium, label: "en_US · L2arctic · Medium", size_mb: 74 }
+          - { id: en_US-lessac-high, label: "en_US · Lessac · High", size_mb: 109 }
+          - { id: en_US-lessac-low, label: "en_US · Lessac · Low", size_mb: 61 }
+          - { id: en_US-lessac-medium, label: "Lessac US M · Medium", size_mb: 61 }
+          - { id: en_US-libritts-high, label: "en_US · Libritts · High", size_mb: 131 }
+          - { id: en_US-libritts_r-medium, label: "en_US · Libritts R · Medium", size_mb: 75 }
+          - { id: en_US-ljspeech-high, label: "en_US · Ljspeech · High", size_mb: 109 }
+          - { id: en_US-ljspeech-medium, label: "en_US · Ljspeech · Medium", size_mb: 61 }
+          - { id: en_US-mike-medium, label: "en_US · Mike · Medium", size_mb: 61 }
+          - { id: en_US-norman-medium, label: "en_US · Norman · Medium", size_mb: 61 }
+          - { id: en_US-reza_ibrahim-medium, label: "en_US · Reza Ibrahim · Medium", size_mb: 61 }
+          - { id: en_US-ryan-high, label: "Ryan US M · High", size_mb: 116 }
+          - { id: en_US-ryan-low, label: "en_US · Ryan · Low", size_mb: 61 }
+          - { id: en_US-ryan-medium, label: "en_US · Ryan · Medium", size_mb: 61 }
+          - { id: en_US-sam-medium, label: "en_US · Sam · Medium", size_mb: 61 }
+          - { id: es_AR-daniela-high, label: "es_AR · Daniela · High", size_mb: 109 }
+          - { id: es_ES-carlfm-x_low, label: "es_ES · Carlfm · X Low", size_mb: 27 }
+          - { id: es_ES-davefx-medium, label: "es_ES · Davefx · Medium", size_mb: 61 }
+          - { id: es_ES-mls_10246-low, label: "es_ES · Mls 10246 · Low", size_mb: 61 }
+          - { id: es_ES-mls_9972-low, label: "es_ES · Mls 9972 · Low", size_mb: 61 }
+          - { id: es_ES-sharvard-medium, label: "es_ES · Sharvard · Medium", size_mb: 74 }
+          - { id: es_MX-ald-medium, label: "es_MX · Ald · Medium", size_mb: 61 }
+          - { id: es_MX-ald-x_low, label: "es_MX · Ald · X Low", size_mb: 21 }
+          - { id: es_MX-claude-high, label: "es_MX · Claude · High", size_mb: 61 }
+          - { id: et_EE-news-medium, label: "et_EE · News · Medium", size_mb: 74 }
+          - { id: eu_ES-antton-medium, label: "eu_ES · Antton · Medium", size_mb: 61 }
+          - { id: eu_ES-maider-medium, label: "eu_ES · Maider · Medium", size_mb: 61 }
+          - { id: fa_IR-amir-medium, label: "fa_IR · Amir · Medium", size_mb: 61 }
+          - { id: fa_IR-ganji-medium, label: "fa_IR · Ganji · Medium", size_mb: 61 }
+          - { id: fa_IR-ganji_adabi-medium, label: "fa_IR · Ganji Adabi · Medium", size_mb: 61 }
+          - { id: fa_IR-gyro-medium, label: "fa_IR · Gyro · Medium", size_mb: 61 }
+          - { id: fa_IR-reza_ibrahim-medium, label: "fa_IR · Reza Ibrahim · Medium", size_mb: 61 }
+          - { id: fi_FI-harri-low, label: "fi_FI · Harri · Low", size_mb: 67 }
+          - { id: fi_FI-harri-medium, label: "fi_FI · Harri · Medium", size_mb: 61 }
+          - { id: fr_FR-gilles-low, label: "fr_FR · Gilles · Low", size_mb: 61 }
+          - { id: fr_FR-mls-medium, label: "fr_FR · Mls · Medium", size_mb: 74 }
+          - { id: fr_FR-mls_1840-low, label: "fr_FR · Mls 1840 · Low", size_mb: 61 }
+          - { id: fr_FR-siwis-low, label: "fr_FR · Siwis · Low", size_mb: 27 }
+          - { id: fr_FR-siwis-medium, label: "fr_FR · Siwis · Medium", size_mb: 61 }
+          - { id: fr_FR-tom-medium, label: "fr_FR · Tom · Medium", size_mb: 61 }
+          - { id: fr_FR-upmc-medium, label: "fr_FR · Upmc · Medium", size_mb: 74 }
+          - { id: he_IL-saspeech-medium, label: "he_IL · Saspeech · Medium", size_mb: 61 }
+          - { id: hi_IN-pratham-medium, label: "hi_IN · Pratham · Medium", size_mb: 61 }
+          - { id: hi_IN-priyamvada-medium, label: "hi_IN · Priyamvada · Medium", size_mb: 61 }
+          - { id: hi_IN-rohan-medium, label: "hi_IN · Rohan · Medium", size_mb: 61 }
+          - { id: hu_HU-anna-medium, label: "hu_HU · Anna · Medium", size_mb: 61 }
+          - { id: hu_HU-berta-medium, label: "hu_HU · Berta · Medium", size_mb: 61 }
+          - { id: hu_HU-imre-medium, label: "hu_HU · Imre · Medium", size_mb: 61 }
+          - { id: hy_AM-gor-medium, label: "hy_AM · Gor · Medium", size_mb: 61 }
+          - { id: id_ID-news_tts-medium, label: "id_ID · News Tts · Medium", size_mb: 61 }
+          - { id: is_IS-bui-medium, label: "is_IS · Bui · Medium", size_mb: 73 }
+          - { id: is_IS-salka-medium, label: "is_IS · Salka · Medium", size_mb: 73 }
+          - { id: is_IS-steinn-medium, label: "is_IS · Steinn · Medium", size_mb: 73 }
+          - { id: is_IS-ugla-medium, label: "is_IS · Ugla · Medium", size_mb: 73 }
+          - { id: it_IT-paola-medium, label: "it_IT · Paola · Medium", size_mb: 61 }
+          - { id: it_IT-riccardo-x_low, label: "it_IT · Riccardo · X Low", size_mb: 27 }
+          - { id: it_IT-serena-high, label: "it_IT · Serena · High", size_mb: 109 }
+          - { id: it_IT-serena-medium, label: "it_IT · Serena · Medium", size_mb: 61 }
+          - { id: ja_JP-hi_fi_captain-medium, label: "ja_JP · Hi Fi Captain · Medium", size_mb: 74 }
+          - { id: ka_GE-natia-medium, label: "ka_GE · Natia · Medium", size_mb: 61 }
+          - { id: kk_KZ-iseke-x_low, label: "kk_KZ · Iseke · X Low", size_mb: 27 }
+          - { id: kk_KZ-issai-high, label: "kk_KZ · Issai · High", size_mb: 122 }
+          - { id: kk_KZ-raya-x_low, label: "kk_KZ · Raya · X Low", size_mb: 27 }
+          - { id: ko_KR-kss-medium, label: "ko_KR · Kss · Medium", size_mb: 61 }
+          - { id: ku_TR-berfin_renas-medium, label: "ku_TR · Berfin Renas · Medium", size_mb: 74 }
+          - { id: lb_LU-marylux-medium, label: "lb_LU · Marylux · Medium", size_mb: 61 }
+          - { id: lt_LT-ingute-medium, label: "lt_LT · Ingute · Medium", size_mb: 61 }
+          - { id: lt_LT-reginute1-medium, label: "lt_LT · Reginute1 · Medium", size_mb: 61 }
+          - { id: lv_LV-aivars-medium, label: "lv_LV · Aivars · Medium", size_mb: 61 }
+          - { id: ml_IN-arjun-medium, label: "ml_IN · Arjun · Medium", size_mb: 61 }
+          - { id: ml_IN-meera-medium, label: "ml_IN · Meera · Medium", size_mb: 61 }
+          - { id: mr_IN-google-medium, label: "mr_IN · Google · Medium", size_mb: 74 }
+          - { id: ne_NP-chitwan-medium, label: "ne_NP · Chitwan · Medium", size_mb: 61 }
+          - { id: ne_NP-google-medium, label: "ne_NP · Google · Medium", size_mb: 74 }
+          - { id: ne_NP-google-x_low, label: "ne_NP · Google · X Low", size_mb: 27 }
+          - { id: nl_BE-nathalie-medium, label: "nl_BE · Nathalie · Medium", size_mb: 61 }
+          - { id: nl_BE-nathalie-x_low, label: "nl_BE · Nathalie · X Low", size_mb: 20 }
+          - { id: nl_BE-rdh-medium, label: "nl_BE · Rdh · Medium", size_mb: 61 }
+          - { id: nl_BE-rdh-x_low, label: "nl_BE · Rdh · X Low", size_mb: 20 }
+          - { id: nl_NL-alex-medium, label: "nl_NL · Alex · Medium", size_mb: 61 }
+          - { id: nl_NL-mls-medium, label: "nl_NL · Mls · Medium", size_mb: 74 }
+          - { id: nl_NL-mls_5809-low, label: "nl_NL · Mls 5809 · Low", size_mb: 61 }
+          - { id: nl_NL-mls_7432-low, label: "nl_NL · Mls 7432 · Low", size_mb: 61 }
+          - { id: nl_NL-pim-medium, label: "nl_NL · Pim · Medium", size_mb: 61 }
+          - { id: nl_NL-ronnie-medium, label: "nl_NL · Ronnie · Medium", size_mb: 61 }
+          - { id: no_NO-nvcc-medium, label: "no_NO · Nvcc · Medium", size_mb: 74 }
+          - { id: no_NO-talesyntese-medium, label: "no_NO · Talesyntese · Medium", size_mb: 61 }
+          - { id: pl_PL-bass-high, label: "pl_PL · Bass · High", size_mb: 109 }
+          - { id: pl_PL-darkman-medium, label: "pl_PL · Darkman · Medium", size_mb: 61 }
+          - { id: pl_PL-gosia-medium, label: "pl_PL · Gosia · Medium", size_mb: 61 }
+          - { id: pl_PL-mc_speech-medium, label: "pl_PL · Mc Speech · Medium", size_mb: 61 }
+          - { id: pl_PL-mls_6892-low, label: "pl_PL · Mls 6892 · Low", size_mb: 61 }
+          - { id: pt_BR-cadu-medium, label: "pt_BR · Cadu · Medium", size_mb: 61 }
+          - { id: pt_BR-edresson-low, label: "pt_BR · Edresson · Low", size_mb: 61 }
+          - { id: pt_BR-faber-medium, label: "pt_BR · Faber · Medium", size_mb: 61 }
+          - { id: pt_BR-jeff-medium, label: "pt_BR · Jeff · Medium", size_mb: 61 }
+          - { id: pt_PT-tugão-medium, label: "pt_PT · Tugão · Medium", size_mb: 61 }
+          - { id: ro_RO-mihai-medium, label: "ro_RO · Mihai · Medium", size_mb: 61 }
+          - { id: ru_RU-denis-medium, label: "ru_RU · Denis · Medium", size_mb: 61 }
+          - { id: ru_RU-dmitri-medium, label: "ru_RU · Dmitri · Medium", size_mb: 61 }
+          - { id: ru_RU-irina-medium, label: "ru_RU · Irina · Medium", size_mb: 61 }
+          - { id: ru_RU-ruslan-medium, label: "ru_RU · Ruslan · Medium", size_mb: 61 }
+          - { id: sk_SK-lili-medium, label: "sk_SK · Lili · Medium", size_mb: 61 }
+          - { id: sl_SI-artur-medium, label: "sl_SI · Artur · Medium", size_mb: 61 }
+          - { id: sq_AL-edon-medium, label: "sq_AL · Edon · Medium", size_mb: 61 }
+          - { id: sr_RS-serbski_institut-medium, label: "sr_RS · Serbski Institut · Medium", size_mb: 74 }
+          - { id: sv_SE-alma-medium, label: "sv_SE · Alma · Medium", size_mb: 61 }
+          - { id: sv_SE-lisa-medium, label: "sv_SE · Lisa · Medium", size_mb: 61 }
+          - { id: sv_SE-nst-medium, label: "sv_SE · Nst · Medium", size_mb: 61 }
+          - { id: sw_CD-lanfrica-medium, label: "sw_CD · Lanfrica · Medium", size_mb: 61 }
+          - { id: te_IN-maya-medium, label: "te_IN · Maya · Medium", size_mb: 61 }
+          - { id: te_IN-padmavathi-medium, label: "te_IN · Padmavathi · Medium", size_mb: 61 }
+          - { id: te_IN-venkatesh-medium, label: "te_IN · Venkatesh · Medium", size_mb: 61 }
+          - { id: th_TH-tsync2-medium, label: "th_TH · Tsync2 · Medium", size_mb: 61 }
+          - { id: tr_TR-dfki-medium, label: "tr_TR · Dfki · Medium", size_mb: 61 }
+          - { id: uk_UA-lada-x_low, label: "uk_UA · Lada · X Low", size_mb: 20 }
+          - { id: uk_UA-mykyta-high, label: "uk_UA · Mykyta · High", size_mb: 109 }
+          - { id: uk_UA-oleksa-high, label: "uk_UA · Oleksa · High", size_mb: 109 }
+          - { id: uk_UA-tetiana-high, label: "uk_UA · Tetiana · High", size_mb: 109 }
+          - { id: uk_UA-ukrainian_tts-medium, label: "uk_UA · Ukrainian Tts · Medium", size_mb: 74 }
+          - { id: ur_PK-aegis_female-medium, label: "ur_PK · Aegis Female · Medium", size_mb: 61 }
+          - { id: ur_PK-fasih-medium, label: "ur_PK · Fasih · Medium", size_mb: 62 }
+          - { id: vi_VN-25hours_single-low, label: "vi_VN · 25hours Single · Low", size_mb: 61 }
+          - { id: vi_VN-vais1000-medium, label: "vi_VN · Vais1000 · Medium", size_mb: 61 }
+          - { id: vi_VN-vivos-x_low, label: "vi_VN · Vivos · X Low", size_mb: 27 }
+          - { id: zh_CN-chaowen-medium, label: "zh_CN · Chaowen · Medium", size_mb: 61 }
+          - { id: zh_CN-huayan-medium, label: "zh_CN · Huayan · Medium", size_mb: 61 }
+          - { id: zh_CN-huayan-x_low, label: "zh_CN · Huayan · X Low", size_mb: 20 }
+          - { id: zh_CN-xiao_ya-medium, label: "zh_CN · Xiao Ya · Medium", size_mb: 61 }
         controls:
           rate:             { applies: false }
           pitch:            { applies: false }
@@ -133,10 +351,24 @@ stacks:
         auto_download: true        # outetts.Interface() fetches on first use
         approx_size_mb: 1000       # single shared download, covers every voice below
         voices:
-          - { id: male_1,   label: "Male 1" }
-          - { id: male_2,   label: "Male 2" }
-          - { id: male_3,   label: "Male 3" }
-          - { id: female_1, label: "Female 1" }
+          - { id: de_male_1, label: "German M · 1" }
+          - { id: de_male_2, label: "German M · 2" }
+          - { id: en_female_1, label: "English F · 1" }
+          - { id: en_male_1, label: "English M · 1" }
+          - { id: en_male_2, label: "English M · 2" }
+          - { id: en_male_3, label: "English M · 3" }
+          - { id: fr_female_1, label: "French F · 1" }
+          - { id: fr_female_2, label: "French F · 2" }
+          - { id: fr_male_1, label: "French M · 1" }
+          - { id: fr_male_2, label: "French M · 2" }
+          - { id: jp_female_1, label: "Japanese F · 1" }
+          - { id: jp_female_2, label: "Japanese F · 2" }
+          - { id: jp_male_1, label: "Japanese M · 1" }
+          - { id: ko_female_1, label: "Korean F · 1" }
+          - { id: zh_female_1, label: "Chinese F · 1" }
+          - { id: zh_female_2, label: "Chinese F · 2" }
+          - { id: zh_male_1, label: "Chinese M · 1" }
+          - { id: zh_male_2, label: "Chinese M · 2" }
         controls:
           rate:        { applies: false }
           pitch:       { applies: false }
@@ -186,10 +418,35 @@ stacks:
         name: Pocket TTS ~100M
         weights_subpath: ml/pockettts
         auto_download: false
-        approx_size_mb: 400
+        approx_size_mb: 1800
         voices:
-          - { id: alba,   label: "Alba" }
-          - { id: marius, label: "Marius" }
+          - { id: alba,            label: "Alba · English" }
+          - { id: marius,          label: "Marius · English" }
+          - { id: javert,          label: "Javert · English" }
+          - { id: cosette,         label: "Cosette · English · Non-commercial license" }
+          - { id: jean,            label: "Jean · English · Non-commercial license" }
+          - { id: anna,            label: "Anna · English" }
+          - { id: vera,            label: "Vera · English" }
+          - { id: fantine,         label: "Fantine · English" }
+          - { id: charles,         label: "Charles · English" }
+          - { id: paul,            label: "Paul · English" }
+          - { id: eponine,         label: "Eponine · English" }
+          - { id: azelma,          label: "Azelma · English" }
+          - { id: george,          label: "George · English" }
+          - { id: mary,            label: "Mary · English" }
+          - { id: jane,            label: "Jane · English" }
+          - { id: michael,         label: "Michael · English" }
+          - { id: eve,             label: "Eve · English" }
+          - { id: bill_boerst,     label: "Bill Boerst · English" }
+          - { id: peter_yearsley,  label: "Peter Yearsley · English" }
+          - { id: stuart_bell,     label: "Stuart Bell · English" }
+          - { id: caro_davy,       label: "Caro Davy · English" }
+          - { id: giovanni,        label: "Giovanni · Italian" }
+          - { id: lola,            label: "Lola · Spanish" }
+          - { id: juergen,         label: "Jürgen · German · License unstated" }
+          - { id: rafael,          label: "Rafael · Portuguese · License unstated" }
+          - { id: daan,            label: "Daan · Dutch" }
+          - { id: estelle,         label: "Estelle · French" }
         controls:
           rate:        { applies: false }
           pitch:       { applies: false }

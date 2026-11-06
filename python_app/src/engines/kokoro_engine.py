@@ -17,30 +17,48 @@ from .base import SpeakParams, TtsEngine, Voice
 
 _log = _logger_mod.get_logger("kokoro")
 
-_VOICES = [
-    Voice(id="af_heart",   name="American F · Heart"),
-    Voice(id="af_bella",   name="American F · Bella"),
-    Voice(id="af_nicole",  name="American F · Nicole"),
-    Voice(id="am_adam",    name="American M · Adam"),
-    Voice(id="am_michael", name="American M · Michael"),
-    Voice(id="bf_emma",    name="British F · Emma"),
-    Voice(id="bm_george",  name="British M · George"),
-]
+_VOICE_LABELS = {
+    "af_alloy": "American F · Alloy", "af_aoede": "American F · Aoede",
+    "af_bella": "American F · Bella", "af_heart": "American F · Heart",
+    "af_jessica": "American F · Jessica", "af_kore": "American F · Kore",
+    "af_nicole": "American F · Nicole", "af_nova": "American F · Nova",
+    "af_river": "American F · River", "af_sarah": "American F · Sarah",
+    "af_sky": "American F · Sky", "am_adam": "American M · Adam",
+    "am_echo": "American M · Echo", "am_eric": "American M · Eric",
+    "am_fenrir": "American M · Fenrir", "am_liam": "American M · Liam",
+    "am_michael": "American M · Michael", "am_onyx": "American M · Onyx",
+    "am_puck": "American M · Puck", "am_santa": "American M · Santa",
+    "bf_alice": "British F · Alice", "bf_emma": "British F · Emma",
+    "bf_isabella": "British F · Isabella", "bf_lily": "British F · Lily",
+    "bm_daniel": "British M · Daniel", "bm_fable": "British M · Fable",
+    "bm_george": "British M · George", "bm_lewis": "British M · Lewis",
+    "ef_dora": "Spanish F · Dora", "em_alex": "Spanish M · Alex",
+    "em_santa": "Spanish M · Santa", "ff_siwis": "French F · Siwis",
+    "hf_alpha": "Hindi F · Alpha", "hf_beta": "Hindi F · Beta",
+    "hm_omega": "Hindi M · Omega", "hm_psi": "Hindi M · Psi",
+    "if_sara": "Italian F · Sara", "im_nicola": "Italian M · Nicola",
+    "jf_alpha": "Japanese F · Alpha", "jf_gongitsune": "Japanese F · Gongitsune",
+    "jf_nezumi": "Japanese F · Nezumi", "jf_tebukuro": "Japanese F · Tebukuro",
+    "jm_kumo": "Japanese M · Kumo", "pf_dora": "Portuguese F · Dora",
+    "pm_alex": "Portuguese M · Alex", "pm_santa": "Portuguese M · Santa",
+    "zf_xiaobei": "Chinese F · Xiaobei", "zf_xiaoni": "Chinese F · Xiaoni",
+    "zf_xiaoxiao": "Chinese F · Xiaoxiao", "zf_xiaoyi": "Chinese F · Xiaoyi",
+    "zm_yunjian": "Chinese M · Yunjian", "zm_yunxi": "Chinese M · Yunxi",
+    "zm_yunxia": "Chinese M · Yunxia", "zm_yunyang": "Chinese M · Yunyang",
+}
+_VOICES = [Voice(id=voice_id, name=label) for voice_id, label in _VOICE_LABELS.items()]
 
 _SAMPLE_RATE = 24_000
 _DEFAULT_VOICE = "af_heart"
 _VALID_VOICE_IDS: frozenset[str] = frozenset(v.id for v in _VOICES)
 
-# lang_code per voice prefix: 'a' = American English, 'b' = British English
-_LANG_MAP = {
-    "a": "a",  # American
-    "b": "b",  # British
-}
+# Kokoro's voice prefix is also its KPipeline language code.
+_LANG_CODES = frozenset("abefhijpz")
 
 
 def _lang_for_voice(voice_id: str) -> str:
     prefix = voice_id[0] if voice_id else "a"
-    return _LANG_MAP.get(prefix, "a")
+    return prefix if prefix in _LANG_CODES else "a"
 
 
 class KokoroEngine(TtsEngine):
