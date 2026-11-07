@@ -1,0 +1,22 @@
+# Shared runtime and all bundled Alien Conversation utilities.
+# Keep one dependency set so the bridge, manual chat, vendored STT/TTS tools,
+# and Pipecat POC can run from the same skill virtual environment.
+
+# Core microphone bridge and terminal chat UI.
+faster-whisper>=1.1,<2
+numpy>=1.26,<2.0.0
+sounddevice>=0.5,<1
+prompt-toolkit>=3.0.43,<4
+pywin32>=306; platform_system == "Windows"
+
+# Vendored file transcription and local speech engines.
+torch>=2.1.0
+transformers>=4.45.0
+huggingface_hub[hf_xet]>=0.20.0
+kokoro>=0.9.0
+piper-tts>=1.2.0
+soundfile>=0.12.1
+
+# Pipecat local microphone conversation POC.
+pipecat-ai[local,whisper,piper,openai,silero]>=1.0.0
+pyaudio>=0.2.14

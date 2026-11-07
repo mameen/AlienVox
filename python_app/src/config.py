@@ -26,8 +26,8 @@ import yaml
 
 DEFAULTS: dict[str, Any] = {
     "engine": "ml",
-    "model": "piper",
-    "voice": "en_US-amy-medium",
+    "model": "kokoro",
+    "voice": "af_heart",
     "rate": 0,
     "pitch": 0,
     "volume": 100,

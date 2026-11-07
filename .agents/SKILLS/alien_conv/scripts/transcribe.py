@@ -39,10 +39,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import pathlib
 import sys
 
 _SKILL_ROOT = pathlib.Path(__file__).resolve().parents[1]
+_SHARED_HF_HOME = pathlib.Path.home() / ".cache" / "huggingface"
+os.environ.setdefault("HF_HOME", str(_SHARED_HF_HOME if _SHARED_HF_HOME.is_dir() else _SKILL_ROOT / ".models" / "huggingface"))
 sys.path.insert(0, str(_SKILL_ROOT))
 
 from alienstt import audio as audio_mod                                    # noqa: E402

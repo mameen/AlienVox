@@ -2,9 +2,8 @@
 
 **These ratings are highly subjective.** They record the developer's listening preferences and are a shortlist for personal use, not objective speech-quality measurements. They come from the English performance report `20261105025132`; its timing results mix cold-start and warm runs, so use the ratings to identify voices to audition, not to make precise speed claims.
 
-**Current preference:** The developer prefers Supertonic 3 over Piper for voice quality. Piper was
-previously selected as the CPU recommendation based on the performance report; that was a speed
-and resource choice, not a claim that Piper sounded better.
+**Current default:** Kokoro `af_heart`, the developer's overall quality favorite. Piper remains a
+faster, lower-total-CPU alternative; that performance advantage is separate from voice preference.
 
 ## ML preferences at the ratings export snapshot
 
@@ -12,7 +11,7 @@ and resource choice, not a claim that Piper sounded better.
 |---|---:|---|---|---|
 | **Supertonic 3** | 4.4/5 average across rated voices | F1, F2, F3, and F4 each received 5/5. | About 400 MB of model files; ONNX CPU path. F4 took 1.86 s to synthesize 7.66 s of audio in the historical run. CPU percentage was not measured reliably. | [F1](../install/assets/audio/ml/supertonic3/F1.mp3)<br>[F2](../install/assets/audio/ml/supertonic3/F2.mp3)<br>[F3](../install/assets/audio/ml/supertonic3/F3.mp3)<br>[F4](../install/assets/audio/ml/supertonic3/F4.mp3) |
 | **Pocket TTS ~100M** | No numeric rating yet | Alba is the current favorite to audition; developer feedback: “not bad at all.” The catalog now has all 27 built-in presets across seven languages. | CPU-focused. Installing the full catalog downloads about 1.8 GB across seven language checkpoints. On this Windows CPU, Alba took 8.40 s to synthesize 7.20 s of audio (RTF 1.17), so it was slower than real time and slower than Supertonic 3 in that run. | [Alba](../install/assets/audio/ml/pockettts/alba.mp3)<br>[Marius](../install/assets/audio/ml/pockettts/marius.mp3) |
-| **Kokoro-82M** | 4.14/5 average across rated voices | af_heart and bf_emma received 5/5; am_adam also received 5/5 in the old export, and bm_george received 4/5. af_heart remains the overall quality favorite; Piper en_US-amy-medium is the current trial runtime default. | About 300 MB shared model files. The af_heart cold-start row added about 1.44 GB RSS and took 26.7 s; warm rows were much lower. Historical run was CUDA-selected, so this does not predict CPU RAM. | [af_heart](../install/assets/audio/ml/kokoro/af_heart.mp3)<br>[am_adam](../install/assets/audio/ml/kokoro/am_adam.mp3)<br>[bf_emma](../install/assets/audio/ml/kokoro/bf_emma.mp3)<br>[bm_george](../install/assets/audio/ml/kokoro/bm_george.mp3) |
+| **Kokoro-82M** | 4.14/5 average across rated voices | af_heart and bf_emma received 5/5; am_adam also received 5/5 in the old export, and bm_george received 4/5. af_heart is the overall quality favorite and current app/MCP default. | About 300 MB shared model files. The af_heart cold-start row added about 1.44 GB RSS and took 26.7 s; warm rows were much lower. Historical run was CUDA-selected, so this does not predict CPU RAM. | [af_heart](../install/assets/audio/ml/kokoro/af_heart.mp3)<br>[am_adam](../install/assets/audio/ml/kokoro/am_adam.mp3)<br>[bf_emma](../install/assets/audio/ml/kokoro/bf_emma.mp3)<br>[bm_george](../install/assets/audio/ml/kokoro/bm_george.mp3) |
 | **Piper** | 4.0/5 average across rated voices | **All six are now developer favorites (“really good”).** Historical scores: Ryan High 5/5; Lessac Medium, Amy Medium, Kathleen Low, Southern English Female Low, and Jenny Dioco Medium each 4/5. | ONNX CPU inference. Ryan High is about 126 MB; the two Low-tier voices measured here are about 63 MB each; Medium voices are about 63 MB each. | [Lessac](../install/assets/audio/ml/piper/en_US-lessac-medium.mp3)<br>[Amy](../install/assets/audio/ml/piper/en_US-amy-medium.mp3)<br>[Ryan High](../install/assets/audio/ml/piper/en_US-ryan-high.mp3)<br>[Kathleen Low](../install/assets/audio/ml/piper/en_US-kathleen-low.mp3)<br>[Southern English Female Low](../install/assets/audio/ml/piper/en_GB-southern_english_female-low.mp3)<br>[Jenny Dioco](../install/assets/audio/ml/piper/en_GB-jenny_dioco-medium.mp3) |
 
 ## Follow-up Piper listening notes
@@ -35,7 +34,7 @@ audition note, not a numeric score. The other 26 catalog voices have not yet bee
 
 ## SAPI voices in the developer shortlist (not scored)
 
-The exported ratings contain no SAPI star scores, so these remain subjective audition candidates. **SAPI-only performance recommendation: MSTTS_V110_enUS_ZiraM.** It synthesized the canonical phrase in 9.27 s versus 9.92 s for TTS_MS_EN-US_ZIRA_11.0 in the historical report. That is a latency choice, not a confirmed quality win. Kokoro af_heart remains the overall quality favorite; the current trial runtime default is Piper en_US-amy-medium. Captured samples are **WAV** files, not bundled MP3s.
+The exported ratings contain no SAPI star scores, so these remain subjective audition candidates. **SAPI-only performance recommendation: MSTTS_V110_enUS_ZiraM.** It synthesized the canonical phrase in 9.27 s versus 9.92 s for TTS_MS_EN-US_ZIRA_11.0 in the historical report. That is a latency choice, not a confirmed quality win. Kokoro `af_heart` is the app/MCP default and overall quality favorite; Piper remains a faster CPU alternative. Captured samples are **WAV** files, not bundled MP3s.
 
 | SAPI voice | Performance / preference | Resources | Offline sample |
 |---|---|---|---|

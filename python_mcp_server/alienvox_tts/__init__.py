@@ -8,7 +8,7 @@ Skill, `python_mcp_server`, or your own scripts.
 Quick start:
 
     from alienvox_tts import synthesize
-    audio, sample_rate = synthesize("Hello, world!")   # Piper, Southern English Female, CPU
+    audio, sample_rate = synthesize("Hello, world!")   # Kokoro, af_heart, CPU
 
     import soundfile as sf
     sf.write("out.wav", audio, sample_rate)
@@ -20,9 +20,9 @@ loaded model instead of reloading it every time — see `ENGINES`):
     engine = KokoroEngine()  # device="cpu" by default — see KokoroEngine's own docstring
     audio, sample_rate = engine.synthesize("Hello!", "af_heart", SpeakParams())
 
-Default engine: Piper. Default voice: `en_US-amy-medium`.
-It is a trial default chosen for low latency and low total CPU time, with
-the tradeoff of a brief higher-core-count burst. Default
+Default engine: Kokoro. Default voice: `af_heart`, the current quality favorite.
+Piper remains available as a faster, lower-total-CPU alternative, with the
+tradeoff of a brief higher-core-count burst. Default
 device: CPU, everywhere — an explicit `device="gpu"`/`"cuda"` opt-in is
 required to use a GPU (matches AlienVox's own project-wide CPU-first
 default; see `KokoroEngine`'s docstring for why this differs from
@@ -52,9 +52,9 @@ ENGINES: dict[str, type[TtsEngine]] = {
 if __import__("sys").platform == "win32":
     ENGINES.update({"sapi5": lambda device="cpu": SapiEngine("sapi5"), "speech_platform": lambda device="cpu": SapiEngine("speech_platform")})
 
-DEFAULT_ENGINE = "piper"
-DEFAULT_VOICE = "en_US-amy-medium"
-DEFAULT_VOICES = {"kokoro": "af_heart", "piper": DEFAULT_VOICE, "supertonic3": "F1"}
+DEFAULT_ENGINE = "kokoro"
+DEFAULT_VOICE = "af_heart"
+DEFAULT_VOICES = {"kokoro": DEFAULT_VOICE, "piper": "en_US-amy-medium", "supertonic3": "F1"}
 DEFAULT_DEVICE = "cpu"      # project-wide CPU-first default — see module docstring
 
 # Process-lifetime engine instances, keyed by (engine_id, resolved_device)

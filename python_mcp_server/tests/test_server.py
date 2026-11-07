@@ -43,8 +43,8 @@ def test_speak_text_tool_schema_defaults_device_to_cpu():
     # older inputSchema camelCase — verified for real against the
     # installed package rather than assumed from older SDK docs/examples.
     assert speak_tool.input_schema["properties"]["device"]["default"] == "cpu"
-    assert speak_tool.input_schema["properties"]["engine"]["default"] == "piper"
-    assert speak_tool.input_schema["properties"]["voice"]["default"] == "en_US-amy-medium"
+    assert speak_tool.input_schema["properties"]["engine"]["default"] == "kokoro"
+    assert speak_tool.input_schema["properties"]["voice"]["default"] == "af_heart"
     assert speak_tool.input_schema["properties"]["language"]["default"] == "en"
 
 
@@ -63,8 +63,8 @@ def test_get_tts_catalog_tool_returns_default_and_model_inventory():
 
     result = asyncio.run(server.app.call_tool("get_tts_catalog", {}))
     payload = json.loads(result.content[0].text)
-    assert payload["default"]["engine"] == "piper"
-    assert payload["default"]["voice"] == "en_US-amy-medium"
+    assert payload["default"]["engine"] == "kokoro"
+    assert payload["default"]["voice"] == "af_heart"
     assert any(item["id"] == "kokoro" for item in payload["engines"])
 
 

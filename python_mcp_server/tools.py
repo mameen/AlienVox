@@ -89,7 +89,7 @@ def do_speak_text(
         return {"error": "text is empty — nothing to speak."}
     if engine not in ENGINES:
         return {"error": f"Unknown engine {engine!r}. Available: {sorted(ENGINES)}"}
-    # MCP clients display the Piper default explicitly in their schema. If a
+    # MCP clients display the current default explicitly in their schema. If a
     # caller changes only the engine, translate that schema default to the
     # selected engine's own default voice.
     if not voice or (engine != DEFAULT_ENGINE and voice == DEFAULT_VOICE):
@@ -222,13 +222,14 @@ def do_get_catalog() -> dict[str, Any]:
         "default": {"engine": DEFAULT_ENGINE, "voice": DEFAULT_VOICE, "device": "cpu"},
         "trial_default": True,
         "tradeoff": {
+            "benchmark_baseline_engine": "piper",
             "voice": "en_US-amy-medium",
             "benchmark_phrase_chars": 123,
             "warm_latency_seconds": 0.4214,
             "warm_cpu_seconds": 4.5,
             "cpu_percent_one_core_equals_100": 1034.4,
             "model_file_mb": 63.1,
-            "comparison": "Versus Kokoro af_heart: lower latency and total CPU time, with a brief higher-core-count burst; CPU-only, so it leaves the GPU available.",
+            "comparison": "Piper en_US-amy-medium is faster and uses less total CPU time than default Kokoro af_heart, with a brief higher-core-count burst; Piper is CPU-only, so it leaves the GPU available.",
             "benchmark_report": "python_mcp_server/reports/cpu-top-voices-20261105-125408/cpu-voice-cost.html",
         },
         "engines": details,

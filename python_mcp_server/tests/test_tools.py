@@ -43,11 +43,12 @@ def test_catalog_is_one_json_ready_inventory_with_trial_default_tradeoff():
     catalog = do_get_catalog()
     assert catalog["schema_version"] == 1
     assert catalog["default"] == {
-        "engine": "piper",
-        "voice": "en_US-amy-medium",
+        "engine": "kokoro",
+        "voice": "af_heart",
         "device": "cpu",
     }
     assert catalog["trial_default"] is True
+    assert catalog["tradeoff"]["benchmark_baseline_engine"] == "piper"
     assert catalog["tradeoff"]["voice"] == "en_US-amy-medium"
     assert catalog["tradeoff"]["warm_latency_seconds"] == 0.4214
     assert catalog["tradeoff"]["warm_cpu_seconds"] == 4.5
@@ -59,11 +60,11 @@ def test_catalog_is_one_json_ready_inventory_with_trial_default_tradeoff():
     assert any(item["id"] == "kokoro" for item in catalog["engines"])
 
 
-def test_default_voice_listing_uses_current_trial_engine():
+def test_default_voice_listing_uses_current_quality_default():
     result = do_list_voices()
-    assert result["engine"] == "piper"
-    assert result["default_voice"] == "en_US-amy-medium"
-    assert "en_GB-southern_english_female-low" in {voice["id"] for voice in result["voices"]}
+    assert result["engine"] == "kokoro"
+    assert result["default_voice"] == "af_heart"
+    assert "af_heart" in {voice["id"] for voice in result["voices"]}
     assert any(voice["is_default"] for voice in result["voices"])
 
 

@@ -1,6 +1,6 @@
 # AlienVox TTS MCP Server
 
-A Model Context Protocol server exposing AlienVox's local Piper (trial default), Kokoro, Supertonic 3, and Windows SAPI TTS engines as MCP tools,
+A Model Context Protocol server exposing AlienVox's local Kokoro (default), Piper, Supertonic 3, and Windows SAPI TTS engines as MCP tools,
 resources, and prompts. Stdio transport — not hosted externally (see
 [`docs/20260816_agentic_requiremetns_and_plan.md`](../docs/20260816_agentic_requiremetns_and_plan.md)).
 
@@ -42,14 +42,14 @@ stdio and will appear to hang otherwise (that's correct behavior).
 
 ### Tools
 
-- **`speak_text(text, voice="en_US-amy-medium", engine="piper", device="cpu", rate=0, volume=None, play=True, save=False, language="en")`**
+- **`speak_text(text, voice="af_heart", engine="kokoro", device="cpu", rate=0, volume=None, play=True, save=False, language="en")`**
   — synthesizes real speech and **plays it through the local default audio device by default**
   (this server runs on the same machine as the user — generating a WAV file nobody opens is the
   wrong default). Pass `save=True` to also write a real `.wav` file (its path is then returned);
   pass `play=False` to suppress playback. `device` defaults to `"cpu"` — pass `"gpu"` for engines that support CUDA; Piper and Supertonic remain CPU-only. `volume=None` (default) uses the
   current **persistent** volume level — see below — pass an explicit `0..100` to override just
   that one call.
-- **`list_voices(engine="piper")`** — the voice roster for an engine.
+- **`list_voices(engine="kokoro")`** — the voice roster for an engine.
 - **`list_engines()`** — available engines, CPU/offline support, and preferred voices.
 - **`get_recommendations()`** — subjective developer favorites, resource-aware alternatives, and
   the unscored Windows SAPI audition shortlist.
@@ -60,10 +60,12 @@ stdio and will appear to hang otherwise (that's correct behavior).
   For Supertonic 3, `language` accepts a supported language code or `na` for the language-agnostic
   fallback; other engines currently ignore it.
 
-Trial default is Piper `en_US-amy-medium`: 0.421 s warm latency and 4.50 CPU-seconds
-per canonical 123-character phrase, with a brief ~10.3-core burst; its voice file is ~63 MB. Kokoro
-`af_heart` remains the overall subjective quality favorite (2.11 s latency, 8.42 CPU-seconds, ~4 cores).
-Piper and Supertonic use CPU only. Select Kokoro with `engine="kokoro", voice="af_heart"`.
+Default is Kokoro `af_heart`, the developer's overall subjective quality favorite. The historical
+CPU benchmark measured Piper `en_US-amy-medium` at 0.421 s warm latency and 4.50 CPU-seconds per
+canonical 123-character phrase, with a brief ~10.3-core burst; its voice file is ~63 MB. The same
+historical run measured Kokoro `af_heart` at 2.11 s latency and 8.42 CPU-seconds (~4 cores), making
+Piper a faster, lower-total-CPU alternative. Piper and Supertonic use CPU only; Kokoro defaults to
+CPU and can opt into GPU. Choose Piper explicitly with `engine="piper", voice="en_US-amy-medium"`.
 
 Model weights are not bundled with this standalone server. Install or copy model files under
 `%LOCALAPPDATA%/com.alientech.alienvox/.models`, or set `ALIENVOX_MODELS_DIR` to a models root
@@ -81,7 +83,7 @@ model weights remain local files.
 
 ### Prompts
 
-- **`narrate(text, voice="en_US-amy-medium")`** — a reusable prompt template so an MCP host can offer
+- **`narrate(text, voice="af_heart")`** — a reusable prompt template so an MCP host can offer
   "narrate this text" as a one-click starting point that already knows to call `speak_text`,
   rather than requiring the request to be spelled out from scratch every time.
 

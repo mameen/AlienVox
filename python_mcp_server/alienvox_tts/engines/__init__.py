@@ -1,6 +1,6 @@
 """Concrete engines supported by this self-contained MCP package.
 
-Kokoro, Piper, and Supertonic 3 are available. Piper is the current default;
+Kokoro, Piper, and Supertonic 3 are available. Kokoro is the current default;
 the Windows SAPI adapter is registered on Windows.
 
 To add a new engine:

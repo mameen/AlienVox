@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 PREFS = {
-    ("kokoro", "af_heart"): ("Favorite", "Fantastic; overall quality favorite, former runtime default"),
+    ("kokoro", "af_heart"): ("Favorite", "Fantastic; overall quality favorite, current app/MCP default"),
     ("kokoro", "af_bella"): ("Favorite", "Fantastic in latest listening note"),
     ("kokoro", "bf_emma"): ("5/5", "Historical subjective rating; fantastic"),
     ("kokoro", "am_adam"): ("Not too bad", "Latest note; historical export 5/5"),

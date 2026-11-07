@@ -1,5 +1,6 @@
 .venv/
+.models/
+.models/
 __pycache__/
-*.pyc
-.build/
+*.py[cod]
 .pytest_cache/
