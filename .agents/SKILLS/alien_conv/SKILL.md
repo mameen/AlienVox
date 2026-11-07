@@ -12,18 +12,33 @@ metadata:
 
 This is a self-contained local audio bridge under `.agents/SKILLS/alien_conv/`. It is not shipped with AlienVox. This folder is intentionally restricted; an agent working in the repository should use it only when the user explicitly requests Alien Conversation work. Keep its runner and setup self-contained here.
 
-## Host interaction protocol
+## Host interaction modes
 
-The calling host is the conversational brain. This process performs local microphone capture, Whisper transcription, and Windows SAPI playback; it does not call Ollama or another LLM.
+The calling host is the conversational brain. The local console captures microphone audio, transcribes with faster-whisper, and speaks host-provided replies with local TTS. It does not call Ollama in host-driven mode. Choose one of these modes:
 
-Keep one process session open with stdin/stdout handles. Prefer launching it as a subprocess with stdin, stdout, and stderr captured separately, rather than sharing the host's visible console. The protocol is UTF-8 JSON Lines: one JSON object per line on stdout; diagnostics go to stderr. The host consumes stdout internally and must not echo raw protocol events into the client conversation. This keeps microphone events and diagnostics from overlapping the host's replies. If the host cannot capture process streams, use a dedicated terminal pane for AlienConv and keep host conversation output in its normal client channel. Serialize stdin commands with a JSON encoder so quotes, backslashes, Unicode, and newlines in spoken text are escaped correctly.
+1. **Start a visible console:** run `scripts/local_test.py --mode api-server --api-host 127.0.0.1 --api-port 8765` in its own visible terminal. This starts the interactive console and its embedded FastAPI service; copy the URL from the console title.
+2. **Connect to a running session:** launch `scripts/api_client.py --mode connect --url http://127.0.0.1:8765` as a persistent subprocess. Use the URL and port shown by the running console and supplied by the user.
 
-1. Wait for `{"event":"ready", ...}` after the startup greeting, then send `{"command":"listen"}` to begin the user's turn.
-2. Read stdout continuously and parse every JSONL event. On `transcript`, extract the `text` field and treat it as the user's actual message in the host conversation. The host is responsible for understanding and answering that message; the bridge will not generate a reply.
-3. Generate a context-aware response as the host, then send the exact response text in `{"command":"speak","text":"..."}` on stdin. Wait for `{"event":"spoken", ...}` so the user hears the answer through SAPI.
-4. After `spoken`, start the next turn with `{"command":"listen"}`. On `no_speech`, retry listening. If the transcript is exactly `exit`, send `{"command":"stop"}` and tell the user the session ended. Also send `stop` whenever the host or user ends the session.
+The API client is the host-facing stdin/stdout JSONL adapter. Stdout contains one JSON object per line; diagnostics go to stderr. Consume events internally and do not echo raw protocol JSON to the user. The console displays transcripts, host replies, and activity state. The host must also relay status to the user in the normal conversation channel because the user may not see the console.
 
-Do not stop after merely displaying or paraphrasing a `transcript` event. Read it, respond to it, send that response to `speak`, and wait for playback confirmation. Do not ask the user to type the response into the console.
+Events include `ready`, `listening`, `transcribing`, `transcript` (with `text`), `no_speech`, `speaking`, `spoken`, `error`, `disconnected`, and `stopped`. After `transcript`, treat the text as the user's actual message, acknowledge it briefly, and answer in context. While preparing the reply, send `{"command":"status","phase":"thinking","message":"..."}`. Then send `{"command":"speak","text":"..."}` with the exact answer. `spoken` confirms TTS finished; listening resumes automatically. On `no_speech`, tell the user briefly and wait for the next `listening` event. If the transcript is exactly `exit`, send `{"command":"stop"}` and tell the user the session ended. Also send `stop` whenever the host or user ends the session.
+
+The server API exposes `GET /v1/health`, long-poll `GET /v1/events?timeout=15`, and `POST /v1/reply`, `/v1/status`, `/v1/listen`, `/v1/stop`. Prefer the bundled API client over direct HTTP calls. It emits events as JSONL and accepts `status`, `speak`, `listen`, and `stop` commands. Serialize command lines with a JSON encoder. For non-loopback binding, configure `--api-token`; the client sends it as a Bearer token. Keep the server on localhost unless remote access is explicitly needed.
+`api_client.py` does not generate replies. The host must consume its transcript events and use its own conversational model, then post the answer back as a `speak` command.
+
+## Relay progress to the user
+
+The user cannot see the bridge's process console or its JSONL status events. Relay the important observed states in the normal conversation channel, briefly and as they happen:
+
+- On `ready`, tell the user Alien Conversation is ready; wait for the `listening` event before saying it is listening.
+- On `listening`, say that it is listening and the user can speak.
+- On `transcript`, acknowledge that speech was received and that you are preparing a reply; then understand and answer the transcript.
+- On `speaking`, tell the user the reply is being spoken.
+- After `spoken`, send the next `listen` command. Let the following `listening` event confirm that listening resumed.
+- On `no_speech`, say briefly that no speech was detected, then retry as directed above.
+- On `error` or process failure, report the observed error and whether the bridge is still running. Never claim it is listening, speaking, or ready unless the corresponding event confirms that state.
+
+Do not show raw JSONL or routine diagnostic output. Use one short progress update per state change, and avoid repeating a status that was just relayed.
 
 Do not ask the user to press Enter or type into the process console. The host reads transcripts and submits its reply through the process stdin. If the host cannot keep a process session and send stdin commands, explain that limitation instead of claiming the bridge is active.
 
@@ -31,9 +46,13 @@ Audio stays in the local process. Transcript text is emitted to the calling host
 
 ```mermaid
 flowchart LR
-    Mic[Microphone<br/>listen command] --> STT[Local STT<br/>faster-whisper]
-    STT -->|transcript JSONL on stdout| Host[Calling host<br/>LLM]
-    Host -->|speak JSONL on stdin| TTS[Local TTS<br/>Windows SAPI]
+    Mic[Microphone] --> STT[Local STT<br/>faster-whisper]
+    STT --> API[Local FastAPI session]
+    API -->|transcript event| Adapter[Host API client]
+    Adapter --> Host[Calling host<br/>LLM]
+    Host -->|reply text| Adapter
+    Adapter --> API
+    API --> TTS[Local TTS<br/>SAPI or selected engine]
     TTS --> Speaker[Default speakers]
 ```
 
@@ -54,7 +73,7 @@ The default runner:
 - plays a startup greeting after STT and SAPI initialization;
 - does not save microphone audio or transcripts.
 
-`scripts/local_test.py` is the manual interactive runner. It provides a scrollable conversation view and a fixed chat input, retains the POC CLI options, and uses local Whisper -> Ollama -> TTS. The first mic turn starts automatically after the startup greeting and listening resumes after each spoken reply; `/listen` restarts listening if a turn times out or returns to text mode. Text can also be typed in the chat line; typing `/` suggests available commands. Select suggestions with Up/Down or Tab; press Enter to fill the command and Enter again to run it. The status LED is green while listening, yellow while transcribing or thinking, red during TTS playback, and blue while idle. It is separate from the host-driven JSONL bridge; use it when the user wants to manually try the full local conversation without an MCP host.
+`scripts/local_test.py` is the local interactive console. In `ollama` mode it uses local Whisper -> Ollama -> TTS. In `api-server` mode it uses local Whisper -> host API -> local TTS; `api_client.py` is the host adapter. The first mic turn starts automatically after the startup greeting and listening resumes after each spoken reply; `/listen` restarts listening if a turn times out or returns to text mode. Text can also be typed in the chat line; typing `/` suggests available commands. Select suggestions with Up/Down or Tab; press Enter to fill the command and Enter again to run it. Ctrl+C and `/quit` close the console and API server, stopping capture and releasing a pending host-reply wait. The main status LED is green while listening, yellow while transcribing or thinking, red during TTS playback, and blue while idle. It briefly shows a separate cyan API activity LED when a host `status`, `reply`, or `listen` request is accepted. It is separate from the host-driven JSONL bridge; use it when the user wants to manually try the full local conversation without an MCP host.
 
 The standalone file transcription, local TTS, and Pipecat scripts are also copied into `scripts/`, with package modules vendored in this skill. All scripts share one requirements file and one skill `.venv`; this installs the larger optional packages even when only the audio bridge is used. Keep package imports and caches inside this skill or use the documented shared model caches.
 
@@ -68,5 +87,6 @@ The standalone file transcription, local TTS, and Pipecat scripts are also copie
 ## Maintenance
 
 - Keep all code and dependencies needed by the bridge and bundled utilities in this folder. Update `README.md` and `scripts/requirements.txt` when dependencies change.
+- Keep FastAPI request models at module scope in `scripts/local_test.py`; nested models with postponed annotations may be misclassified as query parameters. Direct HTTP writes require JSON bodies (`/v1/status`: `phase`/`message`; `/v1/reply`: `text`).
 - Do not run repository tests unless requested. Before running the audio bridge, check for an existing Alien Conversation process to avoid starting a duplicate.
 - Report the exact local STT model, SAPI voice, selected audio device, and whether a real run occurred. Distinguish observed results from general claims.

@@ -121,6 +121,7 @@ def record_utterance(
     start_timeout: float,
     threshold: float,
     device: str | int | None,
+    stop_event: Any | None = None,
 ) -> Any | None:
     """Capture until speech is followed by silence; return None on no speech."""
     import numpy as np
@@ -147,7 +148,7 @@ def record_utterance(
         blocksize=max(1, int(sample_rate * 0.05)),
         callback=on_audio,
     ):
-        while time.monotonic() - started_at < max_seconds:
+        while time.monotonic() - started_at < max_seconds and not (stop_event and stop_event.is_set()):
             try:
                 block = blocks.get(timeout=0.1)
             except queue.Empty:
@@ -165,7 +166,7 @@ def record_utterance(
                 audio.append(block)
                 if now - last_voice_at >= silence_seconds:
                     break
-        if not speech_started:
+        if not speech_started or (stop_event and stop_event.is_set()):
             return None
     return np.concatenate(audio).astype(np.float32, copy=False)
 

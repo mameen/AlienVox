@@ -1,13 +1,13 @@
-"""Manual Alien Conversation chat UI: microphone -> local STT -> Ollama -> local TTS.
+"""Alien Conversation console: microphone -> local STT -> Ollama or host -> local TTS.
 
 QUICK START (Windows Command Prompt)
 ====================================
-Run this single line from any directory. It repairs the skill's Python 3.13
+Run this single line from any directory. It repairs the skill's Python 3.12
 virtual environment if needed, installs dependencies for all bundled tools,
 activates it, and starts the chat using Gemma 4 12B and SAPI Zira. Setup is
 larger because the shared environment also includes Pipecat, PyTorch, and ML TTS:
 
-    py -3.13 -m venv --upgrade "C:\dev\personal\.repos\tts\.agents\SKILLS\alien_conv\.venv" && powershell -NoProfile -ExecutionPolicy Bypass -File "C:\dev\personal\.repos\tts\.agents\SKILLS\alien_conv\scripts\setup.ps1" && call "C:\dev\personal\.repos\tts\.agents\SKILLS\alien_conv\.venv\Scripts\activate.bat" && python "C:\dev\personal\.repos\tts\.agents\SKILLS\alien_conv\scripts\local_test.py" --model gemma4:12b --input-device 1 --tts-engine sapi5 --tts-voice TTS_MS_EN-US_ZIRA_11.0
+    py -3.12 -m venv --upgrade "C:\dev\personal\.repos\tts\.agents\SKILLS\alien_conv\.venv" && powershell -NoProfile -ExecutionPolicy Bypass -File "C:\dev\personal\.repos\tts\.agents\SKILLS\alien_conv\scripts\setup.ps1" && call "C:\dev\personal\.repos\tts\.agents\SKILLS\alien_conv\.venv\Scripts\activate.bat" && python "C:\dev\personal\.repos\tts\.agents\SKILLS\alien_conv\scripts\local_test.py" --model gemma4:12b --input-device 1 --tts-engine sapi5 --tts-voice TTS_MS_EN-US_ZIRA_11.0
 
 The command assumes the repository is at C:\dev\personal\.repos\tts and
 the Python launcher has Python 3.13 registered. It only repairs/recreates the
@@ -16,32 +16,36 @@ Whisper model is not downloaded by default. If its weights are not already
 cached, startup stops with instructions; downloading is an explicit opt-in via
 --allow-stt-model-download.
 
+HOST-DRIVEN MODE (FastAPI + visible console)
+============================================
+The host can start a new visible audio session and attach its persistent
+JSONL adapter with this command:
+
+    "C:\dev\personal\.repos\tts\.agents\SKILLS\alien_conv\.venv\Scripts\python.exe" "C:\dev\personal\.repos\tts\.agents\SKILLS\alien_conv\scripts\local_test.py" --mode api-server --api-host 127.0.0.1 --api-port 8765 --input-device 1 --stt-model large-v3-turbo --device cuda --compute-type float16 --tts-engine sapi5 --tts-voice TTS_MS_EN-US_ZIRA_11.0
+
+To attach to a console already running `local_test.py --mode api-server`, use
+`api_client.py --mode connect --url http://127.0.0.1:8765`. Keep the API client
+stdin/stdout/stderr as persistent host process streams. It emits JSONL events
+on stdout and accepts JSONL status/speak/listen/stop commands on stdin.
 WHAT THIS SCRIPT DOES
 =====================
-This is a standalone, manual local conversation runner for trying the audio
-loop without an MCP client. It is separate from alien_conv.py, the host-driven
-stdin/stdout JSONL bridge. This script calls the configured local Ollama
-server itself; it does not send the conversation to the calling host.
-Unlike pipecat_conv.py, this runner does not use Pipecat; its small control loop
-captures a turn, transcribes it, gets an Ollama reply, speaks it, then listens
-again. Pipecat keeps its own pipeline and turn management in that separate POC.
+This is the visible local conversation console. In its default ``ollama`` mode,
+it calls local Ollama and runs independently of an MCP host. In ``api-server``
+mode it exposes a local FastAPI session: ``api_client.py`` lets the host receive
+transcript events and submit replies for local TTS. The console displays the
+conversation and current activity in both modes. Unlike pipecat_conv.py, this
+runner does not use Pipecat; that separate POC owns its own pipeline.
 
 Audio and conversation flow:
-    Microphone -> faster-whisper transcription -> local Ollama chat -> local TTS
+    Microphone -> faster-whisper transcription -> host or local Ollama -> local TTS
 
-The default stack is faster-whisper large-v3-turbo on CUDA with float16,
-Ollama gemma4:12b at http://localhost:11434, and Windows SAPI5 Zira. Select
-another installed Ollama model with --model. Select --device cpu and
---compute-type int8 for CPU transcription. SAPI5 voices are Windows voices;
---tts-engine piper or kokoro uses the corresponding local AlienVox TTS package
-and its installed voice files.
+The default stack is faster-whisper large-v3-turbo on CUDA with float16 and Windows SAPI5 Zira. Ollama gemma4:12b is used only in ``ollama`` mode. Select another installed Ollama model with --model. Select --device cpu and --compute-type int8 for CPU transcription. SAPI5 voices are Windows voices; --tts-engine piper or kokoro uses the corresponding local AlienVox TTS package and its installed voice files.
 
 INTERACTIVE CONTROLS
 ====================
-* The bottom input line is always available for typing. Press Enter to send a
-  typed message to Ollama and have the response spoken.
+* The bottom input line is always available. In Ollama mode typed messages go to Ollama; in API mode they are sent to the host as transcripts.
 * After the greeting, the first microphone turn starts automatically. Pause to
-  end the utterance; Whisper transcribes it, then Ollama replies and TTS speaks.
+  end the utterance; Whisper transcribes it, then the configured host or Ollama replies and TTS speaks.
 * After each spoken reply, microphone listening resumes automatically. Use
   /listen to restart if a turn times out or returns to text mode.
 * Enter /help to show the controls, or /quit and /exit to close the runner.
@@ -81,7 +85,7 @@ Typed turns can be queued while an earlier typed turn is being answered; model
 and speech playback are processed serially to avoid overlapping audio. Start a
 microphone turn after the current response finishes. The runner does not save
 recorded audio or a transcript file. With the default local Ollama endpoint,
-conversation text is sent to that local service for response generation.
+conversation text is sent to Ollama; API mode sends it to the host through the local session API.
 """
 
 from __future__ import annotations
@@ -92,11 +96,14 @@ import json
 import os
 import re
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
+
+from pydantic import BaseModel, Field
 
 from alien_conv import find_cached_whisper_model, list_audio_devices, record_utterance, speak_sapi
 
@@ -108,6 +115,15 @@ SYSTEM_PROMPT = (
     "short spoken sentences. Be useful and warm without sounding scripted. Do not use lists "
     "unless asked, and do not include stage directions or hidden reasoning."
 )
+
+
+class ReplyRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=5000)
+
+
+class StatusRequest(BaseModel):
+    phase: str
+    message: str = Field(default="", max_length=500)
 
 
 def request_json(url: str, payload: dict[str, Any] | None = None, timeout: float = 180) -> dict[str, Any]:
@@ -183,6 +199,10 @@ def pick_voice(args: argparse.Namespace) -> str:
 
 def make_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Manual interactive local mic -> STT -> Ollama -> TTS conversation")
+    parser.add_argument("--mode", choices=("ollama", "api-server"), default="ollama", help="direct local Ollama chat or host-driven FastAPI session")
+    parser.add_argument("--api-host", default="127.0.0.1", help="FastAPI bind host in api-server mode")
+    parser.add_argument("--api-port", type=int, default=8765, help="FastAPI port in api-server mode")
+    parser.add_argument("--api-token", help="optional Bearer token; required when binding beyond localhost")
     parser.add_argument("--model", "--llm-model", dest="model", default="gemma4:12b", help="installed local Ollama model")
     parser.add_argument("--ollama-url", default="http://localhost:11434", help="local Ollama base URL")
     parser.add_argument("--stt-model", default="large-v3-turbo", help="cached faster-whisper model")
@@ -222,11 +242,25 @@ async def run_chat_ui(args: argparse.Namespace, stt: Any, voice: str) -> None:
     messages: list[tuple[str, str]] = []
     conversation: list[dict[str, str]] = []
     pending: asyncio.Queue[str] = asyncio.Queue()
+    api_mode = args.mode == "api-server"
+    api_events: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+    api_replies: asyncio.Queue[str | None] = asyncio.Queue()
+    capture_stop = threading.Event()
     speaker_lock = asyncio.Lock()
     capture_lock = asyncio.Lock()
-    state = {"status": "Starting", "phase": "idle", "busy": False, "listening": False, "listen_active": False, "tts_active": False, "follow_tail": True, "closed": False}
+    state = {"status": "Starting", "phase": "idle", "busy": False, "listening": False, "listen_active": False, "tts_active": False, "awaiting_host": False, "api_activity": "", "api_activity_id": 0, "follow_tail": True, "closed": False, "stopped_published": False}
     app_holder: dict[str, Application[Any]] = {}
+    api_server_holder: dict[str, Any] = {}
     history_window: Window | None = None
+
+    def publish(event: str, **fields: Any) -> None:
+        if api_mode:
+            api_events.put_nowait({"event": event, **fields})
+
+    def publish_stopped() -> None:
+        if not state["stopped_published"]:
+            state["stopped_published"] = True
+            publish("stopped")
 
     def formatted_history() -> FormattedText:
         fragments: list[tuple[str, str]] = []
@@ -248,11 +282,20 @@ async def run_chat_ui(args: argparse.Namespace, stt: Any, voice: str) -> None:
             indicator_style, label, detail = "class:led.listening", "LISTENING", "Speak now; pause to finish"
         elif state["tts_active"]:
             indicator_style, label = "class:led.speaking", "SPEAKING"
-        return FormattedText([
+        fragments: list[tuple[str, str]] = [
             (indicator_style, "[●] "),
-            ("class:status", f"{label}  {detail}\n"),
-            ("class:hint", "Type a message | /listen  /help  /quit | PgUp/PgDn scrolls history"),
+            ("class:status", f"{label}  {detail}"),
+        ]
+        if state["api_activity"]:
+            fragments.extend((
+                ("class:status", "  "),
+                ("class:led.api", f"[● API: {state['api_activity']}]"),
+            ))
+        fragments.extend([
+            ("class:status", "\n"),
+            ("class:hint", "Type a message | /listen  /help  /quit | Ctrl+C stops | PgUp/PgDn scrolls history"),
         ])
+        return FormattedText(fragments)
 
     history_window = Window(
         content=FormattedTextControl(formatted_history),
@@ -271,6 +314,20 @@ async def run_chat_ui(args: argparse.Namespace, stt: Any, voice: str) -> None:
         if app is not None:
             app.invalidate()
 
+    def mark_api_activity(action: str) -> None:
+        state["api_activity_id"] += 1
+        activity_id = state["api_activity_id"]
+        state["api_activity"] = action.upper()
+        redraw()
+
+        async def clear_activity() -> None:
+            await asyncio.sleep(1.5)
+            if state["api_activity_id"] == activity_id:
+                state["api_activity"] = ""
+                redraw()
+
+        asyncio.create_task(clear_activity())
+
     def add_message(role: str, text: str) -> None:
         messages.append((role, text))
         redraw()
@@ -280,29 +337,37 @@ async def run_chat_ui(args: argparse.Namespace, stt: Any, voice: str) -> None:
             user_text = await pending.get()
             state["busy"] = True
             state["phase"] = "thinking"
-            state["status"] = f"Thinking with {args.model}…"
+            state["status"] = "Waiting for the host to prepare a reply..." if api_mode else f"Thinking with {args.model}…"
             redraw()
+            started = time.perf_counter()
             try:
-                payload = {
-                    "model": args.model,
-                    "messages": [{"role": "system", "content": SYSTEM_PROMPT}, *conversation[-8:], {"role": "user", "content": user_text}],
-                    "stream": False,
-                    "think": False,
-                    "keep_alive": "10m",
-                    "options": {"temperature": 0.65, "num_predict": 120},
-                }
-                started = time.perf_counter()
-                result = await asyncio.to_thread(request_json, args.ollama_url.rstrip("/") + "/api/chat", payload)
-                reply = str(result.get("message", {}).get("content", "")).strip()
-                if not reply:
-                    raise RuntimeError(f"Ollama model {args.model!r} returned no spoken response.")
+                if api_mode:
+                    state["awaiting_host"] = True
+                    publish("transcript", text=user_text)
+                    reply = await api_replies.get()
+                    state["awaiting_host"] = False
+                    if reply is None or state["closed"]:
+                        return
+                else:
+                    payload = {
+                        "model": args.model,
+                        "messages": [{"role": "system", "content": SYSTEM_PROMPT}, *conversation[-8:], {"role": "user", "content": user_text}],
+                        "stream": False,
+                        "think": False,
+                        "keep_alive": "10m",
+                        "options": {"temperature": 0.65, "num_predict": 120},
+                    }
+                    result = await asyncio.to_thread(request_json, args.ollama_url.rstrip("/") + "/api/chat", payload)
+                    reply = str(result.get("message", {}).get("content", "")).strip()
+                    if not reply:
+                        raise RuntimeError(f"Ollama model {args.model!r} returned no spoken response.")
+                    add_message("Alien Conversation", reply)
+                    conversation.extend((
+                        {"role": "user", "content": user_text},
+                        {"role": "assistant", "content": reply},
+                    ))
+                    conversation[:] = conversation[-8:]
                 elapsed = time.perf_counter() - started
-                add_message("Alien Conversation", reply)
-                conversation.extend((
-                    {"role": "user", "content": user_text},
-                    {"role": "assistant", "content": reply},
-                ))
-                conversation[:] = conversation[-8:]
                 state["phase"] = "thinking"
                 state["status"] = "Waiting for microphone capture to finish before speaking..."
                 redraw()
@@ -310,14 +375,16 @@ async def run_chat_ui(args: argparse.Namespace, stt: Any, voice: str) -> None:
                     state["phase"] = "speaking"
                     state["status"] = f"Speaking with {args.tts_engine}/{voice}…"
                     state["tts_active"] = True
+                    publish("speaking", voice=voice)
                     redraw()
                     try:
                         async with speaker_lock:
                             await asyncio.to_thread(speak, reply, args.tts_engine, voice, args.tts_device)
                     finally:
                         state["tts_active"] = False
+                publish("spoken", voice=voice)
                 state["phase"] = "idle"
-                state["status"] = f"Ready | {args.model} | {elapsed:.1f}s"
+                state["status"] = f"Reply spoken | {elapsed:.1f}s"
                 if args.once:
                     state["closed"] = True
                     app_holder["app"].exit()
@@ -326,7 +393,9 @@ async def run_chat_ui(args: argparse.Namespace, stt: Any, voice: str) -> None:
                 add_message("System", f"Turn failed: {exc}")
                 state["phase"] = "idle"
                 state["status"] = "Ready — see the conversation history for the error"
+                publish("error", message=str(exc))
             finally:
+                state["awaiting_host"] = False
                 state["busy"] = False
                 pending.task_done()
                 redraw()
@@ -354,25 +423,32 @@ async def run_chat_ui(args: argparse.Namespace, stt: Any, voice: str) -> None:
                     args.start_timeout,
                     args.vad_threshold,
                     args.input_device,
+                    stop_event=capture_stop,
                 )
                 state["listening"] = False
                 if audio is None:
                     state["phase"] = "idle"
                     state["status"] = "No speech detected — type a message or enter /listen to try again"
+                    if not state["closed"]:
+                        publish("no_speech")
                     return
                 state["phase"] = "transcribing"
                 state["status"] = f"Transcribing with {args.stt_model}..."
+                publish("transcribing", model=args.stt_model)
                 redraw()
                 user_text = await asyncio.to_thread(transcribe_audio, audio)
             if not user_text:
                 state["phase"] = "idle"
                 state["status"] = "No speech detected — type a message or enter /listen to try again"
+                publish("no_speech")
                 return
             add_message("You", user_text)
             if re.sub(r"[^\w]+", " ", user_text, flags=re.UNICODE).strip().casefold() == "exit":
                 state["phase"] = "idle"
                 state["status"] = "Stopped by voice command"
                 state["closed"] = True
+                capture_stop.set()
+                publish_stopped()
                 app_holder["app"].exit()
                 return
             pending.put_nowait(user_text)
@@ -380,16 +456,104 @@ async def run_chat_ui(args: argparse.Namespace, stt: Any, voice: str) -> None:
             add_message("System", f"Microphone turn failed: {exc}")
             state["phase"] = "idle"
             state["status"] = "Ready — see the conversation history for the error"
+            publish("error", message=str(exc))
         finally:
             state["listening"] = False
             state["listen_active"] = False
             redraw()
+            if api_mode and not state["closed"] and not state["busy"] and pending.empty():
+                start_listening()
 
     def start_listening() -> None:
         if state["closed"] or state["listen_active"]:
             return
         state["listen_active"] = True
+        publish("listening", silence_seconds=args.silence_seconds)
         app_holder["app"].create_background_task(listen_to_microphone())
+
+    api_app: Any = None
+    if api_mode:
+        if args.api_host.casefold() not in {"127.0.0.1", "localhost", "::1"} and not args.api_token:
+            raise RuntimeError("Binding the session API beyond localhost requires --api-token.")
+        try:
+            from fastapi import Depends, FastAPI, Header, HTTPException
+        except ImportError as exc:
+            raise RuntimeError("Install the combined Alien Conversation dependencies with scripts/setup.ps1.") from exc
+
+        api_app = FastAPI(title="Alien Conversation Local Session", docs_url=None, redoc_url=None, openapi_url=None)
+
+        def verify_api_token(authorization: str | None = Header(default=None)) -> None:
+            if args.api_token and authorization != f"Bearer {args.api_token}":
+                raise HTTPException(status_code=401, detail="Invalid or missing Bearer token")
+
+        @api_app.get("/v1/health", dependencies=[Depends(verify_api_token)])
+        async def api_health() -> dict[str, Any]:
+            return {
+                "status": "stopped" if state["closed"] else "running",
+                "mode": "api-server",
+                "awaiting_reply": state["awaiting_host"],
+                "phase": state["phase"],
+            }
+
+        @api_app.get("/v1/events", dependencies=[Depends(verify_api_token)])
+        async def next_api_event(timeout: float = 15) -> dict[str, Any]:
+            timeout = max(0.1, min(timeout, 25.0))
+            try:
+                return await asyncio.wait_for(api_events.get(), timeout=timeout)
+            except asyncio.TimeoutError:
+                return {"event": "heartbeat"}
+
+        @api_app.post("/v1/reply", dependencies=[Depends(verify_api_token)])
+        async def submit_api_reply(body: ReplyRequest) -> dict[str, bool]:
+            reply = body.text.strip()
+            if not reply:
+                raise HTTPException(status_code=422, detail="Reply text must not be empty")
+            if not state["awaiting_host"] or not api_replies.empty():
+                raise HTTPException(status_code=409, detail="There is no pending host reply")
+            mark_api_activity("REPLY")
+            add_message("Alien Conversation", reply)
+            state["status"] = "Host reply received; preparing speech"
+            redraw()
+            api_replies.put_nowait(reply)
+            return {"accepted": True}
+
+        @api_app.post("/v1/status", dependencies=[Depends(verify_api_token)])
+        async def update_api_status(body: StatusRequest) -> dict[str, bool]:
+            if body.phase not in {"thinking", "idle"}:
+                raise HTTPException(status_code=422, detail="Host status phase must be thinking or idle")
+            mark_api_activity("STATUS")
+            state["phase"] = body.phase
+            state["status"] = body.message or ("Host is preparing a reply" if body.phase == "thinking" else "Waiting for host reply")
+            redraw()
+            return {"updated": True}
+
+        @api_app.post("/v1/listen", dependencies=[Depends(verify_api_token)])
+        async def request_api_listen() -> dict[str, bool]:
+            if state["closed"]:
+                raise HTTPException(status_code=410, detail="Session has stopped")
+            mark_api_activity("LISTEN")
+            if state["listen_active"]:
+                return {"listening": True}
+            if state["busy"] or not pending.empty():
+                raise HTTPException(status_code=409, detail="A conversation turn is still in progress")
+            start_listening()
+            return {"listening": state["listen_active"]}
+
+        @api_app.post("/v1/stop", dependencies=[Depends(verify_api_token)])
+        async def stop_api_session() -> dict[str, bool]:
+            mark_api_activity("STOP")
+            state["closed"] = True
+            capture_stop.set()
+            publish_stopped()
+            if state["awaiting_host"]:
+                api_replies.put_nowait(None)
+            app = app_holder.get("app")
+            if app is not None:
+                app.exit()
+            server = api_server_holder.get("server")
+            if server is not None:
+                server.should_exit = True
+            return {"stopped": True}
 
     def accept_input(buffer: Any) -> bool:
         completion_state = buffer.complete_state
@@ -408,6 +572,8 @@ async def run_chat_ui(args: argparse.Namespace, stt: Any, voice: str) -> None:
         command = text.casefold()
         if command in ("/quit", "/exit"):
             state["closed"] = True
+            capture_stop.set()
+            publish_stopped()
             app_holder["app"].exit()
             return True
         if command == "/help":
@@ -447,6 +613,20 @@ async def run_chat_ui(args: argparse.Namespace, stt: Any, voice: str) -> None:
         else:
             buffer.start_completion(select_first=True)
 
+    @key_bindings.add("c-c")
+    def stop_with_ctrl_c(event: Any) -> None:
+        state["closed"] = True
+        state["status"] = "Stopped with Ctrl+C"
+        capture_stop.set()
+        publish_stopped()
+        if state["awaiting_host"] and api_replies.empty():
+            api_replies.put_nowait(None)
+        server = api_server_holder.get("server")
+        if server is not None:
+            server.should_exit = True
+        redraw()
+        event.app.exit()
+
     @key_bindings.add("pageup")
     def scroll_history_up(event: Any) -> None:
         info = history_window.render_info
@@ -476,8 +656,13 @@ async def run_chat_ui(args: argparse.Namespace, stt: Any, voice: str) -> None:
         history_window.vertical_scroll = 1_000_000
         event.app.invalidate()
 
+    title = (
+        f"Alien Conversation | URL: http://127.0.0.1:{args.api_port}"
+        if api_mode
+        else "Alien Conversation — manual local test"
+    )
     root = HSplit([
-        Window(FormattedTextControl([("class:title", "Alien Conversation — manual local test")]), height=1, style="class:titlebar"),
+        Window(FormattedTextControl([("class:title", title)]), height=1, style="class:titlebar"),
         history_window,
         Window(height=1, char="─", style="class:separator"),
         status_window,
@@ -500,6 +685,7 @@ async def run_chat_ui(args: argparse.Namespace, stt: Any, voice: str) -> None:
         "led.thinking": "bold #ffd166",
         "led.speaking": "bold #ff5b64",
         "led.idle": "bold #72b7ff",
+        "led.api": "bold #57d6ff",
         "input": "bg:#1a2633 #ffffff",
     })
     app = Application(
@@ -518,25 +704,74 @@ async def run_chat_ui(args: argparse.Namespace, stt: Any, voice: str) -> None:
         state["status"] = f"Speaking startup greeting with {args.tts_engine}/{voice}…"
         state["phase"] = "speaking"
         state["tts_active"] = True
+        publish("speaking", voice=voice, greeting=True)
         redraw()
         try:
             async with speaker_lock:
                 await asyncio.to_thread(speak, greeting, args.tts_engine, voice, args.tts_device)
+            publish("spoken", voice=voice, greeting=True)
             state["phase"] = "idle"
-            state["status"] = f"Ready | {args.model} | type a message or /listen"
+            state["status"] = ("Ready | host-controlled replies | type a message or /listen" if api_mode else f"Ready | {args.model} | type a message or /listen")
         except Exception as exc:
             add_message("System", f"Startup greeting could not be spoken: {exc}")
             state["phase"] = "idle"
-            state["status"] = f"Ready | {args.model} | greeting audio failed"
+            state["status"] = ("Ready | host-controlled replies | greeting audio failed" if api_mode else f"Ready | {args.model} | greeting audio failed")
+            publish("error", message=f"Startup greeting failed: {exc}")
         finally:
             state["tts_active"] = False
         redraw()
+        publish("ready", api_url=f"http://{args.api_host}:{args.api_port}" if api_mode else None)
         if not state["closed"] and not state["busy"] and pending.empty():
             start_listening()
 
+    api_server = None
+    api_server_task = None
+    if api_mode:
+        try:
+            import uvicorn
+        except ImportError as exc:
+            raise RuntimeError("Install the combined Alien Conversation dependencies with scripts/setup.ps1.") from exc
+        api_server = uvicorn.Server(uvicorn.Config(
+            api_app,
+            host=args.api_host,
+            port=args.api_port,
+            log_level="error",
+            access_log=False,
+        ))
+        api_server.install_signal_handlers = lambda: None
+        api_server_holder["server"] = api_server
+        api_server_task = asyncio.create_task(api_server.serve())
+        while not api_server.started:
+            if api_server_task.done():
+                await api_server_task
+                raise RuntimeError(f"Could not start the session API at {args.api_host}:{args.api_port}.")
+            await asyncio.sleep(0.05)
+        add_message("System", f"Host API ready at http://{args.api_host}:{args.api_port}")
+
     app.create_background_task(process_messages())
     app.create_background_task(speak_greeting())
-    await app.run_async()
+    app_task = asyncio.create_task(app.run_async())
+    if api_server_task is None:
+        await app_task
+    else:
+        done, _pending_tasks = await asyncio.wait(
+            {app_task, api_server_task},
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        if api_server_task in done and not app_task.done():
+            state["closed"] = True
+            capture_stop.set()
+            add_message("System", "The session API stopped; ending the conversation UI.")
+            publish_stopped()
+            app.exit()
+        await app_task
+        if not state["closed"]:
+            state["closed"] = True
+            capture_stop.set()
+            publish_stopped()
+        api_server.should_exit = True
+        if not api_server_task.done():
+            await api_server_task
 
 
 def main() -> int:
@@ -559,14 +794,17 @@ def main() -> int:
             raise RuntimeError("Manual local conversation currently requires Windows for microphone controls/SAPI.")
         if not 0 < args.max_seconds <= 120 or not 0 < args.silence_seconds <= 10 or args.start_timeout <= 0 or args.vad_threshold < 0:
             raise ValueError("recording duration or speech detection settings are out of range")
+        if args.mode == "api-server" and not 1 <= args.api_port <= 65535:
+            raise ValueError("--api-port must be between 1 and 65535")
 
         app_models = REPO_ROOT / "python_app" / ".models"
         if app_models.is_dir():
             os.environ.setdefault("ALIENVOX_MODELS_DIR", str(app_models))
 
-        installed = {model.get("name") for model in list_ollama_models(args.ollama_url)}
-        if args.model not in installed:
-            raise RuntimeError(f"Ollama model {args.model!r} is not installed. Use --list-models to see local tags.")
+        if args.mode == "ollama":
+            installed = {model.get("name") for model in list_ollama_models(args.ollama_url)}
+            if args.model not in installed:
+                raise RuntimeError(f"Ollama model {args.model!r} is not installed. Use --list-models to see local tags.")
 
         if not args.allow_model_download:
             os.environ["HF_HUB_OFFLINE"] = "1"

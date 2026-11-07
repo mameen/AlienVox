@@ -9,3 +9,9 @@
 - Keep audio capture local. Transcript text intentionally crosses to the calling host; do not claim it stays in the local process or machine.
 - Do not persist microphone audio or transcripts by default. Do not execute model-produced text as shell commands or code.
 - Read the relevant scripts and docs before editing. Do not run tests unless requested.
+
+- scripts/local_test.py --mode api-server owns the visible local audio console and session API; scripts/api_client.py is the persistent host JSONL adapter. Keep both start-new-session and connect-to-existing-session workflows documented.
+- The host must relay observed session state to the user; the API console alone is not visible to all hosts. Keep localhost binding as default and require a Bearer token for non-loopback binding.
+- Keep FastAPI request models at module scope in `local_test.py`; nested request classes combined with postponed annotations can become query parameters instead of JSON bodies.
+- Preserve the server console's Ctrl+C binding: stop microphone capture, release any waiting host-reply queue, and signal Uvicorn to shut down.
+

@@ -10,7 +10,9 @@ From the repository root in PowerShell:
 .\.agents\SKILLS\alien_conv\scripts\setup.ps1
 ```
 
-Setup uses this skill's `.venv` and installs one combined requirements file for the bridge, manual chat, copied STT/TTS utilities, and Pipecat POC. It does not search for or reuse another Python environment. The runner reuses the existing faster-whisper cache when possible and does not download weights unless `--allow-model-download` is explicitly passed. For CUDA transcription, faster-whisper requires compatible NVIDIA cuBLAS and cuDNN runtime libraries on `PATH`; CPU fallback is available with `--device cpu --compute-type int8`. See [faster-whisper GPU setup](https://github.com/SYSTRAN/faster-whisper#gpu). The shared environment is larger than a bridge-only environment because it includes PyTorch, Transformers, Pipecat, Piper, Kokoro, and the terminal UI.
+To preserve an existing venv created with another Python version, select a new skill-local environment name, such as `-VenvName .venv312`. Create it first with `py -3.12 -m venv .agents\SKILLS\alien_conv\.venv312`, then run setup with the same `-VenvName` and launch `api_client.py` with that environment's `Scripts\python.exe`.
+
+Setup uses this skill's `.venv` and installs one combined requirements file for the bridge, manual chat, copied STT/TTS utilities, and Pipecat POC. It does not search for or reuse another Python environment. The requirements use NumPy 2.x on Python 3.13 because NumPy 1.x has no CPython 3.13 wheels. Kokoro's published package is installed on Python 3.10–3.12; Python 3.13 sessions can use SAPI or Piper without attempting an unverified Kokoro source build. The runner reuses the existing faster-whisper cache when possible and does not download Whisper weights unless `--allow-model-download` is explicitly passed. For CUDA transcription, faster-whisper requires compatible NVIDIA cuBLAS and cuDNN runtime libraries on `PATH`; CPU fallback is available with `--device cpu --compute-type int8`. See [faster-whisper GPU setup](https://github.com/SYSTRAN/faster-whisper#gpu). The shared environment is larger than a bridge-only environment because it includes PyTorch, Transformers, Pipecat, Piper, Kokoro where supported, and the terminal UI.
 
 ## Run the bridge
 
@@ -47,6 +49,57 @@ Useful options:
 
 Audio is processed locally. Transcript text is intentionally sent to the calling host through stdout, where the host's model and privacy behavior apply. The bridge does not save audio or transcript files.
 
+## Host-driven session over a local API
+
+`local_test.py --mode api-server` runs the visible chat console, microphone capture, local Whisper, local TTS, and a FastAPI session API. It does not call Ollama in this mode. The host uses `api_client.py` as a persistent JSONL process: transcript and status events arrive on stdout, and host replies/status commands go to stdin. The console shows both sides of the conversation and the current activity; its title displays the session URL to copy to the host. The `ready` event also includes the URL.
+
+### Start a new visible console and attach the host
+
+```powershell
+.\.agents\SKILLS\alien_conv\.venv\Scripts\python.exe .\.agents\SKILLS\alien_conv\scripts\local_test.py --mode api-server --api-host 127.0.0.1 --api-port 8765 --input-device 1 --stt-model large-v3-turbo --device cuda --compute-type float16 --tts-engine sapi5 --tts-voice TTS_MS_EN-US_ZIRA_11.0
+```
+
+This runs the interactive console and embedded API in the current terminal. Its title shows `http://127.0.0.1:8765`; the API emits `ready` with the same URL after the greeting. The host attaches using `api_client.py --mode connect --url http://127.0.0.1:8765`. Press Ctrl+C or use `/quit` to stop the console and API server cleanly. The host sends serialized JSONL commands to that client such as:
+
+```jsonl
+{"command":"status","phase":"thinking","message":"Preparing a reply"}
+{"command":"speak","text":"Hello! I heard you."}
+{"command":"stop"}
+```
+
+Listening resumes automatically after speech. The local console briefly shows a separate cyan `API: STATUS`, `API: REPLY`, or `API: LISTEN` indicator when it receives a host command; the main LED continues to show listening, transcription, or speech. The host should relay `listening`, `transcript`, `speaking`, `spoken`, errors, and stop state to the user in its normal response channel.
+
+For direct HTTP clients, send JSON objects with these bodies (the API client translates the equivalent JSONL commands automatically):
+
+```http
+POST /v1/status
+Content-Type: application/json
+
+{"phase":"thinking","message":"Preparing a reply"}
+
+POST /v1/reply
+Content-Type: application/json
+
+{"text":"Hello! I heard you."}
+```
+
+Both fields are request bodies, not query parameters. Keep their Pydantic request models at module scope in `local_test.py`; with postponed annotations, nested request models are not resolved by FastAPI and can produce `422 query.body missing`.
+
+### Connect to a console that is already running
+
+First start the console in a terminal:
+
+```powershell
+.\.agents\SKILLS\alien_conv\.venv\Scripts\python.exe .\.agents\SKILLS\alien_conv\scripts\local_test.py --mode api-server --api-host 127.0.0.1 --api-port 8765 --input-device 1 --stt-model large-v3-turbo --device cuda --compute-type float16 --tts-engine sapi5 --tts-voice TTS_MS_EN-US_ZIRA_11.0
+```
+
+Then launch the persistent host adapter and attach it:
+
+```powershell
+.\.agents\SKILLS\alien_conv\.venv\Scripts\python.exe .\.agents\SKILLS\alien_conv\scripts\api_client.py --mode connect --url http://127.0.0.1:8765
+```
+
+For a non-loopback bind, pass the same `--api-token SECRET` to the console and `--token SECRET` to the client. Non-loopback binding without a token is rejected. Prefer localhost for local use.
 ## Manual local conversation test
 
 For interactive testing without a host or MCP, run `local_test.py` after the single setup step above:
